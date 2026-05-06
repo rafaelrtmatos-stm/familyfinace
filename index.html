@@ -1942,6 +1942,13 @@ async function doLoginBtn(){
         color:profile?.color||hardcoded.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
         perms:profile?.perms||hardcoded.perms||{}
       };
+      // Ensure profile row exists in Supabase (upsert on first login or if row was never created)
+      if(!profile){
+        await getSupa().from('profiles').upsert({
+          id:u.id,name:u.name,email:u.email,role:u.role,color:u.color,perms:u.perms
+        },{onConflict:'id'});
+        console.log('[login] profile row created for',u.email);
+      }
       hideLoader();
       await doLogin(u);
       return;
@@ -4102,16 +4109,22 @@ function _buildCofreSnapshot(){
 
 async function saveCofreToSupa(){
   try{
-    const s=getSupa();if(!s||!curUser)return;
+    const s=getSupa();if(!s||!curUser||!hasRealSession())return;
     const snap=_buildCofreSnapshot();
     console.log('[cofre] saving snapshot',snap);
     // Read own profile perms first to preserve other keys (_settings, _perms, etc.)
     const{data:prof,error:readErr}=await s.from('profiles').select('perms').eq('id',curUser.id).single();
-    if(readErr)console.warn('[cofre] profile read error',readErr);
+    if(readErr&&readErr.code!=='PGRST116')console.warn('[cofre] profile read error',readErr);
     const existingPerms=prof?.perms||{};
-    const{error:writeErr}=await s.from('profiles').update({
+    // Use upsert so the row is created if it doesn't exist yet (e.g. Ingrid's first save)
+    const{error:writeErr}=await s.from('profiles').upsert({
+      id:curUser.id,
+      name:curUser.name||'',
+      email:curUser.email||'',
+      role:curUser.role||'user',
+      color:curUser.color||'#3b4fd4',
       perms:{...existingPerms,_cofre:snap}
-    }).eq('id',curUser.id);
+    },{onConflict:'id'});
     if(!writeErr){
       console.log('[cofre] saved to profiles ✓');
       _cofreSynced=true;_cofreSyncTs=snap.ts;
