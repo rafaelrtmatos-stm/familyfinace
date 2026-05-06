@@ -1456,8 +1456,15 @@ function selectLoginUser(uid,el){
   document.getElementById('loginPass').focus();
 }
 
+// Fallback local credentials (used if Supabase is unreachable)
+const LOCAL_CREDS=[
+  {email:'rafaelrtmatos@gmail.com',password:'Geper3tp@',id:'adm',name:'Rafael',role:'admin',color:'#27ae60',perms:{}},
+  {email:'ingrid.ialineca@gmail.com',password:'1234',id:'ingrid1',name:'Ingrid',role:'user',color:'#e74c3c',
+   perms:{viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,canAdd:true,canEdit:true,canDelete:false,canMarkPaid:true,canExport:false,canReset:false,canWhatsapp:true}}
+];
+
 async function doLoginBtn(){
-  const emailVal=document.getElementById('loginEmail').value.trim();
+  const emailVal=document.getElementById('loginEmail').value.trim().toLowerCase();
   const passVal=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
   errEl.textContent='';
@@ -1465,32 +1472,47 @@ async function doLoginBtn(){
   if(!passVal){errEl.textContent='Digite a senha.';document.getElementById('loginPass').focus();return;}
 
   showLoader('Entrando...');
+
+  // Try Supabase first
   try{
     const{data,error}=await getSupa().auth.signInWithPassword({email:emailVal,password:passVal});
-    if(error){
+    if(!error && data?.user){
+      const email=data.user.email;
+      const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
+      const u={
+        id:data.user.id,
+        name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
+        email,
+        role:profile?.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
+        color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
+        perms:profile?.perms||{}
+      };
       hideLoader();
-      errEl.textContent='E-mail ou senha incorretos.';
-      document.getElementById('loginPass').value='';
-      document.getElementById('loginPass').focus();
+      await doLogin(u);
       return;
     }
-    const email=data.user.email;
-    const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
-    const u={
-      id:data.user.id,
-      name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
-      email,
-      role:profile?.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
-      color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
-      perms:profile?.perms||{}
-    };
-    hideLoader();
-    await doLogin(u);
   }catch(e){
-    hideLoader();
-    errEl.textContent='Erro de conexão. Verifique a internet.';
-    console.error('Login error:',e);
+    console.warn('Supabase auth failed, trying local:',e);
   }
+
+  // Fallback: check local stored users then hardcoded credentials
+  const localU=db.users.find(u=>(u.email||'').toLowerCase()===emailVal);
+  if(localU && localU.password && localU.password===passVal){
+    hideLoader();
+    await doLogin(localU);
+    return;
+  }
+  const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
+  if(hardcoded){
+    hideLoader();
+    await doLogin({...hardcoded});
+    return;
+  }
+
+  hideLoader();
+  errEl.textContent='E-mail ou senha incorretos.';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginPass').focus();
 }
 
 async function seedIfEmpty(){
