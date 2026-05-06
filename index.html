@@ -2337,6 +2337,7 @@ function renderHome(){
 
   // ── Header balances (totals + caixa + saldo) ──
   updateCaixa();
+  const caixaVal=getCofreVal();
   // Update donut center workdays label and view name
   const calWd=wdm(y,m);
   const wdEl=document.getElementById('donutDailyWd');
