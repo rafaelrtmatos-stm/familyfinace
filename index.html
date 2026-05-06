@@ -434,6 +434,11 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .late-overlay{position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.55);display:none;align-items:flex-end}
 .late-sheet{background:var(--white);border-radius:22px 22px 0 0;width:100%;padding:22px 18px 36px;animation:sup .28s ease;max-height:85%;overflow-y:auto}
 
+/* ── MONTH PICKER ── */
+.mpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.mpk-btn{padding:11px 4px;border:1.5px solid #dde2ec;border-radius:10px;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;color:var(--ink);cursor:pointer;transition:all .15s}
+.mpk-btn.sel{background:var(--g2);color:#fff;border-color:var(--g2)}
+
 /* ── ADD WIZARD ── */
 .adot{border-radius:3px;transition:all .22s}
 
@@ -699,17 +704,15 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="qd" data-opt="plus6" onclick="applyQD('plus6',this)">+6 meses</button>
         <button class="qd" data-opt="plus12" onclick="applyQD('plus12',this)">+1 ano</button>
       </div>
-      <label style="display:flex;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 13px;margin-bottom:11px;cursor:pointer;position:relative" for="addMonth">
+      <div onclick="openAddMonthPicker()" style="display:flex;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 13px;margin-bottom:11px;cursor:pointer">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <div style="flex:1">
           <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:2px">Mês de início</div>
           <div id="addMonthLabel" style="font-size:.9rem;font-weight:800;color:var(--ink)">—</div>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        <input type="month" id="addMonth"
-          style="position:absolute;inset:0;opacity:0.01;width:100%;height:100%;border:none;background:transparent;cursor:pointer;font-size:1px"
-          oninput="onAddMonthChange(this.value)"/>
-      </label>
+        <input type="hidden" id="addMonth"/>
+      </div>
       <div class="abl">Forma de pagamento</div>
       <div class="pm-row" style="margin-bottom:12px">
         <button class="pm-chip sel" onclick="selPM(this,'pix')">💸 Pix</button>
@@ -1211,6 +1214,23 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button onclick="closeLateBillsModal()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
     </div>
     <div id="lateBillsList"></div>
+  </div>
+</div>
+
+<!-- ══ ADD MONTH PICKER ══ -->
+<div class="late-overlay" id="addMonthPickerOverlay" onclick="if(event.target===this)closeAddMonthPicker()">
+  <div class="late-sheet">
+    <div class="ps-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-size:1rem;font-weight:900;color:var(--ink)">📅 Mês de início</div>
+      <button onclick="closeAddMonthPicker()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:10px 0 2px">
+      <button onclick="addPickerYear--;renderAddMonthPicker()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--g2);font-weight:900;line-height:1">‹</button>
+      <span id="addPickerYearLbl" style="font-size:1.1rem;font-weight:900;color:var(--ink);min-width:54px;text-align:center"></span>
+      <button onclick="addPickerYear++;renderAddMonthPicker()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--g2);font-weight:900;line-height:1">›</button>
+    </div>
+    <div class="mpk-grid" id="addPickerGrid"></div>
   </div>
 </div>
 
@@ -2316,6 +2336,35 @@ function onAddMonthChange(val){
   const y=parseInt(p[0]),m=parseInt(p[1])-1;
   document.getElementById('addMonthLabel').textContent=MN[m]+' '+y;
   updateParcelaPreview();
+}
+
+let addPickerYear=new Date().getFullYear();
+function openAddMonthPicker(){
+  const cur=document.getElementById('addMonth').value;
+  if(cur){const p=cur.split('-');addPickerYear=parseInt(p[0]);}
+  else{addPickerYear=new Date().getFullYear();}
+  renderAddMonthPicker();
+  document.getElementById('addMonthPickerOverlay').style.display='flex';
+}
+function closeAddMonthPicker(){
+  document.getElementById('addMonthPickerOverlay').style.display='none';
+}
+function renderAddMonthPicker(){
+  const cur=document.getElementById('addMonth').value;
+  document.getElementById('addPickerYearLbl').textContent=addPickerYear;
+  const MNS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  document.getElementById('addPickerGrid').innerHTML=MNS.map((n,i)=>{
+    const v=mk(addPickerYear,i);
+    const sel=cur===v?'sel':'';
+    return `<button class="mpk-btn ${sel}" onclick="pickAddMonth(${addPickerYear},${i})">${n}</button>`;
+  }).join('');
+}
+function pickAddMonth(y,m){
+  const val=mk(y,m);
+  document.getElementById('addMonth').value=val;
+  onAddMonthChange(val);
+  document.querySelectorAll('#addStep2 .qd').forEach(b=>b.classList.remove('on'));
+  closeAddMonthPicker();
 }
 
 function applyQD(opt,el){
