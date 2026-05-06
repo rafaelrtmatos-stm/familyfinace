@@ -669,7 +669,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
       <div id="semanalWrap" style="display:none;margin-bottom:10px">
         <div class="abl">Dia da semana</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
           <button class="pm-chip" id="wd0" onclick="setWeekday(0,this)">Dom</button>
           <button class="pm-chip sel" id="wd1" onclick="setWeekday(1,this)">Seg</button>
           <button class="pm-chip" id="wd2" onclick="setWeekday(2,this)">Ter</button>
@@ -677,6 +677,21 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
           <button class="pm-chip" id="wd4" onclick="setWeekday(4,this)">Qui</button>
           <button class="pm-chip" id="wd5" onclick="setWeekday(5,this)">Sex</button>
           <button class="pm-chip" id="wd6" onclick="setWeekday(6,this)">Sáb</button>
+        </div>
+        <div class="abl">Modo</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+          <button class="pm-chip sel" id="semModeRecorrente" onclick="setSemanalMode('recorrente')">↺ Recorrente</button>
+          <button class="pm-chip" id="semModeParcela" onclick="setSemanalMode('parcela')">📋 N semanas</button>
+        </div>
+        <div id="semParcelaWrap" style="display:none">
+          <div class="af-val" style="align-items:center;gap:10px">
+            <span style="font-size:.82rem;font-weight:700;color:var(--ink2);white-space:nowrap">Nº de semanas</span>
+            <input type="number" id="addSemParcelas" min="2" max="52" value="4"
+              style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:var(--g2);width:60px;outline:none;text-align:center"
+              oninput="updateSemanalNote()"/>
+            <span style="font-size:.76rem;color:var(--ink3);font-weight:700">× semanas</span>
+          </div>
+          <div id="semParcelaPreview" style="font-size:.76rem;color:var(--ink3);font-weight:700;padding:6px 12px;background:rgba(59,79,212,.07);border-radius:8px;margin-top:6px"></div>
         </div>
       </div>
       <div id="parcelaWrap" style="display:none;margin-bottom:10px">
@@ -2503,6 +2518,7 @@ function setCycle(c,el){
 
 const WD_NAMES=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let addWeekday=1;
+let addSemanalMode='recorrente';
 
 function setWeekday(d,el){
   addWeekday=d;
@@ -2517,10 +2533,48 @@ function getDatesOfWeekday(y,m,wd){
   return dates;
 }
 
+function setSemanalMode(mode){
+  addSemanalMode=mode;
+  document.getElementById('semModeRecorrente')?.classList.toggle('sel',mode==='recorrente');
+  document.getElementById('semModeParcela')?.classList.toggle('sel',mode==='parcela');
+  const pw=document.getElementById('semParcelaWrap');
+  if(pw)pw.style.display=mode==='parcela'?'block':'none';
+  updateSemanalNote();
+}
+
 function updateSemanalNote(){
   const note=document.getElementById('addSemanalNote');
   if(!note)return;
   const mv=document.getElementById('addMonth').value;
+
+  if(addSemanalMode==='parcela'){
+    const n=Math.max(2,parseInt(document.getElementById('addSemParcelas')?.value)||4);
+    const total=(parseInt(numStr)||0)/100;
+    const parcel=total>0?r2(total/n):0;
+    const prev=document.getElementById('semParcelaPreview');
+    if(mv){
+      const{y,m}=ymk(mv);
+      const firstDate=getDatesOfWeekday(y,m,addWeekday)[0];
+      if(firstDate){
+        const lastD=new Date(y,m,firstDate);lastD.setDate(lastD.getDate()+7*(n-1));
+        const lastStr=`${WD_NAMES[addWeekday]} ${lastD.getDate()}/${lastD.getMonth()+1}/${lastD.getFullYear()}`;
+        const firstStr=`${WD_NAMES[addWeekday]} ${firstDate}/${m+1}/${y}`;
+        if(prev)prev.textContent=total>0
+          ?`${n}× de ${fmt(parcel)} · ${firstStr} até ${lastStr}`
+          :`${n} semanas · Digite o valor`;
+        note.textContent=`📅 ${n} semanas a partir de ${firstStr}`;
+      } else {
+        if(prev)prev.textContent='Sem ocorrências neste mês';
+        note.textContent='';
+      }
+    } else {
+      if(prev)prev.textContent='Selecione o mês de início';
+      note.style.display='block';note.textContent='';
+    }
+    return;
+  }
+
+  // recorrente mode
   if(!mv){note.textContent='📅 Datas calculadas ao selecionar o mês';return;}
   const{y,m}=ymk(mv);
   const dates=getDatesOfWeekday(y,m,addWeekday);
@@ -2540,6 +2594,7 @@ function setType(t){
   const sn=document.getElementById('addSemanalNote');
   if(sn){sn.style.display=t==='semanal'?'block':'none';if(t==='semanal')updateSemanalNote();}
   if(t==='parcelada')updateParcelaPreview();
+  if(t==='semanal')setSemanalMode(addSemanalMode);
 }
 
 function updateParcelaPreview(){
@@ -2561,7 +2616,7 @@ function resetAddForm(){
   document.getElementById('addDay').value='';
   document.getElementById('addMonth').value=mk(CY,CM);
   onAddMonthChange(mk(CY,CM));
-  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1;
+  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente';
   renderAddCatGrid();
   const pmRow=document.querySelector('#addStep2 .pm-row');
   if(pmRow){pmRow.querySelectorAll('.pm-chip').forEach((b,i)=>b.classList.toggle('sel',i===0));}
@@ -2666,22 +2721,52 @@ function saveAdd(){
     toast(`✓ Recorrente criada — aparece em todos os meses`);
 
   } else if(addType==='semanal'){
-    const tid=uid();
     const{y,m}=ymk(billMonth);
-    const dates=getDatesOfWeekday(y,m,addWeekday);
+    const tid=uid();
     const newBills=[];
-    dates.forEach(d=>{
-      const bill={
-        id:uid(),templateId:tid,
-        name:billName,amount:total,day:d,month:billMonth,
-        userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
-        recurring:true,weeklyDay:addWeekday,payments:[],shared:addShared
-      };
-      db.bills.push(bill);newBills.push(bill);
-    });
-    sdb();newBills.forEach(b=>saveBillSupa(b));
-    preFillFutureMonths();
-    toast(`✓ Toda ${WD_NAMES[addWeekday]} — ${dates.length} contas criadas`);
+
+    if(addSemanalMode==='parcela'){
+      // N sequential weekly installments (may span multiple months)
+      const n=Math.max(2,parseInt(document.getElementById('addSemParcelas').value)||4);
+      const firstDate=getDatesOfWeekday(y,m,addWeekday)[0];
+      if(!firstDate){toast('⚠️ Dia da semana não ocorre neste mês');return;}
+      const parcel=r2(total/n);
+      const lastParcel=r2(total-parcel*(n-1));
+      let curD=new Date(y,m,firstDate);
+      for(let i=0;i<n;i++){
+        const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
+        const amt=i===n-1?lastParcel:parcel;
+        const bill={
+          id:uid(),templateId:tid,
+          name:`${billName} (${i+1}/${n})`,
+          amount:amt,day:bd,month:mk(by,bm),
+          userId,payMethod:selPMethod,category:selCat,
+          recurring:false,weeklyDay:addWeekday,
+          installment:{index:i+1,total:n,originalTotal:total,templateId:tid},
+          payments:[],shared:addShared
+        };
+        db.bills.push(bill);newBills.push(bill);
+        curD.setDate(curD.getDate()+7);
+      }
+      sdb();newBills.forEach(b=>saveBillSupa(b));
+      toast(`✓ ${n} semanas de ${fmt(parcel)} criadas`);
+
+    } else {
+      // Recorrente: one entry per weekday occurrence in start month, then future months
+      const dates=getDatesOfWeekday(y,m,addWeekday);
+      dates.forEach(d=>{
+        const bill={
+          id:uid(),templateId:tid,
+          name:billName,amount:total,day:d,month:billMonth,
+          userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
+          recurring:true,weeklyDay:addWeekday,payments:[],shared:addShared
+        };
+        db.bills.push(bill);newBills.push(bill);
+      });
+      sdb();newBills.forEach(b=>saveBillSupa(b));
+      preFillFutureMonths();
+      toast(`✓ Toda ${WD_NAMES[addWeekday]} — ${dates.length} contas criadas`);
+    }
   }
 
   back();
