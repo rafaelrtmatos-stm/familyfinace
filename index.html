@@ -5034,22 +5034,32 @@ async function savePerms(){
   const perms={};
   Object.keys(PERM_LABELS).forEach(k=>{perms[k]=!!(document.getElementById('pt_'+k)?.classList.contains('on'));});
   u.perms=perms;
+  // Show loading state on button
+  const btn=document.querySelector('[onclick="savePerms()"]');
+  const origTxt=btn?.textContent||'💾 Salvar Permissões';
+  if(btn){btn.textContent='⏳ Salvando...';btn.disabled=true;btn.style.opacity='.7';}
   sdb();
+  console.log('[savePerms] saving perms for',u.name,'→',perms);
+  console.log('[savePerms] hasRealSession=',hasRealSession(),'userId=',u.id);
   // Also try updating the user's own profile row directly (best-effort — may be blocked by RLS)
   try{
     const s=getSupa();
     if(s&&hasRealSession()&&isUUID(u.id)){
       const{error:profErr}=await s.from('profiles').update({perms}).eq('id',u.id);
-      if(profErr)console.warn('savePerms direct profile update:',profErr.message);
+      if(profErr)console.warn('[savePerms] direct profile row update blocked:',profErr.message);
+      else console.log('[savePerms] direct profile row updated ✓');
     }
-  }catch(e){console.warn('savePerms direct update error',e);}
+  }catch(e){console.warn('[savePerms] direct update error',e);}
   // Primary save: into admin profile _perms key
   const result=await saveAdminSettingsToProfiles();
+  // Restore button
+  if(btn){btn.textContent=origTxt;btn.disabled=false;btn.style.opacity='';}
   if(!result?.ok){
     toast('⚠️ Erro ao salvar permissões na nuvem. Verifique a conexão.');
-    console.error('savePerms failed',result?.error);
+    console.error('[savePerms] FAILED →',result?.error);
   } else {
     toast('✓ Permissões salvas para '+u.name);
+    console.log('[savePerms] SUCCESS for',u.name);
   }
 }
 
