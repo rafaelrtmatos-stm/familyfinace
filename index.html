@@ -1340,7 +1340,7 @@ async function loadFromSupa(){
         cycle:b.cycle||'day', recurring:b.recurring||false,
         installment:b.installment||null, payments:b.payments||[],
         shared:b.shared||false
-      }));
+      })).filter(b=>!_pendingDeletes.has(b.id));
     }
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
@@ -1398,8 +1398,8 @@ async function syncToSupa(){
     }
     // Upsert settings (cats, couple)
     const{error:settingsErr}=await s.from('app_settings').upsert([
-      {key:'cats',value:db.cats,updated_at:new Date().toISOString(),user_id:curUser?.id},
-      {key:'couple',value:db.couple,updated_at:new Date().toISOString(),user_id:curUser?.id},
+      {key:'cats',value:db.cats,updated_at:new Date().toISOString()},
+      {key:'couple',value:db.couple,updated_at:new Date().toISOString()},
     ],{onConflict:'key'});
     if(settingsErr)console.warn('syncToSupa settings error',settingsErr);
   }catch(e){
@@ -1447,10 +1447,17 @@ async function saveBillSupa(b){
   }
 }
 
+// Track locally-deleted IDs so they don't come back on sync
+let _pendingDeletes=new Set(JSON.parse(localStorage.getItem('cpro4_deleted')||'[]'));
+function _addPendingDelete(id){_pendingDeletes.add(id);try{localStorage.setItem('cpro4_deleted',JSON.stringify([..._pendingDeletes]));}catch{}}
+function _removePendingDelete(id){_pendingDeletes.delete(id);try{localStorage.setItem('cpro4_deleted',JSON.stringify([..._pendingDeletes]));}catch{}}
+
 // Delete a bill from Supabase
 async function deleteBillSupa(id){
-  try{await getSupa().from('bills').delete().eq('id',id);}
-  catch(e){console.error('deleteBillSupa',e);}
+  _addPendingDelete(id);
+  const{error}=await getSupa().from('bills').delete().eq('id',id);
+  if(error){console.warn('deleteBillSupa error',error);toast('⚠️ Erro ao excluir na nuvem: '+error.message);}
+  else{_removePendingDelete(id);}
 }
 
 // Loader overlay
@@ -1664,7 +1671,7 @@ let _uColor='#3b4fd4';
 const DEFAULT_PERMS={
   viewMine:true, viewCouple:false, viewAll:false,
   viewDailies:true, viewBalance:true, viewSaved:true,
-  viewReports:true, canAdd:true, canEdit:true, canDelete:false,
+  viewReports:true, canAdd:true, canEdit:true, canDelete:true,
   canMarkPaid:true, canExport:false, canReset:false, canSettings:false
 };
 const ADMIN_PERMS={
@@ -1723,7 +1730,7 @@ function selectLoginUser(uid,el){
 const LOCAL_CREDS=[
   {email:'rafaelrtmatos@gmail.com',password:'Geper3tp@',id:'adm',name:'Rafael',role:'admin',color:'#27ae60',perms:{}},
   {email:'ingrid.ialineca@gmail.com',password:'1234',id:'ingrid1',name:'Ingrid',role:'user',color:'#e74c3c',
-   perms:{viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,canAdd:true,canEdit:true,canDelete:false,canMarkPaid:true,canExport:false,canReset:false,canWhatsapp:true}}
+   perms:{viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,canAdd:true,canEdit:true,canDelete:true,canMarkPaid:true,canExport:false,canReset:false,canWhatsapp:true}}
 ];
 
 async function doLoginBtn(){
@@ -3272,7 +3279,7 @@ function refreshDet(id){
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
       <button class="sbtn" style="flex:1;background:rgba(59,79,212,.1);color:var(--g2);border:1.5px solid rgba(59,79,212,.25);min-width:120px" onclick="openEditSheet('${b.id}')">✏️ Editar conta</button>
       ${(hasPerm('canWhatsapp')||isAdm())?`<button class="sbtn" style="flex:1;background:rgba(37,211,102,.12);color:#25D366;border:1.5px solid rgba(37,211,102,.3);min-width:120px" onclick="shareWhatsapp('${b.id}')">💬 WhatsApp</button>`:''}
-      ${hasPerm('canDelete')?`<button class="sbtn sbtn-red" style="flex:1;min-width:80px" onclick="delBill('${b.id}')">🗑 Excluir</button>`:''}
+      <button class="sbtn sbtn-red" style="flex:1;min-width:80px" onclick="delBill('${b.id}')">🗑 Excluir</button>
     </div>`;
 
   document.querySelectorAll('.pay-item[data-pay-idx]').forEach(el=>{
@@ -3323,12 +3330,12 @@ function delAllInstallments(tid){
   const parcelas=db.bills.filter(b=>b.installment&&b.installment.templateId===tid);
   const name=parcelas[0]?.name.replace(/ \(\d+\/\d+\)$/,'')||'conta';
   if(!confirm(`Excluir TODAS as ${parcelas.length} parcelas de "${name}"?`))return;
+  parcelas.forEach(b=>deleteBillSupa(b.id));
   db.bills=db.bills.filter(b=>!(b.installment&&b.installment.templateId===tid));
   sdb();renderDash();toast(`${parcelas.length} parcelas excluídas`);
 }
 
 function delBill(id){
-  if(!hasPerm('canDelete')){toast('Sem permissão');return;}
   if(!confirm('Excluir?'))return;
   db.bills=db.bills.filter(x=>x.id!==id);sdb();deleteBillSupa(id);back();renderBills();toast('Excluído');
 }
@@ -3525,16 +3532,17 @@ function deleteUnpaidInstallments(tid){
 }
 function deleteAllInstallments(tid){
   document.getElementById('installmentOverlay').style.display='none';
-  const count=db.bills.filter(x=>x.templateId===tid).length;
+  const toDelAll=db.bills.filter(x=>x.templateId===tid);
+  const count=toDelAll.length;
   if(!confirm(`Excluir TODAS as ${count} parcelas?`))return;
+  toDelAll.forEach(b=>deleteBillSupa(b.id));
   db.bills=db.bills.filter(x=>x.templateId!==tid);
   sdb();renderBills();toast(`${count} parcelas excluídas`);
 }
 
 function delBill(id){
-  if(!hasPerm('canDelete')){toast('Sem permissão');return;}
   if(!confirm('Excluir?'))return;
-  db.bills=db.bills.filter(x=>x.id!==id);sdb();back();renderBills();toast('Excluído');
+  db.bills=db.bills.filter(x=>x.id!==id);sdb();deleteBillSupa(id);back();renderBills();toast('Excluído');
 }
 
 /* ══════════════════════════════════════════════════
@@ -4948,7 +4956,7 @@ function seed(){
     db.users.push({id:'ingrid1',name:'Ingrid',login:'ingrid',password:'1234',role:'user',
       color:'#e74c3c',
       perms:{viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,
-             canAdd:true,canEdit:true,canDelete:false,canMarkPaid:true,
+             canAdd:true,canEdit:true,canDelete:true,canMarkPaid:true,
              canExport:false,canReset:false,canWhatsapp:true}});
   }
   const rafael=db.users.find(u=>u.login==='adm');
@@ -4997,7 +5005,7 @@ window.onload=async()=>{
     db.users=[
       {id:'adm',name:'Rafael',login:'adm',email:'rafaelrtmatos@gmail.com',role:'admin',color:'#27ae60',perms:{}},
       {id:'ingrid1',name:'Ingrid',login:'ingrid',email:'ingrid.ialineca@gmail.com',role:'user',color:'#e74c3c',
-       perms:{viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,canAdd:true,canEdit:true,canDelete:false,canMarkPaid:true,canExport:false,canReset:false,canWhatsapp:true}}
+       perms:{viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,canAdd:true,canEdit:true,canDelete:true,canMarkPaid:true,canExport:false,canReset:false,canWhatsapp:true}}
     ];
   }
   updPeriodLbl();
@@ -5140,7 +5148,7 @@ async function updateMyPresence(readTs){
     const{data}=await s.from('app_settings').select('value').eq('key',PRESENCE_KEY).maybeSingle();
     const presence=(data?.value&&typeof data.value==='object')?{...data.value}:{};
     presence[myId]={ts:Date.now(),readTs:readTs||presence[myId]?.readTs||0,name:curUser.name};
-    const{error}=await s.from('app_settings').upsert({key:PRESENCE_KEY,value:presence,updated_at:new Date().toISOString(),user_id:curUser.id},{onConflict:'key'});
+    const{error}=await s.from('app_settings').upsert({key:PRESENCE_KEY,value:presence,updated_at:new Date().toISOString()},{onConflict:'key'});
     if(error)console.warn('presence upsert error',error);
   }catch(e){console.warn('presence update',e);}
 }
@@ -5228,7 +5236,7 @@ async function saveChatMessages(){
   try{localStorage.setItem(CHAT_KEY,JSON.stringify(_chatMsgs));}catch{}
   try{
     const s=getSupa();
-    const{error}=await s.from('app_settings').upsert({key:CHAT_KEY,value:_chatMsgs,updated_at:new Date().toISOString(),user_id:curUser?.id},{onConflict:'key'});
+    const{error}=await s.from('app_settings').upsert({key:CHAT_KEY,value:_chatMsgs,updated_at:new Date().toISOString()},{onConflict:'key'});
     if(error)console.warn('chat save error',error);
   }catch(e){console.warn('chat save',e);}
 }
