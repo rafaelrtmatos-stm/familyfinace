@@ -3,31 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Family Finance</title
-                       <!-- Ativa o modo de tela cheia (Standalone) -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-
-<!-- Deixa a barra de status (hora e bateria) transparente sobre o app -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-                       <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Family Finance</title>
-
-<!-- LINHAS NOVAS ADICIONADAS AQUI: -->
 <meta name="apple-mobile-web-app-title" content="FamilyFinance">
-<link rel="apple-touch-icon" href="logo.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<!-- FIM DAS LINHAS NOVAS -->
-
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+<link rel="apple-touch-icon" href="logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -4357,11 +4337,33 @@ window.onload=async()=>{
   }
   updPeriodLbl();
   renderAddCatGrid();
-  // Show login screen
-  populateLoginChips();
-  const ls=document.getElementById('loginScreen');
-  ls.classList.remove('off');ls.style.display='flex';
-  document.querySelectorAll('.screen:not(#loginScreen)').forEach(s=>s.classList.add('off'));
+
+  // Restore session on page refresh using Supabase getSession
+  const s=getSupa();
+  const{data:{session}}=await s.auth.getSession();
+  if(session&&session.user){
+    const email=session.user.email;
+    const{data:profile}=await s.from('profiles').select('*').eq('id',session.user.id).single();
+    const u={
+      id:session.user.id,
+      name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
+      email,
+      role:profile?.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
+      color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
+      perms:profile?.perms||{}
+    };
+    await doLogin(u);
+  } else {
+    populateLoginChips();
+    const ls=document.getElementById('loginScreen');
+    ls.classList.remove('off');ls.style.display='flex';
+    document.querySelectorAll('.screen:not(#loginScreen)').forEach(sc=>sc.classList.add('off'));
+  }
+
+  // Keep session in sync (e.g. sign-out in another tab)
+  s.auth.onAuthStateChange(async(event,_session)=>{
+    if(event==='SIGNED_OUT'&&curUser){await logout();}
+  });
 };
 
 </script>
