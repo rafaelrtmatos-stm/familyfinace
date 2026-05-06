@@ -1323,6 +1323,37 @@ function stopBillsRealtime(){
   clearTimeout(_billsRtTimer);
 }
 
+let _profilesChannel=null;
+
+function startProfilesRealtime(){
+  if(_profilesChannel)return;
+  _profilesChannel=getSupa()
+    .channel('profiles-changes')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},_onProfilesChange)
+    .subscribe();
+}
+
+function stopProfilesRealtime(){
+  if(!_profilesChannel)return;
+  try{getSupa().removeChannel(_profilesChannel);}catch{}
+  _profilesChannel=null;
+}
+
+async function _onProfilesChange(){
+  if(!curUser)return;
+  const prevPix=getCofreFormVal('pix');
+  const prevDin=getCofreFormVal('dinheiro');
+  await loadCofreFromSupa();
+  const newPix=getCofreFormVal('pix');
+  const newDin=getCofreFormVal('dinheiro');
+  if(newPix!==prevPix||newDin!==prevDin){
+    updateCaixa();
+    renderDash();
+    if(curSc==='sc-home')renderHome();
+    toast('💰 Caixa atualizada');
+  }
+}
+
 function _onBillsChange(){
   clearTimeout(_billsRtTimer);
   _billsRtTimer=setTimeout(async()=>{
@@ -1952,6 +1983,7 @@ async function doLogin(u){
   await loadCofreFromSupa();
   startChatPoll();
   startBillsRealtime();
+  startProfilesRealtime();
 }
 
 function updateUIForUser(){
@@ -1970,6 +2002,7 @@ function hasPerm(key){return isAdm()||!!(getPerms(curUser)[key]);}
 async function logout(){
   stopChatPoll();
   stopBillsRealtime();
+  stopProfilesRealtime();
   curUser=null;selectedLoginUser=null;
   localStorage.removeItem('cpro4_stay');
   try{await getSupa().auth.signOut();}catch{}
@@ -5623,7 +5656,9 @@ function startChatPoll(){
     const newPix=getCofreFormVal('pix');
     const newDin=getCofreFormVal('dinheiro');
     if(newPix!==prevPix||newDin!==prevDin){
+      updateCaixa();
       renderDash();
+      if(curSc==='sc-home')renderHome();
       toast('💰 Caixa atualizada');
     }
   },30000);
