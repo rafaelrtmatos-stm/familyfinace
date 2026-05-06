@@ -1060,7 +1060,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="ps-handle"></div>
     <div class="us-title" id="userEditTitle">Novo Usuário</div>
     <div class="us-field"><div class="us-label">Nome completo</div><input type="text" class="us-inp" id="ueFullName" placeholder="Ex: Rafael Silva"/></div>
-    <div class="us-field"><div class="us-label">Login (usuário)</div><input type="text" class="us-inp" id="ueLogin" placeholder="Ex: rafael" autocapitalize="off"/></div>
+    <div class="us-field"><div class="us-label">E-mail</div><input type="email" class="us-inp" id="ueLogin" placeholder="Ex: rafael@email.com" autocapitalize="off" inputmode="email"/></div>
     <div class="us-field"><div class="us-label">Senha</div><input type="password" class="us-inp" id="uePass" placeholder="Mínimo 4 caracteres"/></div>
     <div class="us-field"><div class="us-label">Tipo</div>
       <select class="us-inp" id="ueRole"><option value="admin">👑 Administrador</option><option value="user" selected>👤 Usuário comum</option></select>
@@ -1975,6 +1975,12 @@ async function doLogin(u){
   curSc='sc-home';navStack.length=0;
   document.querySelectorAll('.screen').forEach(s=>s.classList.add('off'));
   document.getElementById('sc-home').classList.remove('off');
+  // Non-admin users default to "Minha" view (only their own bills)
+  if(u.role!=='admin'){dashView='mine';billsView='mine';}
+  else{dashView='all';billsView='all';}
+  // Clear cached vfbar so it rebuilds with correct active state
+  const vfEl=document.getElementById('billsVfbar');
+  if(vfEl)vfEl.innerHTML='';
   updateUIForUser();
   // Load fresh data from Supabase
   await loadFromSupa();
@@ -4564,31 +4570,61 @@ function pickUEC(c){
     d.style.boxShadow=dc===c?`0 0 0 2.5px ${c}`:'none';
   });
 }
-function saveUserEdit(){
+async function saveUserEdit(){
   const name=document.getElementById('ueFullName').value.trim();
-  const login=document.getElementById('ueLogin').value.trim().toLowerCase();
+  const email=document.getElementById('ueLogin').value.trim().toLowerCase();
   const pass=document.getElementById('uePass').value;
   const role=document.getElementById('ueRole').value;
   const color=document.getElementById('ueColor').value||_ueColor;
   const editId=document.getElementById('ueId').value;
   if(!name){toast('Digite o nome completo');return;}
-  if(!login){toast('Digite o login');return;}
+  if(!email||!email.includes('@')){toast('Digite um e-mail válido');return;}
   if(!pass||pass.length<4){toast('Senha precisa ter ao menos 4 caracteres');return;}
-  // check login unique
-  const dup=db.users.find(u=>u.login===login&&u.id!==editId);
-  if(dup){toast('Login já existe');return;}
+  // check email unique
+  const dup=db.users.find(u=>(u.email||u.login)===email&&u.id!==editId);
+  if(dup){toast('E-mail já cadastrado');return;}
+
   if(editId){
+    // Editing existing user — update locally + update profile in Supabase
     const u=db.users.find(x=>x.id===editId);
-    if(u)Object.assign(u,{name,login,password:pass,role,color});
+    if(u)Object.assign(u,{name,email,login:email,password:pass,role,color});
+    try{
+      await getSupa().from('profiles').update({name,email,role,color}).eq('id',editId);
+    }catch(e){console.warn('profile update error',e);}
+    sdb();closeUserEdit();
+    const ct=document.getElementById('settingsContent');
+    if(ct&&curSc==='sc-settings')renderSTUsers(ct);
+    toast('Usuário atualizado ✓');
   } else {
-    db.users.push({id:uid(),name,login,password:pass,role,color,perms:{}});
-    sendSystemChatMsg(`👤 Novo usuário "${name}" foi adicionado ao sistema.`);
+    // Creating new user — register in Supabase Auth first
+    showLoader('Criando usuário...');
+    try{
+      // Use a separate client so we don't lose the admin's current session
+      const tmp=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+      const{data:signData,error:signErr}=await tmp.auth.signUp({email,password:pass});
+      if(signErr){hideLoader();toast('Erro ao criar login: '+signErr.message);return;}
+      const newId=signData?.user?.id;
+      if(!newId){hideLoader();toast('Erro: usuário não foi criado no auth');return;}
+      // Upsert profile in Supabase
+      const perms={viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,
+        canAdd:true,canEdit:true,canDelete:role==='admin',canMarkPaid:true,
+        canExport:false,canReset:false,canWhatsapp:true};
+      await getSupa().from('profiles').upsert({id:newId,name,email,role,color,perms},{onConflict:'id'});
+      // Add to local db
+      db.users.push({id:newId,name,email,login:email,password:pass,role,color,perms});
+      sendSystemChatMsg(`👤 Novo usuário "${name}" foi adicionado ao sistema.`);
+      sdb();
+      hideLoader();closeUserEdit();
+      populateUserSel();
+      const ct=document.getElementById('settingsContent');
+      if(ct&&curSc==='sc-settings')renderSTUsers(ct);
+      toast(`Usuário "${name}" criado ✓ — pode fazer login com o e-mail cadastrado`);
+    }catch(e){
+      hideLoader();
+      console.error('saveUserEdit error',e);
+      toast('Erro ao criar usuário: '+(e.message||'erro desconhecido'));
+    }
   }
-  sdb();closeUserEdit();
-  // Refresh settings if open, otherwise toast only
-  const ct=document.getElementById('settingsContent');
-  if(ct&&curSc==='sc-settings')renderSTUsers(ct);
-  toast('Usuário salvo ✓');
 }
 function deleteUserDB(id){
   if(!reqAdm())return;
@@ -4985,7 +5021,7 @@ function renderSTSecurity(ct){
     <button onclick="logout()" style="width:100%;padding:11px;background:#f5f6fa;color:var(--red);border:1.5px solid rgba(231,76,60,.25);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer">Sair da conta</button>`;
 }
 
-function changePass(){
+async function changePass(){
   const old=document.getElementById('secOld').value;
   const nw=document.getElementById('secNew').value;
   const conf=document.getElementById('secConfirm').value;
@@ -5003,6 +5039,11 @@ function changePass(){
   // Update curUser
   if(curUser)curUser.password=nw;
   sdb();
+  // Update in Supabase Auth (so the new password works on login)
+  try{
+    const{error}=await getSupa().auth.updateUser({password:nw});
+    if(error)console.warn('auth.updateUser error:',error.message);
+  }catch(e){console.warn('auth.updateUser exception',e);}
   toast('Senha alterada ✓');
   document.getElementById('secOld').value='';document.getElementById('secNew').value='';document.getElementById('secConfirm').value='';
 }
