@@ -1313,7 +1313,10 @@ function startBillsRealtime(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'bills'},_onBillsChange)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bills'},_onBillsChange)
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'bills'},_onBillsChange)
-    .subscribe();
+    .subscribe((status,err)=>{
+      console.log('[bills-rt] status:',status,err||'');
+      if(status==='CHANNEL_ERROR')console.warn('[bills-rt] channel error — bills Realtime may not be delivering events');
+    });
 }
 
 function stopBillsRealtime(){
@@ -1330,7 +1333,9 @@ function startProfilesRealtime(){
   _profilesChannel=getSupa()
     .channel('profiles-changes')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},_onProfilesChange)
-    .subscribe();
+    .subscribe((status,err)=>{
+      console.log('[profiles-rt] status:',status,err||'');
+    });
 }
 
 function stopProfilesRealtime(){
