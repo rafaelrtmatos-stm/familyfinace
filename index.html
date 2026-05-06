@@ -4228,27 +4228,9 @@ window.onload=async()=>{
   }
   updPeriodLbl();
   renderAddCatGrid();
-  // Check for existing Supabase session
-  showLoader('Verificando sessão...');
-  try{
-    const{data:{session}}=await getSupa().auth.getSession();
-    if(session?.user){
-      const{data:profile}=await getSupa().from('profiles').select('*').eq('id',session.user.id).single();
-      const email=session.user.email;
-      const u={
-        id:session.user.id,
-        name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
-        email,
-        role:profile?.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
-        color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
-        perms:profile?.perms||{}
-      };
-      hideLoader();
-      await doLogin(u);
-      return;
-    }
-  }catch(e){console.error('Session check:',e);}
-  hideLoader();
+  // ── LOGIN DESATIVADO TEMPORARIAMENTE ──
+  await doLogin({id:'adm',name:'Rafael',login:'adm',email:'rafaelrtmatos@gmail.com',role:'admin',color:'#27ae60',perms:{}});
+  return;
   // No session — show login screen
   populateLoginChips();
   const ls=document.getElementById('loginScreen');
