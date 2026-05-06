@@ -1545,14 +1545,21 @@ async function saveAdminSettingsToProfiles(){
       if(u.role!=='admin')usersPerms[u.id]=u.perms||{};
       usersData[u.id]={name:u.name,email:u.email,color:u.color,role:u.role};
     });
-    const{error}=await s.from('profiles').update({
-      perms:{...existing,
-        _settings:{cats:db.cats,couple:db.couple,ts:Date.now()},
-        _perms:usersPerms,
-        _userdata:usersData
-      }
-    }).eq('id',adminUser.id);
+    const newPerms={...existing,
+      _settings:{cats:db.cats,couple:db.couple,ts:Date.now()},
+      _perms:usersPerms,
+      _userdata:usersData
+    };
+    const{error}=await s.from('profiles').upsert({
+      id:adminUser.id,
+      name:adminUser.name||'',
+      email:adminUser.email||'',
+      role:'admin',
+      color:adminUser.color||'#3b4fd4',
+      perms:newPerms
+    },{onConflict:'id'});
     if(error)console.warn('saveAdminSettings error',error);
+    else console.log('[settings] saved to admin profile ✓');
   }catch(e){console.warn('saveAdminSettings',e);}
 }
 
@@ -4724,7 +4731,66 @@ function deleteUserDB(id){
   db.users=db.users.filter(x=>x.id!==id);
   db.bills.forEach(b=>{if(b.userId===id)b.userId='';});
   db.couple=db.couple.filter(cid=>cid!==id);
-  sdb();renderSettings();toast('Usuário removido');
+  try{getSupa().from('profiles').delete().eq('id',id);}catch{}
+  sdb();saveAdminSettingsToProfiles();renderSettings();toast('Usuário removido');
+}
+
+function openMergeDialog(sourceId){
+  if(!reqAdm())return;
+  const source=db.users.find(u=>u.id===sourceId);if(!source)return;
+  const others=db.users.filter(u=>u.id!==sourceId);
+  if(!others.length){toast('Nenhum outro usuário para mesclar');return;}
+  let el=document.getElementById('mergeOverlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='mergeOverlay';
+    el.style.cssText='position:fixed;inset:0;background:rgba(26,26,46,.7);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px';
+    document.body.appendChild(el);
+  }
+  el.innerHTML=`
+    <div style="background:var(--white);border-radius:20px;padding:22px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+      <div style="font-size:.94rem;font-weight:900;color:var(--ink);margin-bottom:6px">🔀 Mesclar Usuário</div>
+      <div style="font-size:.76rem;color:var(--ink3);font-weight:700;margin-bottom:16px;line-height:1.5">
+        Todas as contas de <b>${esc(source.name)}</b> serão transferidas para o usuário selecionado e o perfil duplicado será removido.
+      </div>
+      <div class="us-label">Mesclar em:</div>
+      <select id="mergeTargetSel" class="us-inp" style="margin-bottom:16px">
+        ${others.map(u=>`<option value="${u.id}">${esc(u.name)} · ${u.email||u.login||'—'}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('mergeOverlay').style.display='none'"
+          style="flex:1;padding:12px;border-radius:var(--rs);border:1.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:900;cursor:pointer;color:var(--ink3)">Cancelar</button>
+        <button onclick="confirmMerge('${sourceId}')"
+          style="flex:2;padding:12px;border-radius:var(--rs);border:none;background:var(--g2);color:#fff;font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:900;cursor:pointer">✓ Mesclar</button>
+      </div>
+    </div>`;
+  el.style.display='flex';
+}
+
+async function confirmMerge(sourceId){
+  const targetId=document.getElementById('mergeTargetSel')?.value;
+  if(!targetId){toast('Selecione o usuário destino');return;}
+  const source=db.users.find(u=>u.id===sourceId);
+  const target=db.users.find(u=>u.id===targetId);
+  if(!source||!target){toast('Usuário não encontrado');return;}
+  document.getElementById('mergeOverlay').style.display='none';
+  // Reassign all bills from source to target
+  let moved=0;
+  db.bills.forEach(b=>{if(b.userId===sourceId){b.userId=targetId;moved++;}});
+  // Update couple list — replace source with target if not already there
+  if((db.couple||[]).includes(sourceId)){
+    if(!db.couple.includes(targetId))db.couple=db.couple.map(id=>id===sourceId?targetId:id);
+    else db.couple=db.couple.filter(id=>id!==sourceId);
+  }
+  // Remove source user locally
+  db.users=db.users.filter(u=>u.id!==sourceId);
+  // Delete source profile from Supabase
+  try{await getSupa().from('profiles').delete().eq('id',sourceId);}catch(e){console.warn('merge: profile delete',e);}
+  // Sync bills and settings
+  sdb();
+  await saveAdminSettingsToProfiles();
+  renderSettings();
+  toast(`✓ "${source.name}" mesclado em "${target.name}" — ${moved} conta${moved!==1?'s':''} transferida${moved!==1?'s':''}`);
 }
 
 /* ════ WHATSAPP SHARE ════ */
@@ -4846,6 +4912,9 @@ function renderSTUsers(ct){
     const permBtn=u.role!=='admin'
       ?'<button onclick="openUserPerms(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--g2);cursor:pointer">🔐 Permissões</button>'
       :'<div style="flex:1;border-right:1px solid #f2f4f8"></div>';
+    const mergeBtn=(!isMe&&u.role!=='admin')
+      ?'<button onclick="openMergeDialog(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--ink3);cursor:pointer">🔀 Mesclar</button>'
+      :'<div style="flex:1;border-right:1px solid #f2f4f8"></div>';
     const delBtn=(!isMe&&u.login!=='adm')
       ?'<button onclick="deleteUserDB(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--red);cursor:pointer">🗑 Excluir</button>'
       :'<div style="flex:1"></div>';
@@ -4856,12 +4925,12 @@ function renderSTUsers(ct){
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <div class="umgr-name">${esc(u.name)}</div>${meBadge}
           </div>
-          <div class="umgr-meta">${u.role==='admin'?'👑 Admin':'👤 Usuário'} · @${u.login||'—'} · ${bills.length} conta${bills.length!==1?'s':''} · <span style="color:var(--red);font-weight:800">${fmt(bal)}</span></div>
+          <div class="umgr-meta">${u.role==='admin'?'👑 Admin':'👤 Usuário'} · ${u.email||u.login||'—'} · ${bills.length} conta${bills.length!==1?'s':''} · <span style="color:var(--red);font-weight:800">${fmt(bal)}</span></div>
         </div>
       </div>
       <div style="display:flex;border-top:1px solid #f2f4f8">
         <button onclick="openUserEdit('${u.id}')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--ink2);cursor:pointer">✏️ Editar</button>
-        ${permBtn}${delBtn}
+        ${permBtn}${mergeBtn}${delBtn}
       </div>
     </div>`;
   }).join('');
