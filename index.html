@@ -1911,7 +1911,11 @@ function getHomeBills(){
       const end=piso(iso(new Date(y,m,b.day)));
       return ref>=start&&ref<=end;
     });
-    // Dedup recurring by templateId: prefer unpaid, then most recent month
+    // Dedup recurring by templateId:
+    // - paid beats unpaid (paid moves to history, show the pending one)
+    // - when both unpaid: prefer the one with HIGHER balance (the more urgent debt)
+    //   this prevents the due-date overlap edge case where the NEW cycle (0 balance)
+    //   incorrectly replaces the CURRENT cycle (full balance)
     {
       const td2=today();
       const byTid={};
@@ -1921,9 +1925,15 @@ function getHomeBills(){
         if(!prev){byTid[b.templateId]=b;return;}
         const prevPaid=calc(prev,td2).st==='paid';
         const curPaid=calc(b,td2).st==='paid';
-        if(prevPaid&&!curPaid)byTid[b.templateId]=b;
-        else if(!prevPaid&&!curPaid&&b.month>prev.month)byTid[b.templateId]=b;
-        else if(prevPaid&&curPaid&&b.month>prev.month)byTid[b.templateId]=b;
+        if(prevPaid&&!curPaid){byTid[b.templateId]=b;}
+        else if(!prevPaid&&!curPaid){
+          const prevBal=calc(prev,td2).bal;
+          const curBal=calc(b,td2).bal;
+          // Move to newer month only if it has strictly more balance (more urgent)
+          // OR the older one is already fully balanced (0 remaining)
+          if(b.month>prev.month&&(curBal>prevBal||prevBal===0))byTid[b.templateId]=b;
+        }
+        else if(prevPaid&&curPaid&&b.month>prev.month){byTid[b.templateId]=b;}
       });
       bills=bills.filter(b=>!b.recurring||!b.templateId||byTid[b.templateId]===b);
     }
@@ -2107,6 +2117,9 @@ function renderHome(){
   const lateAddonDaily=totalPrevLateBal>0?r2(totalPrevLateBal/remainWd):0;
   const totalDailyWithLate=r2(totalDaily+lateAddonDaily);
 
+  // Grand total = current month balance + overdue from previous months
+  const grandTotalBal=r2(totalBal+totalPrevLateBal);
+
   // ── Header widget ──
   const htEl=document.getElementById('homeTotal');
   const hdEl=document.getElementById('homeDailyRow');
@@ -2114,7 +2127,7 @@ function renderHome(){
   const tpEl=document.getElementById('homeTotalPago');
   const tdEl=document.getElementById('homeDiariaVal');
   const ulEl=document.getElementById('ghUserLbl');
-  if(htEl)htEl.textContent=fmt(totalBal);
+  if(htEl)htEl.textContent=fmt(grandTotalBal);
   if(tmEl)tmEl.textContent=fmtn(totalOrig);
   if(tpEl)tpEl.textContent=fmtn(totalPaid);
   if(tdEl){
@@ -2138,7 +2151,7 @@ function renderHome(){
     else{hdEl.style.display='none';}
   }
   const dvEl=document.getElementById('donutVal');
-  if(dvEl)dvEl.textContent=fmt(totalBal);
+  if(dvEl)dvEl.textContent=fmt(grandTotalBal);
 
   // ── Header caixa value ──
   const caixaVal=getCofreVal();
@@ -2146,14 +2159,14 @@ function renderHome(){
   const caixaSubEl=document.getElementById('homeCaixaSub');
   if(caixaEl)caixaEl.textContent=fmt(caixaVal);
   if(caixaSubEl){
-    const diff=r2(caixaVal-totalBal);
+    const diff=r2(caixaVal-grandTotalBal);
     caixaSubEl.textContent=diff>=0?`✓ Sobra ${fmt(diff)}`:`Falta ${fmt(Math.abs(diff))}`;
   }
   // Saldo vs Débito
   const faltaEl=document.getElementById('homeFaltaVal');
   const faltaSubEl=document.getElementById('homeFaltaSub');
   const faltaLblEl=document.getElementById('homeFaltaLbl');
-  const diff=r2(caixaVal-totalBal);
+  const diff=r2(caixaVal-grandTotalBal);
   if(faltaEl){
     faltaEl.textContent=fmt(Math.abs(diff));
     faltaEl.style.color=diff>=0?'rgba(150,255,200,.95)':'rgba(255,100,100,.95)';
@@ -2847,6 +2860,7 @@ function ensureRecurringForMonth(monthKey){
         name:template.name,amount:template.amount,day:template.day,
         month:monthKey,userId:template.userId,
         payMethod:template.payMethod,category:template.category,
+        cycle:template.cycle,noDaily:template.noDaily,shared:template.shared,
         recurring:true,payments:[]
       };
       db.bills.push(nb);
@@ -3064,22 +3078,29 @@ function renderBills(){
     const c=calc(b,td);const cat=catBy(b.category);
     const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
     const isInstallment=!!b.installment;
+    // Saldo anterior: overdue balance from previous months of the same recurring template
+    const prevSaldo=b.recurring&&b.templateId
+      ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
+          .reduce((s,x)=>s+calc(x,td).bal,0))
+      :0;
+    const totalWithPrev=r2(c.bal+prevSaldo);
     return`<div class="bc ${c.st}">
       <div style="display:flex;align-items:center;gap:11px;cursor:pointer" onclick="openDet('${b.id}')">
         <div class="bc-ico" style="background:${cat.bg}">${cat.ico}</div>
         <div style="flex:1">
           <div class="bc-name">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${b.noDaily?'<span class="rec-badge" style="background:rgba(127,140,141,.1);color:#7f8c8d"> 💳 fixo</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
           <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
-          <div style="display:flex;gap:8px;margin-top:3px;align-items:center">
+          <div style="display:flex;gap:8px;margin-top:3px;align-items:center;flex-wrap:wrap">
             ${b.noDaily
               ?'<span style="font-size:.66rem;font-weight:800;color:#7f8c8d;background:rgba(127,140,141,.1);padding:2px 7px;border-radius:100px">sem diária</span>'
               :`<span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia</span>`}
             <span style="font-size:.66rem;font-weight:700;color:var(--ink3)">Mês: ${fmt(b.amount)}</span>
+            ${prevSaldo>0?`<span style="font-size:.66rem;font-weight:800;color:var(--red);background:rgba(231,76,60,.1);padding:2px 7px;border-radius:100px">⚠️ Anterior: ${fmt(prevSaldo)}</span>`:''}
           </div>
         </div>
         <div class="bc-right">
-          <div class="bc-val">${fmt(c.bal)}</div>
-          <div class="bc-st ${c.st}">${stLbl[c.st]}</div>
+          <div class="bc-val" style="${prevSaldo>0?'color:var(--red)':''}">${prevSaldo>0?fmt(totalWithPrev):fmt(c.bal)}</div>
+          <div class="bc-st ${c.st}">${prevSaldo>0?'Total c/ atraso':stLbl[c.st]}</div>
         </div>
       </div>
       ${isInstallment||b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
@@ -3115,13 +3136,18 @@ function refreshDet(id){
   const isPaid=c.st==='paid';
   const cat=catBy(b.category);const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'Sem responsável');
   const{y,m}=ymk(b.month);
+  // Previous overdue balance from same recurring template
+  const detPrevSaldo=b.recurring&&b.templateId
+    ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
+        .reduce((s,x)=>s+calc(x,td).bal,0))
+    :0;
 
   document.getElementById('detTitle').textContent=b.name;
-  document.getElementById('detAmt').textContent=isPaid?fmt(b.amount):fmt(c.bal);
+  document.getElementById('detAmt').textContent=isPaid?fmt(b.amount):fmt(r2(c.bal+detPrevSaldo));
   document.getElementById('detMeta').textContent=
     isPaid
       ?`${cat.ico} ${cat.lbl} · ${uname}`
-      :`${cat.ico} ${cat.lbl} · ${uname}${c.late>0?' · ⚠️ '+c.late+'d atraso':''}`;
+      :`${cat.ico} ${cat.lbl} · ${uname}${c.late>0?' · ⚠️ '+c.late+'d atraso':''}${detPrevSaldo>0?' · ⚠️ Inclui meses anteriores':''}`;
 
   let nextHTML='';
   if(b.recurring){
@@ -3183,14 +3209,18 @@ function refreshDet(id){
       ${c.late>0?`<div class="ir"><span class="ir-lbl">Dias em atraso</span><span class="ir-val red">${c.late}d úteis</span></div>`:''}
       ${c.acc>0?`<div class="ir"><span class="ir-lbl">Multa de atraso</span><span class="ir-val red">+ ${fmt(c.acc)}</span></div>`:''}
       ${c.paid>0?`<div class="ir"><span class="ir-lbl">Já pago</span><span class="ir-val green">${fmt(c.paid)}</span></div>`:''}
-      <div class="ir" style="border-bottom:none"><span class="ir-lbl">Saldo atual</span><span class="ir-val orange" style="font-size:.95rem;font-weight:900">${fmt(c.bal)}</span></div>
+      <div class="ir" ${detPrevSaldo>0?'':'style="border-bottom:none"'}><span class="ir-lbl">Saldo atual (este mês)</span><span class="ir-val orange" style="font-size:.95rem;font-weight:900">${fmt(c.bal)}</span></div>
+      ${detPrevSaldo>0?`<div class="ir"><span class="ir-lbl">⚠️ Meses anteriores em atraso</span><span class="ir-val red">${fmt(detPrevSaldo)}</span></div>
+      <div class="ir" style="border-bottom:none;background:rgba(231,76,60,.06);border-radius:8px;padding:8px 6px;margin-top:2px"><span class="ir-lbl" style="font-weight:900">TOTAL A PAGAR</span><span class="ir-val red" style="font-size:1rem;font-weight:900">${fmt(r2(c.bal+detPrevSaldo))}</span></div>`:''}
     </div>
     <div class="calc-box">
       <div class="calc-row"><span class="calc-lbl">Original</span><span class="calc-val">${fmt(b.amount)}</span></div>
       <div class="calc-row"><span class="calc-lbl">${c.daysElapsed} diárias × ${fmt(c.daily)}</span><span class="calc-val">${fmt(c.accrued)}</span></div>
       ${c.acc>0?`<div class="calc-row"><span class="calc-lbl">Atraso (${c.late}d)</span><span class="calc-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
       ${c.paid>0?`<div class="calc-row"><span class="calc-lbl">Já pago</span><span class="calc-val" style="color:var(--teal)">− ${fmt(c.paid)}</span></div>`:''}
-      <div class="calc-row"><span class="calc-lbl" style="font-weight:800">Saldo</span><span class="calc-val" style="color:var(--orange);font-weight:900">${fmt(c.bal)}</span></div>
+      <div class="calc-row"><span class="calc-lbl" style="font-weight:800">Saldo (este mês)</span><span class="calc-val" style="color:var(--orange);font-weight:900">${fmt(c.bal)}</span></div>
+      ${detPrevSaldo>0?`<div class="calc-row"><span class="calc-lbl">+ Meses anteriores</span><span class="calc-val" style="color:var(--red)">+ ${fmt(detPrevSaldo)}</span></div>
+      <div class="calc-row" style="border-top:2px solid rgba(231,76,60,.25);margin-top:4px;padding-top:6px"><span class="calc-lbl" style="font-weight:900;color:var(--red)">Total a pagar</span><span class="calc-val" style="color:var(--red);font-weight:900">${fmt(r2(c.bal+detPrevSaldo))}</span></div>`:''}
     </div>`;
   }
 
@@ -3483,7 +3513,9 @@ function ensureNext(bill){
     if(!db.bills.find(b=>b.templateId===tid&&b.month===nk)){
       const nb={id:uid(),templateId:tid,name:bill.name,amount:bill.amount,
         day:bill.day,month:nk,userId:bill.userId,payMethod:bill.payMethod,
-        category:bill.category,recurring:true,payments:[]};
+        category:bill.category,cycle:bill.cycle,noDaily:bill.noDaily,
+        shared:bill.shared,weeklyDay:bill.weeklyDay,
+        recurring:true,payments:[]};
       db.bills.push(nb);
       saveBillSupa(nb);
       added++;
