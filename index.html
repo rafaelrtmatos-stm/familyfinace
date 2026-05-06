@@ -4333,10 +4333,7 @@ window.onload=async()=>{
   }
   updPeriodLbl();
   renderAddCatGrid();
-  // ── LOGIN DESATIVADO TEMPORARIAMENTE ──
-  await doLogin({id:'adm',name:'Rafael',login:'adm',email:'rafaelrtmatos@gmail.com',role:'admin',color:'#27ae60',perms:{}});
-  return;
-  // No session — show login screen
+  // Show login screen
   populateLoginChips();
   const ls=document.getElementById('loginScreen');
   ls.classList.remove('off');ls.style.display='flex';
