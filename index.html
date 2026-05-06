@@ -1165,7 +1165,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="ps-handle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:1.1rem;font-weight:900;color:var(--ink)">💰 Caixa</div>
-      <button onclick="closeCofreSheet()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="cofreSyncBtn" onclick="syncCofreNow()" style="font-size:.68rem;font-weight:800;padding:5px 10px;background:rgba(59,79,212,.1);color:var(--g2);border:1.5px solid rgba(59,79,212,.25);border-radius:100px;cursor:pointer;font-family:'Nunito',sans-serif">☁️ Sincronizar</button>
+        <button onclick="closeCofreSheet()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
+      </div>
     </div>
     <!-- Saldos atuais -->
     <div id="cofreSaldos" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
@@ -3848,10 +3851,13 @@ function getCofreFormVal(form){
 }
 function getCofreVal(){return r2(getCofreFormVal('pix')+getCofreFormVal('dinheiro'));}
 
+let _cofreSynced=false;
+let _cofreSyncTs=0;
+
 async function saveCofreToSupa(){
   try{
     const s=getSupa();if(!s||!curUser)return;
-    const obj={};
+    const obj={ts:Date.now()};
     ['pix','dinheiro'].forEach(f=>{
       const k='cofre_'+f;
       const v=localStorage.getItem(k);
@@ -3864,8 +3870,17 @@ async function saveCofreToSupa(){
         if(v!=null)obj[k]=parseFloat(v)||0;
       });
     }
-    await s.from('app_settings').upsert({key:'cpro4_cofre',value:obj,updated_at:new Date().toISOString()},{onConflict:'key'});
-  }catch(e){console.warn('cofre save supa',e);}
+    const{error}=await s.from('app_settings').upsert({key:'cpro4_cofre',value:obj,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error){
+      _cofreSynced=false;
+      console.warn('cofre save supa',error);
+      renderDash();
+    } else {
+      _cofreSynced=true;
+      _cofreSyncTs=Date.now();
+      renderDash();
+    }
+  }catch(e){_cofreSynced=false;console.warn('cofre save supa',e);}
 }
 
 async function loadCofreFromSupa(){
@@ -3873,13 +3888,68 @@ async function loadCofreFromSupa(){
     const s=getSupa();if(!s||!curUser)return;
     const{data}=await s.from('app_settings').select('value').eq('key','cpro4_cofre').maybeSingle();
     if(data?.value&&typeof data.value==='object'){
-      Object.entries(data.value).forEach(([k,v])=>{
-        if(k.startsWith('cofre_')&&typeof v==='number'){
-          localStorage.setItem(k,String(v));
-        }
-      });
+      const remote=data.value;
+      const remoteTs=remote.ts||0;
+      const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+      // Only overwrite local values if remote is NEWER than local
+      if(remoteTs>localTs){
+        Object.entries(remote).forEach(([k,v])=>{
+          if(k.startsWith('cofre_')&&typeof v==='number'){
+            localStorage.setItem(k,String(v));
+          }
+        });
+        localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
+      }
+      _cofreSynced=true;
+      _cofreSyncTs=remoteTs||Date.now();
+    } else {
+      _cofreSynced=false;
     }
-  }catch(e){console.warn('cofre load supa',e);}
+  }catch(e){_cofreSynced=false;console.warn('cofre load supa',e);}
+}
+
+async function syncCofreNow(){
+  const btn=document.getElementById('cofreSyncBtn');
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  await saveCofreToSupa();
+  if(btn){
+    btn.textContent=_cofreSynced?'☁️ Sincronizado':'⚠️ Sem acesso';
+    btn.disabled=false;
+    setTimeout(()=>{if(btn)btn.textContent='☁️ Sincronizar';},2500);
+  }
+}
+
+function showSupaFixModal(){
+  const sql=`-- Cole no SQL Editor do Supabase (supabase.com → SQL Editor)
+
+-- Permitir leitura e escrita em app_settings para usuários logados
+CREATE POLICY IF NOT EXISTS "auth_insert_app_settings"
+  ON app_settings FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY IF NOT EXISTS "auth_update_app_settings"
+  ON app_settings FOR UPDATE TO authenticated USING (true);
+
+-- Permitir leitura e escrita em bills para usuários logados
+CREATE POLICY IF NOT EXISTS "auth_insert_bills"
+  ON bills FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY IF NOT EXISTS "auth_update_bills"
+  ON bills FOR UPDATE TO authenticated USING (true);
+
+CREATE POLICY IF NOT EXISTS "auth_delete_bills"
+  ON bills FOR DELETE TO authenticated USING (true);`;
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML=`<div style="background:#fff;border-radius:20px;padding:22px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:1rem;font-weight:900;color:var(--ink)">🔧 Corrigir Sincronização</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:1.2rem;cursor:pointer">✕</button>
+    </div>
+    <div style="font-size:.78rem;font-weight:700;color:var(--ink3);line-height:1.6;margin-bottom:14px">Para sincronizar a Caixa entre dispositivos, execute este SQL no painel do Supabase:<br><br>1. Acesse <b>supabase.com</b> → seu projeto<br>2. Clique em <b>SQL Editor</b><br>3. Cole o código abaixo e clique em <b>Run</b></div>
+    <textarea readonly onclick="this.select()" style="width:100%;height:220px;background:#1e1e2e;color:#cdd6f4;border-radius:10px;padding:12px;font-family:monospace;font-size:.72rem;border:none;resize:none;line-height:1.5">${sql}</textarea>
+    <button onclick="navigator.clipboard.writeText(document.querySelector('textarea').value).then(()=>toast('SQL copiado!'))" style="width:100%;margin-top:10px;padding:12px;background:var(--g2);color:#fff;border:none;border-radius:10px;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:800;cursor:pointer">📋 Copiar SQL</button>
+  </div>`;
+  document.body.appendChild(el);
 }
 
 let cofreNumStr='0';
@@ -3989,12 +4059,18 @@ function renderCofreWidget(saldoPendente){
   const cofre=r2(pix+din),mode=getCofreMode();
   const diff=r2(cofre-saldoPendente),ok=diff>=0;
   const pct=saldoPendente>0?Math.min(100,Math.round(cofre/saldoPendente*100)):100;
+  const syncBadge=_cofreSynced
+    ?`<span style="font-size:.58rem;font-weight:800;color:#25d366;background:rgba(37,211,102,.12);border-radius:100px;padding:2px 7px">☁️ Sincronizado</span>`
+    :`<span onclick="isAdm()?showSupaFixModal():null" style="font-size:.58rem;font-weight:800;color:#e67e22;background:rgba(230,126,34,.12);border-radius:100px;padding:2px 7px;cursor:${isAdm()?'pointer':'default'}" title="${isAdm()?'Clique para ver como corrigir':''}">📱 Apenas local${isAdm()?' ⚙️':''}</span>`;
   return`<div style="background:${ok?'linear-gradient(135deg,rgba(59,79,212,.1),rgba(92,107,192,.06))':'linear-gradient(135deg,rgba(231,76,60,.08),rgba(230,126,34,.04))'};border:1.5px solid ${ok?'rgba(59,79,212,.25)':'rgba(231,76,60,.2)'};border-radius:16px;padding:14px;margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:7px">
         <span style="font-size:1.2rem">🏦</span>
         <div>
-          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--ink3)">💰 Caixa · ${mode==='shared'?'Compartilhada':'Pessoal'}</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+            <span style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--ink3)">💰 Caixa · ${mode==='shared'?'Compartilhada':'Pessoal'}</span>
+            ${syncBadge}
+          </div>
           <div style="font-size:1rem;font-weight:900;color:${ok?'var(--g2)':'var(--red)'}">${fmt(cofre)}</div>
         </div>
       </div>
@@ -5417,6 +5493,7 @@ function stopChatAudio(){
   if(btn)btn.classList.remove('recording');
 }
 
+let _cofrePollTimer=null;
 function startChatPoll(){
   stopChatPoll();
   updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
@@ -5429,12 +5506,27 @@ function startChatPoll(){
     if(!curUser)return;
     updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
   },30000);
+  // Poll cofre from Supabase every 30s so both devices stay in sync
+  _cofrePollTimer=setInterval(async()=>{
+    if(!curUser)return;
+    const prevPix=getCofreFormVal('pix');
+    const prevDin=getCofreFormVal('dinheiro');
+    await loadCofreFromSupa();
+    const newPix=getCofreFormVal('pix');
+    const newDin=getCofreFormVal('dinheiro');
+    if(newPix!==prevPix||newDin!==prevDin){
+      renderDash();
+      toast('💰 Caixa atualizada');
+    }
+  },30000);
 }
 
 function stopChatPoll(){
   if(_chatPollTimer){clearInterval(_chatPollTimer);_chatPollTimer=null;}
   if(_myPresenceTimer){clearInterval(_myPresenceTimer);_myPresenceTimer=null;}
+  if(_cofrePollTimer){clearInterval(_cofrePollTimer);_cofrePollTimer=null;}
 }
+
 
 </script>
 </body>
