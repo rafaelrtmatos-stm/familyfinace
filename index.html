@@ -1297,11 +1297,43 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 const SUPA_URL='https://mvojhrkuuveiozbgigny.supabase.co';
 const SUPA_KEY='sb_publishable_QYn7gHfDWOHlogX--h6ImQ_6FYqDbm7';
 let _supa=null;
+let _billsChannel=null;
+let _billsRtTimer=null;
 
 function getSupa(){
   if(_supa)return _supa;
   _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
   return _supa;
+}
+
+function startBillsRealtime(){
+  if(_billsChannel)return;
+  _billsChannel=getSupa()
+    .channel('bills-changes')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bills'},_onBillsChange)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bills'},_onBillsChange)
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'bills'},_onBillsChange)
+    .subscribe();
+}
+
+function stopBillsRealtime(){
+  if(!_billsChannel)return;
+  try{getSupa().removeChannel(_billsChannel);}catch{}
+  _billsChannel=null;
+  clearTimeout(_billsRtTimer);
+}
+
+function _onBillsChange(){
+  clearTimeout(_billsRtTimer);
+  _billsRtTimer=setTimeout(async()=>{
+    if(!curUser)return;
+    await loadFromSupa();
+    preFillFutureMonths();
+    renderHome();
+    if(curSc==='sc-bills')renderBills();
+    else if(curSc==='sc-charts')renderCharts();
+    else if(curSc==='sc-dashboard')renderDash();
+  },500);
 }
 
 /* ══════════════════════════════════════════════════
@@ -1917,6 +1949,7 @@ async function doLogin(u){
   toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}! ${u.role==='admin'?'👑':''}`);
   await loadCofreFromSupa();
   startChatPoll();
+  startBillsRealtime();
 }
 
 function updateUIForUser(){
@@ -1934,6 +1967,7 @@ function hasPerm(key){return isAdm()||!!(getPerms(curUser)[key]);}
 
 async function logout(){
   stopChatPoll();
+  stopBillsRealtime();
   curUser=null;selectedLoginUser=null;
   localStorage.removeItem('cpro4_stay');
   try{await getSupa().auth.signOut();}catch{}
