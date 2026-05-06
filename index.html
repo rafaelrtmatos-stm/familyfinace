@@ -552,6 +552,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         </div>
       </div>
     </div>
+    <!-- View filter tabs in header -->
+    <div class="gh-tabs" id="homeViewTabs" style="margin-top:10px;position:relative;z-index:2">
+      <button class="ghtab active" id="ghtab-mine" onclick="setHomeView('mine',this)">👤 Minhas</button>
+      <button class="ghtab" id="ghtab-all" onclick="setHomeView('all',this)">🌐 Todas</button>
+      <button class="ghtab" id="ghtab-custom" style="display:none" onclick="setHomeView('custom',this)">⚙️ Personalizado</button>
+    </div>
 
   </div>
   <div class="pbar">
@@ -2104,14 +2110,15 @@ function renderHome(){
   // Auto-generate recurring bills for this month
   ensureRecurringForMonth(mk(CY,CM));
 
-  // ── Build view filter bar (no Casal — Casal only in Dashboard) ──
-  let vfHTML=`<button class="vf ${dashView==='mine'?'on':''}" data-v="mine" onclick="setHomeView('mine',this)">👤 Minhas</button>`;
-  if(p.viewAll||isAdm())
-    vfHTML+=`<button class="vf ${dashView==='all'?'on':''}" data-v="all" onclick="setHomeView('all',this)">🌐 Todas</button>`;
-  if(isAdm())
-    vfHTML+=`<button class="vf ${dashView==='custom'?'on':''}" data-v="custom" onclick="setHomeView('custom',this)">⚙️ Custom</button>`;
+  // ── Sync header view tabs ──
+  const tabMine=document.getElementById('ghtab-mine');
+  const tabAll=document.getElementById('ghtab-all');
+  const tabCustom=document.getElementById('ghtab-custom');
+  if(tabMine){tabMine.classList.toggle('active',dashView==='mine');}
+  if(tabAll){tabAll.classList.toggle('active',dashView==='all');tabAll.style.display='';}
+  if(tabCustom){tabCustom.classList.toggle('active',dashView==='custom');tabCustom.style.display=isAdm()?'':'none';}
   const vfEl=document.getElementById('homeVfbar');
-  if(vfEl)vfEl.innerHTML=vfHTML;
+  if(vfEl)vfEl.innerHTML='';
 
   // Custom user checkboxes
   let customEl=document.getElementById('homeCustomUsers');
