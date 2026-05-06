@@ -2116,7 +2116,7 @@ function renderHome(){
   const tabCustom=document.getElementById('ghtab-custom');
   if(tabMine){tabMine.classList.toggle('active',dashView==='mine');}
   if(tabAll){tabAll.classList.toggle('active',dashView==='all');tabAll.style.display='';}
-  if(tabCustom){tabCustom.classList.toggle('active',dashView==='custom');tabCustom.style.display=isAdm()?'':'none';}
+  if(tabCustom){tabCustom.classList.toggle('active',dashView==='custom');tabCustom.style.display='';}  
   const vfEl=document.getElementById('homeVfbar');
   if(vfEl)vfEl.innerHTML='';
 
@@ -2127,7 +2127,7 @@ function renderHome(){
     vfEl.parentNode.insertBefore(customEl,vfEl.nextSibling);
   }
   if(customEl){
-    customEl.innerHTML=dashView==='custom'&&isAdm()
+    customEl.innerHTML=dashView==='custom'
       ?`<div style="display:flex;gap:6px;overflow-x:auto;padding:6px 14px;background:var(--white);border-bottom:1px solid #eef0f5;-webkit-overflow-scrolling:touch">
           ${db.users.map(u=>`<button onclick="toggleCustomUser('${u.id}',this)" class="vf ${dashCustomUsers.includes(u.id)?'on':''}" style="${dashCustomUsers.includes(u.id)?'background:'+u.color+';border-color:'+u.color+';color:#fff':'color:'+u.color+';border-color:'+u.color}">${u.name.slice(0,1)} ${esc(u.name)}</button>`).join('')}
         </div>`:'';
