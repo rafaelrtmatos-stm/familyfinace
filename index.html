@@ -1064,7 +1064,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="us-title" id="userEditTitle">Novo Usuário</div>
     <div class="us-field"><div class="us-label">Nome completo</div><input type="text" class="us-inp" id="ueFullName" placeholder="Ex: Rafael Silva"/></div>
     <div class="us-field"><div class="us-label">E-mail</div><input type="email" class="us-inp" id="ueLogin" placeholder="Ex: rafael@email.com" autocapitalize="off" inputmode="email"/></div>
-    <div class="us-field"><div class="us-label">Senha</div><input type="password" class="us-inp" id="uePass" placeholder="Mínimo 4 caracteres"/></div>
+    <div class="us-field"><div class="us-label" id="uePassLabel">Senha</div><input type="password" class="us-inp" id="uePass" placeholder="Mínimo 4 caracteres"/></div>
     <div class="us-field"><div class="us-label">Tipo</div>
       <select class="us-inp" id="ueRole"><option value="admin">👑 Administrador</option><option value="user" selected>👤 Usuário comum</option></select>
     </div>
@@ -4643,17 +4643,23 @@ function openUserEdit(editId){
   if(!reqAdm())return;
   document.getElementById('ueId').value=editId||'';
   document.getElementById('userEditTitle').textContent=editId?'Editar Usuário':'Novo Usuário';
+  const passLabel=document.getElementById('uePassLabel');
+  const passInp=document.getElementById('uePass');
   if(editId){
     const u=db.users.find(x=>x.id===editId);
     document.getElementById('ueFullName').value=u.name;
-    document.getElementById('ueLogin').value=u.login||'';
-    document.getElementById('uePass').value=u.password||'';
+    document.getElementById('ueLogin').value=u.email||u.login||'';
+    passInp.value='';
+    passInp.placeholder='Deixe em branco para manter';
+    if(passLabel)passLabel.textContent='Senha (opcional)';
     document.getElementById('ueRole').value=u.role||'user';
     _ueColor=u.color||UCOLORS[0];
   } else {
     document.getElementById('ueFullName').value='';
     document.getElementById('ueLogin').value='';
-    document.getElementById('uePass').value='';
+    passInp.value='';
+    passInp.placeholder='Mínimo 4 caracteres';
+    if(passLabel)passLabel.textContent='Senha';
     document.getElementById('ueRole').value='user';
     _ueColor=UCOLORS[0];
   }
@@ -4679,7 +4685,9 @@ async function saveUserEdit(){
   const editId=document.getElementById('ueId').value;
   if(!name){toast('Digite o nome completo');return;}
   if(!email||!email.includes('@')){toast('Digite um e-mail válido');return;}
-  if(!pass||pass.length<4){toast('Senha precisa ter ao menos 4 caracteres');return;}
+  // Password required only when creating; optional on edit (blank = keep existing)
+  if(!editId&&(!pass||pass.length<4)){toast('Senha precisa ter ao menos 4 caracteres');return;}
+  if(editId&&pass&&pass.length<4){toast('Senha precisa ter ao menos 4 caracteres');return;}
   // check email unique
   const dup=db.users.find(u=>(u.email||u.login)===email&&u.id!==editId);
   if(dup){toast('E-mail já cadastrado');return;}
@@ -4687,7 +4695,7 @@ async function saveUserEdit(){
   if(editId){
     // Editing existing user — update locally first
     const u=db.users.find(x=>x.id===editId);
-    if(u)Object.assign(u,{name,email,login:email,password:pass,role,color});
+    if(u)Object.assign(u,{name,email,login:email,role,color,...(pass?{password:pass}:{})});
     // Try to update the profile row directly (works for own row; fails silently if RLS blocks it)
     try{
       const{error:upErr}=await getSupa().from('profiles').update({name,email,role,color}).eq('id',editId);
