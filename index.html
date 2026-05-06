@@ -1500,24 +1500,31 @@ function calc(b,ref){
   ref=ref||today();
   const{y,m}=ymk(b.month);
 
-  // Billing CYCLE: from day b.day of the PREVIOUS month to day b.day of current month
-  let py=y,pm=m-1;if(pm<0){pm=11;py--;}
-  const periodStart=iso(new Date(py,pm,b.day));
-  const rawDueISO  =iso(new Date(y,m,b.day));
-  const dISO       =adjustDue(rawDueISO);
+  let periodStart,rawDueISO,wd;
 
-  // Total workdays in the full cycle
-  const wd=wdBefore(periodStart,rawDueISO)+1;
+  if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
+    // WEEKLY bill: each instance is self-contained within its own 6-day Mon–Sat window.
+    // Period starts 6 calendar days before the bill's own due day (b.day).
+    rawDueISO=iso(new Date(y,m,b.day));
+    const dueTs=piso(rawDueISO);
+    const startTs=new Date(dueTs);startTs.setDate(startTs.getDate()-6);
+    periodStart=iso(startTs);
+    wd=6; // always 6 working days (Mon–Sat)
+  } else {
+    // Billing CYCLE: from day b.day of the PREVIOUS month to day b.day of current month
+    let py=y,pm=m-1;if(pm<0){pm=11;py--;}
+    periodStart=iso(new Date(py,pm,b.day));
+    rawDueISO  =iso(new Date(y,m,b.day));
+    // Total workdays in the full cycle
+    wd=wdBefore(periodStart,rawDueISO)+1;
+  }
+
+  const dISO=adjustDue(rawDueISO);
 
   // Daily rate depends on cycle type
-  // Weekly bills (weeklyDay set) always divide by 6 (Mon–Sat work week)
-  // 'day' = divide by workdays in cycle (default)
-  // 'fortnight' = divide by 15 (quinzena)
-  // 'month' = divide by calendar days in cycle (~30)
+  // Weekly bills already have wd=6; other bills respect the cycle setting
   let divisor=wd;
-  if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
-    divisor=6;
-  } else {
+  if(b.weeklyDay===undefined||b.weeklyDay===null){
     const cycle=b.cycle||'day';
     if(cycle==='fortnight') divisor=15;
     else if(cycle==='month'){
