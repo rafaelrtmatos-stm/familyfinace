@@ -1389,6 +1389,15 @@ let db={bills:[],holidays:[],users:[],nid:1,couple:[],categories:[],cats:[]};
 let _syncTimer=null;
 
 function uid(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
+function isUUID(id){return typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);}
+// Returns a valid UUID or null — never a hardcoded placeholder like 'ingrid1'/'adm'
+function safeUID(id){
+  if(isUUID(id))return id;
+  if(isUUID(curUser?.id))return curUser.id;
+  return null;
+}
+// True only when the current session has a real Supabase UUID (not offline mode)
+function hasRealSession(){return isUUID(curUser?.id);}
 
 // sdb: schedule Supabase sync (localStorage removed — Supabase is source of truth)
 function sdb(){
@@ -1514,14 +1523,16 @@ async function syncData(){
 // Uses profiles table with default "user can update own row" RLS — no SQL fix needed.
 async function saveAdminSettingsToProfiles(){
   try{
-    const s=getSupa();if(!s||!curUser)return;
-    const adminUser=db.users.find(u=>u.role==='admin')||curUser;
+    const s=getSupa();if(!s||!curUser||!hasRealSession())return;
+    const adminUser=db.users.find(u=>u.role==='admin'&&isUUID(u.id))||
+                    (curUser.role==='admin'?curUser:null);
+    if(!adminUser||!isUUID(adminUser.id))return; // no valid admin UUID available
     // Read current profile perms to preserve _cofre and any other keys
     const{data:prof}=await s.from('profiles').select('perms').eq('id',adminUser.id).single();
     const existing=prof?.perms||{};
-    // Build perms map for all non-admin users
+    // Build perms map for non-admin users (only valid UUIDs)
     const usersPerms={};
-    db.users.filter(u=>u.role!=='admin').forEach(u=>{usersPerms[u.id]=u.perms||{};});
+    db.users.filter(u=>u.role!=='admin'&&isUUID(u.id)).forEach(u=>{usersPerms[u.id]=u.perms||{};});
     const{error}=await s.from('profiles').update({
       perms:{...existing,
         _settings:{cats:db.cats,couple:db.couple,ts:Date.now()},
@@ -1533,7 +1544,7 @@ async function saveAdminSettingsToProfiles(){
 }
 
 async function syncToSupa(){
-  if(!curUser)return;
+  if(!curUser||!hasRealSession())return;
   const s=getSupa();
   try{
     // Upsert bills
@@ -1541,7 +1552,7 @@ async function syncToSupa(){
       const rows=db.bills.map(b=>({
         id:b.id, template_id:b.templateId, name:b.name,
         amount:b.amount, day:b.day, month:b.month,
-        user_id:(b.userId==='todos')?(curUser?.id||b.userId):b.userId,
+        user_id:(b.userId==='todos')?(curUser?.id||null):safeUID(b.userId),
         pay_method:b.payMethod||'pix',
         category:b.category||'outro', cycle:b.cycle||'day',
         recurring:b.recurring||false, installment:b.installment||null,
@@ -1560,17 +1571,19 @@ async function syncToSupa(){
 
 // Insert a new bill into Supabase (used when adding new entries)
 async function insertBillSupa(b){
+  if(!hasRealSession()){console.warn('insertBillSupa: no real session, skipping');return;}
   const s=getSupa();
   const isTodos=b.userId==='todos';
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?(curUser?.id||null):(b.userId||null), pay_method:b.payMethod||'pix',
+    user_id:isTodos?(curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
     updated_at:new Date().toISOString()
   };
+  if(!row.user_id){console.warn('insertBillSupa: no valid user_id, skipping');return;}
   const{error}=await s.from('bills').insert(row);
   if(error){
     console.log('insertBillSupa error:',error);
@@ -1580,12 +1593,13 @@ async function insertBillSupa(b){
 
 // Save (upsert) a single bill to Supabase — used for edits/updates
 async function saveBillSupa(b){
+  if(!hasRealSession()){console.warn('saveBillSupa: no real session, skipping');return;}
   const s=getSupa();
   const isTodos=b.userId==='todos';
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?(curUser?.id||null):(b.userId||null), pay_method:b.payMethod||'pix',
+    user_id:isTodos?(curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
@@ -2727,16 +2741,17 @@ function renderAddCatGrid(){
 }
 function populateUserSel(){
   const s=document.getElementById('addUser');
+  // Only include users with valid Supabase UUIDs
+  let users=db.users.filter(u=>isUUID(u.id));
   // Ensure current user is always in the list even if profiles failed to load
-  let users=[...db.users];
-  if(curUser&&curUser.id&&!users.find(u=>u.id===curUser.id)){
+  if(curUser&&isUUID(curUser.id)&&!users.find(u=>u.id===curUser.id)){
     users.push({id:curUser.id,name:curUser.name||'Eu',color:curUser.color||'#3b4fd4'});
   }
   s.innerHTML='<option value="">— Sem responsável —</option>'+
     '<option value="todos">👥 Todos</option>'+
     users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
   // Always pre-select the current user
-  if(curUser&&curUser.id){
+  if(curUser&&isUUID(curUser.id)){
     s.value=curUser.id;
   }
 }
