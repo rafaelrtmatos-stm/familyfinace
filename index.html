@@ -430,6 +430,13 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:.45}
 .chat-unread{position:absolute;top:3px;right:8px;width:8px;height:8px;background:#e74c3c;border-radius:50%;display:none}
 
+/* ── LATE BILLS MODAL ── */
+.late-overlay{position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.55);display:none;align-items:flex-end}
+.late-sheet{background:var(--white);border-radius:22px 22px 0 0;width:100%;padding:22px 18px 36px;animation:sup .28s ease;max-height:85%;overflow-y:auto}
+
+/* ── ADD WIZARD ── */
+.adot{border-radius:3px;transition:all .22s}
+
 /* ── THEME PICKER ── */
 .theme-card{margin:14px;background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh)}
 .theme-dot{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .2s;flex-shrink:0}
@@ -609,99 +616,124 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 <!-- ══ ADD SCREEN ══ -->
 <div class="screen off" id="sc-add">
   <div class="sbar" style="background:var(--g2)"></div>
-  <div class="add-gh">
+  <div class="add-gh" style="padding-bottom:10px">
     <div class="add-top">
       <button class="back-btn" onclick="back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <div class="add-top-title">Adicionar transação</div>
+      <div class="add-top-title" id="addStepTitle">Valor da conta</div>
       <div style="width:36px"></div>
     </div>
+    <div style="display:flex;gap:7px;justify-content:center;margin-top:8px">
+      <div class="adot" id="adot0" style="width:22px;height:6px;background:#fff"></div>
+      <div class="adot" id="adot1" style="width:8px;height:6px;background:rgba(255,255,255,.35)"></div>
+      <div class="adot" id="adot2" style="width:8px;height:6px;background:rgba(255,255,255,.35)"></div>
+    </div>
+  </div>
 
+  <!-- ── STEP 0: Value (numpad) ── -->
+  <div id="addStep0" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+    <div class="amt-display" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div class="amt-line"></div>
+      <div><span class="amt-cur">BRL</span><span class="amt-val" id="addAmt">0</span></div>
+      <div style="font-size:.68rem;font-weight:700;color:rgba(255,255,255,.55);margin-top:10px">Digite o valor e toque em →</div>
+    </div>
+    <div class="numpad">
+      <button class="npk" onclick="np('1')">1</button><button class="npk" onclick="np('2')">2</button><button class="npk" onclick="np('3')">3</button>
+      <button class="npk" onclick="np('4')">4</button><button class="npk" onclick="np('5')">5</button><button class="npk" onclick="np('6')">6</button>
+      <button class="npk" onclick="np('7')">7</button><button class="npk" onclick="np('8')">8</button><button class="npk" onclick="np('9')">9</button>
+      <button class="npk del" onclick="npDel()">⌫</button><button class="npk" onclick="np('0')">0</button>
+      <button class="npk ok" onclick="goAddStep(1)" style="font-size:1.3rem;letter-spacing:0">→</button>
+    </div>
   </div>
-  <div class="amt-display">
-    <div class="amt-line"></div>
-    <div><span class="amt-cur">BRL</span><span class="amt-val" id="addAmt">0</span></div>
-  </div>
-  <div class="add-body">
-    <div class="abl">Conta / Responsável</div>
-    <div class="af-val">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-      <select id="addUser" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:800;color:var(--ink);flex:1;outline:none;cursor:pointer;-webkit-appearance:auto;appearance:auto;min-width:0"></select>
-    </div>
-    <div class="abl">Categorias</div>
-    <div class="cat-grid" id="addCatGrid"></div>
-    <div class="abl">Forma de pagamento</div>
-    <div class="pm-row">
-      <button class="pm-chip sel" onclick="selPM(this,'pix')">💸 Pix</button>
-      <button class="pm-chip" onclick="selPM(this,'dinheiro')">💵 Dinheiro</button>
-      <button class="pm-chip" onclick="selPM(this,'cartao')">💳 Cartão</button>
-      <button class="pm-chip" onclick="selPM(this,'outro')">💰 Outro</button>
-    </div>
-    <div class="abl">Quando entra no sistema</div>
-    <div class="qdates">
-      <button class="qd on" data-opt="current" onclick="applyQD('current',this)">Este mês</button>
-      <button class="qd" data-opt="next" onclick="applyQD('next',this)">Mês que vem</button>
-      <button class="qd" data-opt="plus2" onclick="applyQD('plus2',this)">+2 meses</button>
-      <button class="qd" data-opt="plus6" onclick="applyQD('plus6',this)">+6 meses</button>
-      <button class="qd" data-opt="plus12" onclick="applyQD('plus12',this)">+1 ano</button>
-    </div>
-    <!-- Month picker — visible styled field wrapping native input -->
-    <label style="display:flex;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 13px;margin-bottom:11px;cursor:pointer;position:relative" for="addMonth">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <div style="flex:1">
-        <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:2px">Mês de início</div>
-        <div id="addMonthLabel" style="font-size:.9rem;font-weight:800;color:var(--ink)">—</div>
+
+  <!-- ── STEP 1: Categoria + Tipo + Responsável ── -->
+  <div id="addStep1" style="display:none;flex-direction:column;flex:1;min-height:0">
+    <div class="add-body" style="flex:1;overflow-y:auto;padding:14px 16px">
+      <div class="abl">Responsável</div>
+      <div class="af-val" style="margin-bottom:14px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        <select id="addUser" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:800;color:var(--ink);flex:1;outline:none;cursor:pointer;-webkit-appearance:auto;appearance:auto;min-width:0"></select>
       </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-      <input type="month" id="addMonth"
-        style="position:absolute;inset:0;opacity:0.01;width:100%;height:100%;border:none;background:transparent;cursor:pointer;font-size:1px"
-        oninput="onAddMonthChange(this.value)"/>
-    </label>
-    <!-- Day of due -->
-    <div class="af-val" style="margin-bottom:11px;gap:10px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span style="font-size:.84rem;font-weight:700;color:var(--ink2)">Dia de vencimento</span>
-      <input type="number" id="addDay" placeholder="Ex: 20" min="1" max="31"
-        style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;color:var(--g2);width:60px;outline:none;text-align:right"/>
-    </div>
-    <div class="abl">Ciclo de cobrança (diária)</div>
-    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="pm-chip sel" id="cycleDay" onclick="setCycle('day',this)">📅 Por dia</button>
-      <button class="pm-chip" id="cycleFortnight" onclick="setCycle('fortnight',this)">📅 Quinzenal</button>
-      <button class="pm-chip" id="cycleMonth" onclick="setCycle('month',this)">📅 Mensal</button>
-    </div>
-    <!-- Compartilhar com Ingrid (só admin vê) -->
-    <div id="shareToggleRow" style="display:none;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:11px 14px;margin-bottom:12px">
-      <span style="font-size:.84rem;font-weight:700;color:var(--ink);flex:1">👤 Compartilhar com Ingrid</span>
-      <button id="shareToggleBtn" onclick="toggleShareBill(this)"
-        style="width:44px;height:26px;border-radius:100px;border:none;cursor:pointer;background:#dde2ec;position:relative;transition:background .2s">
-        <span id="shareToggleDot" style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)"></span>
-      </button>
-    </div>
-    <div class="abl">Tipo de conta</div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button class="pm-chip sel" id="typeAvista" onclick="setType('avista')">💳 À vista</button>
-      <button class="pm-chip" id="typeParcelada" onclick="setType('parcelada')">📋 Parcelada</button>
-      <button class="pm-chip" id="typeRecorrente" onclick="setType('recorrente')">↺ Recorrente</button>
-    </div>
-    <!-- Shown only for parcelada -->
-    <div id="parcelaWrap" style="display:none;margin-bottom:10px">
-      <div class="af-val" style="align-items:center;gap:10px">
-        <span style="font-size:.82rem;font-weight:700;color:var(--ink2);white-space:nowrap">Nº de parcelas</span>
-        <input type="number" id="addParcelas" min="2" max="60" value="2"
-          style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:var(--g2);width:60px;outline:none;text-align:center"
-          oninput="updateParcelaPreview()"/>
-        <span style="font-size:.76rem;color:var(--ink3);font-weight:700">× meses</span>
+      <div class="abl">Categoria</div>
+      <div class="cat-grid" id="addCatGrid"></div>
+      <div class="abl">Tipo de conta</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="pm-chip sel" id="typeAvista" onclick="setType('avista')">💳 À vista</button>
+        <button class="pm-chip" id="typeParcelada" onclick="setType('parcelada')">📋 Parcelada</button>
+        <button class="pm-chip" id="typeRecorrente" onclick="setType('recorrente')">↺ Recorrente</button>
       </div>
-      <div id="parcelaPreview" style="font-size:.76rem;color:var(--ink3);font-weight:700;padding:6px 12px;background:rgba(59,79,212,.07);border-radius:8px;margin-top:6px"></div>
+      <div id="parcelaWrap" style="display:none;margin-bottom:10px">
+        <div class="af-val" style="align-items:center;gap:10px">
+          <span style="font-size:.82rem;font-weight:700;color:var(--ink2);white-space:nowrap">Nº de parcelas</span>
+          <input type="number" id="addParcelas" min="2" max="60" value="2"
+            style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:var(--g2);width:60px;outline:none;text-align:center"
+            oninput="updateParcelaPreview()"/>
+          <span style="font-size:.76rem;color:var(--ink3);font-weight:700">× meses</span>
+        </div>
+        <div id="parcelaPreview" style="font-size:.76rem;color:var(--ink3);font-weight:700;padding:6px 12px;background:rgba(59,79,212,.07);border-radius:8px;margin-top:6px"></div>
+      </div>
     </div>
-    <div class="abl" style="margin-top:2px">Nome da conta</div>
-    <div class="af-val"><input type="text" id="addName" placeholder="Ex: Aluguel, Energia…" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:700;color:var(--ink);width:100%;outline:none"/></div>
+    <div style="display:flex;gap:8px;padding:10px 16px 14px;background:var(--white);border-top:1px solid #eef0f5;flex-shrink:0">
+      <button onclick="goAddStep(0)" style="flex:1;padding:13px;border-radius:var(--rs);border:1.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:900;cursor:pointer;color:var(--ink3)">← Voltar</button>
+      <button onclick="goAddStep(2)" style="flex:2;padding:13px;border-radius:var(--rs);border:none;background:var(--g2);color:#fff;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:900;cursor:pointer">Avançar →</button>
+    </div>
   </div>
-  <div class="numpad">
-    <button class="npk" onclick="np('1')">1</button><button class="npk" onclick="np('2')">2</button><button class="npk" onclick="np('3')">3</button>
-    <button class="npk" onclick="np('4')">4</button><button class="npk" onclick="np('5')">5</button><button class="npk" onclick="np('6')">6</button>
-    <button class="npk" onclick="np('7')">7</button><button class="npk" onclick="np('8')">8</button><button class="npk" onclick="np('9')">9</button>
-    <button class="npk del" onclick="npDel()">⌫</button><button class="npk" onclick="np('0')">0</button><button class="npk ok" onclick="saveAdd()">OK</button>
+
+  <!-- ── STEP 2: Nome + Dia + Mês + Pagamento ── -->
+  <div id="addStep2" style="display:none;flex-direction:column;flex:1;min-height:0">
+    <div class="add-body" style="flex:1;overflow-y:auto;padding:14px 16px">
+      <div class="abl">Nome da conta</div>
+      <div class="af-val" style="margin-bottom:14px"><input type="text" id="addName" placeholder="Ex: Aluguel, Energia…" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:700;color:var(--ink);width:100%;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('addDay').focus()"/></div>
+      <div class="abl">Dia de vencimento</div>
+      <div class="af-val" style="margin-bottom:14px;gap:10px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span style="font-size:.84rem;font-weight:700;color:var(--ink2);flex:1">Dia do mês</span>
+        <input type="number" id="addDay" inputmode="numeric" pattern="[0-9]*" placeholder="Ex: 20" min="1" max="31"
+          style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;color:var(--g2);width:60px;outline:none;text-align:right"/>
+      </div>
+      <div class="abl">Quando entra no sistema</div>
+      <div class="qdates">
+        <button class="qd on" data-opt="current" onclick="applyQD('current',this)">Este mês</button>
+        <button class="qd" data-opt="next" onclick="applyQD('next',this)">Mês que vem</button>
+        <button class="qd" data-opt="plus2" onclick="applyQD('plus2',this)">+2 meses</button>
+        <button class="qd" data-opt="plus6" onclick="applyQD('plus6',this)">+6 meses</button>
+        <button class="qd" data-opt="plus12" onclick="applyQD('plus12',this)">+1 ano</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 13px;margin-bottom:11px;cursor:pointer;position:relative" for="addMonth">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div style="flex:1">
+          <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:2px">Mês de início</div>
+          <div id="addMonthLabel" style="font-size:.9rem;font-weight:800;color:var(--ink)">—</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <input type="month" id="addMonth"
+          style="position:absolute;inset:0;opacity:0.01;width:100%;height:100%;border:none;background:transparent;cursor:pointer;font-size:1px"
+          oninput="onAddMonthChange(this.value)"/>
+      </label>
+      <div class="abl">Forma de pagamento</div>
+      <div class="pm-row" style="margin-bottom:12px">
+        <button class="pm-chip sel" onclick="selPM(this,'pix')">💸 Pix</button>
+        <button class="pm-chip" onclick="selPM(this,'dinheiro')">💵 Dinheiro</button>
+        <button class="pm-chip" onclick="selPM(this,'cartao')">💳 Cartão</button>
+        <button class="pm-chip" onclick="selPM(this,'outro')">💰 Outro</button>
+      </div>
+      <div class="abl">Ciclo de cobrança (diária)</div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="pm-chip sel" id="cycleDay" onclick="setCycle('day',this)">📅 Por dia</button>
+        <button class="pm-chip" id="cycleFortnight" onclick="setCycle('fortnight',this)">📅 Quinzenal</button>
+        <button class="pm-chip" id="cycleMonth" onclick="setCycle('month',this)">📅 Mensal</button>
+      </div>
+      <div id="shareToggleRow" style="display:none;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:11px 14px;margin-bottom:12px">
+        <span style="font-size:.84rem;font-weight:700;color:var(--ink);flex:1">👤 Compartilhar com Ingrid</span>
+        <button id="shareToggleBtn" onclick="toggleShareBill(this)"
+          style="width:44px;height:26px;border-radius:100px;border:none;cursor:pointer;background:#dde2ec;position:relative;transition:background .2s">
+          <span id="shareToggleDot" style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)"></span>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:10px 16px 14px;background:var(--white);border-top:1px solid #eef0f5;flex-shrink:0">
+      <button onclick="goAddStep(1)" style="flex:1;padding:13px;border-radius:var(--rs);border:1.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:900;cursor:pointer;color:var(--ink3)">← Voltar</button>
+      <button onclick="saveAdd()" style="flex:2;padding:13px;border-radius:var(--rs);border:none;background:var(--g2);color:#fff;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(59,79,212,.3)">✓ Salvar conta</button>
+    </div>
   </div>
 </div>
 
@@ -1004,7 +1036,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <input type="text" inputmode="numeric" class="us-inp" id="editAmount" placeholder="0,00" oninput="currMask(this)"/>
       </div>
       <div class="us-field" style="margin-bottom:0"><div class="us-label">Dia vencimento</div>
-        <input type="number" class="us-inp" id="editDay" min="1" max="31" placeholder="Ex: 20"/>
+        <input type="number" class="us-inp" id="editDay" inputmode="numeric" pattern="[0-9]*" min="1" max="31" placeholder="Ex: 20"/>
       </div>
     </div>
     <div class="us-field"><div class="us-label">Mês de referência</div>
@@ -1166,6 +1198,18 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="npk del" style="padding:13px;font-size:1rem" onclick="editCofreNpDel()">⌫</button>
     </div>
     <button onclick="saveEditCofreHist()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">💾 Salvar</button>
+  </div>
+</div>
+
+<!-- ══ LATE BILLS MODAL ══ -->
+<div class="late-overlay" id="lateBillsOverlay" onclick="if(event.target===this)closeLateBillsModal()">
+  <div class="late-sheet">
+    <div class="ps-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:1rem;font-weight:900;color:var(--ink)">⚠️ Contas Atrasadas</div>
+      <button onclick="closeLateBillsModal()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
+    </div>
+    <div id="lateBillsList"></div>
   </div>
 </div>
 
@@ -1831,6 +1875,67 @@ function getHomeBills(){
 }
 
 /* ══════════════════════════════════════════════════
+   LATE BILLS (PREVIOUS MONTHS)
+══════════════════════════════════════════════════ */
+function getLateBillsPrevMonths(){
+  const td=today();
+  const curKey=mk(CY,CM);
+  let bills=db.bills.filter(b=>{
+    if(b.month>=curKey)return false;
+    return calc(b,td).st!=='paid';
+  });
+  if(dashView==='mine'&&curUser?.id)
+    bills=bills.filter(b=>b.userId===curUser.id||b.userId==='todos');
+  else if(dashView==='custom'&&dashCustomUsers.length>0)
+    bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
+  return bills;
+}
+
+function openLateBillsModal(){
+  const bills=getLateBillsPrevMonths();
+  const td=today();
+  const overlay=document.getElementById('lateBillsOverlay');
+  const listEl=document.getElementById('lateBillsList');
+  if(!overlay||!listEl)return;
+  if(!bills.length){
+    listEl.innerHTML='<div style="text-align:center;padding:24px;color:var(--ink3);font-size:.84rem;font-weight:700">✓ Nenhuma conta atrasada de meses anteriores</div>';
+    overlay.style.display='flex';return;
+  }
+  const totalLate=r2(bills.reduce((s,b)=>s+calc(b,td).bal,0));
+  listEl.innerHTML=`
+    <div style="background:rgba(231,76,60,.09);border:1.5px solid rgba(231,76,60,.22);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:2px">⚠️ Total em atraso</div>
+        <div style="font-size:1.1rem;font-weight:900;color:var(--red)">${fmt(totalLate)}</div>
+      </div>
+      <div style="font-size:.74rem;font-weight:700;color:var(--ink3)">${bills.length} conta${bills.length!==1?'s':''}</div>
+    </div>
+    ${bills.map(b=>{
+      const c=calc(b,td);
+      const cat=catBy(b.category);
+      const uname=db.users.find(u=>u.id===b.userId)?.name||'';
+      const{y:by,m:bm}=ymk(b.month);
+      return`<div onclick="closeLateBillsModal();openDet('${b.id}')" style="background:var(--white);border-radius:14px;padding:13px;box-shadow:var(--sh);margin-bottom:9px;border-left:4px solid var(--red);cursor:pointer;display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:${cat.bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${cat.ico}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.85rem;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</div>
+          <div style="font-size:.68rem;color:var(--ink3);font-weight:700;margin-top:2px">${uname?uname+' · ':''}${MN[bm].slice(0,3)} ${by} · Dia ${b.day}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:.88rem;font-weight:900;color:var(--red)">${fmt(c.bal)}</div>
+          <div style="font-size:.62rem;font-weight:800;color:var(--red);margin-top:2px">Em atraso</div>
+        </div>
+      </div>`;
+    }).join('')}`;
+  overlay.style.display='flex';
+}
+
+function closeLateBillsModal(){
+  const o=document.getElementById('lateBillsOverlay');
+  if(o)o.style.display='none';
+}
+
+/* ══════════════════════════════════════════════════
    RENDER HOME
 ══════════════════════════════════════════════════ */
 let donutChart=null;
@@ -1896,6 +2001,12 @@ function renderHome(){
     totalOrig   =r2(totalOrig+b.amount);
     if(b.noDaily&&c.st==='late')totalLateFixed=r2(totalLateFixed+c.bal);
   });
+  // ── Late bills from previous months ──
+  const prevLateBills=getLateBillsPrevMonths();
+  const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+calc(b,td).bal,0));
+  const remainWd=Math.max(1,wdBefore(td,iso(new Date(y,m+1,0)))+1);
+  const lateAddonDaily=totalPrevLateBal>0?r2(totalPrevLateBal/remainWd):0;
+  const totalDailyWithLate=r2(totalDaily+lateAddonDaily);
 
   // ── Header widget ──
   const htEl=document.getElementById('homeTotal');
@@ -1907,7 +2018,14 @@ function renderHome(){
   if(htEl)htEl.textContent=fmt(totalBal);
   if(tmEl)tmEl.textContent=fmtn(totalOrig);
   if(tpEl)tpEl.textContent=fmtn(totalPaid);
-  if(tdEl)tdEl.textContent=fmt(totalDaily)+'/dia';
+  if(tdEl){
+    tdEl.textContent=fmt(totalDailyWithLate)+'/dia';
+    tdEl.style.cursor='pointer';
+    tdEl.title='Ver contas atrasadas de meses anteriores';
+    if(prevLateBills.length>0){tdEl.style.color='rgba(255,180,80,.95)';}
+    else{tdEl.style.color='';}
+    tdEl.onclick=()=>openLateBillsModal();
+  }
   // Update donut center — show calendar month workdays only
   const calWd=wdm(y,m);
   const wdEl=document.getElementById('donutDailyWd');
@@ -2087,18 +2205,19 @@ function renderHome(){
   }
 
   // Daily + late widgets
-  let dailyWidgetHTML=`<div style="background:linear-gradient(135deg,rgba(59,79,212,.1),rgba(92,107,192,.06));border:1.5px solid rgba(59,79,212,.2);border-radius:14px;padding:12px 14px;margin-bottom:${totalDailies>0||caixaVal<totalBal?'6':'10'}px">
+  const hasPrevLate=prevLateBills.length>0;
+  let dailyWidgetHTML=`<div style="background:linear-gradient(135deg,rgba(59,79,212,.1),rgba(92,107,192,.06));border:1.5px solid rgba(59,79,212,.2);border-radius:14px;padding:12px 14px;margin-bottom:${hasPrevLate||totalDailies>0||caixaVal<totalBal?'6':'10'}px;cursor:pointer" onclick="openLateBillsModal()">
     <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--g2);margin-bottom:7px">📅 Diária — ${wd} dias úteis em ${MN[CM].slice(0,3)}</div>
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
-        <div style="font-size:1.1rem;font-weight:900;color:var(--ink)">${fmt(totalDaily)}<span style="font-size:.68rem;font-weight:700;color:var(--ink3)">/dia</span></div>
+        <div style="font-size:1.1rem;font-weight:900;color:var(--ink)">${fmt(totalDailyWithLate)}<span style="font-size:.68rem;font-weight:700;color:var(--ink3)">/dia</span></div>
         <div style="font-size:.68rem;color:var(--ink3);font-weight:700;margin-top:2px">${bills.length} conta${bills.length!==1?'s':''}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:2px">Total mês</div>
-        <div style="font-size:.9rem;font-weight:900;color:var(--ink)">${fmt(totalOrig)}</div>
+        ${hasPrevLate?`<div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:2px">⚠️ ${prevLateBills.length} atrasada${prevLateBills.length!==1?'s':''}</div><div style="font-size:.82rem;font-weight:900;color:var(--red)">${fmt(totalPrevLateBal)}</div>`:`<div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:2px">Total mês</div><div style="font-size:.9rem;font-weight:900;color:var(--ink)">${fmt(totalOrig)}</div>`}
       </div>
     </div>
+    ${hasPrevLate?`<div style="font-size:.62rem;font-weight:700;color:var(--red);margin-top:7px;background:rgba(231,76,60,.08);border-radius:8px;padding:5px 8px">Toque para ver as contas atrasadas de meses anteriores →</div>`:''}
   </div>`;
 
   // Emergency daily shown directly below daily widget when caixa is short
@@ -2225,6 +2344,27 @@ function populateUserSel(){
 let addType='avista';
 let addCycle='day';
 let addShared=false;
+let addStep=0;
+const ADD_STEP_TITLES=['Valor da conta','Categoria e tipo','Detalhes finais'];
+
+function goAddStep(s){
+  addStep=s;
+  [0,1,2].forEach(i=>{
+    const el=document.getElementById('addStep'+i);
+    if(el)el.style.display=(i===s)?'flex':'none';
+  });
+  [0,1,2].forEach(i=>{
+    const d=document.getElementById('adot'+i);
+    if(!d)return;
+    if(i<s){d.style.background='rgba(255,255,255,.6)';d.style.width='8px';}
+    else if(i===s){d.style.background='#fff';d.style.width='22px';}
+    else{d.style.background='rgba(255,255,255,.35)';d.style.width='8px';}
+  });
+  const tEl=document.getElementById('addStepTitle');
+  if(tEl)tEl.textContent=ADD_STEP_TITLES[s]||'Adicionar conta';
+  if(s===1&&addType==='parcelada')updateParcelaPreview();
+  if(s===2){const el=document.getElementById('addName');if(el)setTimeout(()=>el.focus(),120);}
+}
 
 function toggleShareBill(btn){
   addShared=!addShared;
@@ -2282,6 +2422,7 @@ function resetAddForm(){
   const btn=document.getElementById('shareToggleBtn');
   if(dot)dot.style.left='3px';
   if(btn)btn.style.background='#dde2ec';
+  goAddStep(0);
 }
 function saveAdd(){
   if(!hasPerm('canAdd')){toast('Sem permissão para adicionar');return;}
