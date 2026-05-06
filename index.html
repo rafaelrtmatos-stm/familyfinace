@@ -670,7 +670,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <div class="abl">Responsável</div>
       <div class="af-val" style="margin-bottom:14px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        <select id="addUser" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:800;color:var(--ink);flex:1;outline:none;cursor:pointer;-webkit-appearance:auto;appearance:auto;min-width:0"></select>
+        <select id="addUser" onchange="addUserId=this.value" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:800;color:var(--ink);flex:1;outline:none;cursor:pointer;-webkit-appearance:auto;appearance:auto;min-width:0"></select>
       </div>
       <div class="abl">Categoria</div>
       <div class="cat-grid" id="addCatGrid"></div>
@@ -2769,11 +2769,13 @@ function populateUserSel(){
   if(curUser&&isUUID(curUser.id)){
     s.value=curUser.id;
   }
+  addUserId=s.value;
 }
 let addType='avista';
 let addCycle='day';
 let addShared=false;
 let addStep=0;
+let addUserId='';
 const ADD_STEP_TITLES=['Valor da conta','Categoria e tipo','Detalhes finais'];
 
 function goAddStep(s){
@@ -2933,7 +2935,7 @@ async function saveAdd(){
   const name=document.getElementById('addName').value.trim();
   const day=parseInt(document.getElementById('addDay').value);
   const startMonth=document.getElementById('addMonth').value;
-  const userId=document.getElementById('addUser').value;
+  const userId=addUserId||document.getElementById('addUser').value;
 
   // ── Validação de campos obrigatórios ──
   const errors=[];
