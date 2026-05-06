@@ -3908,7 +3908,7 @@ function renderDash(){
   if(vfEl&&!vfEl.hasChildNodes()){
     let vh=`<button class="vf ${dashView==='mine'?'on':''}" onclick="setDashView('mine',this)">👤 Minhas</button>`;
     vh+=`<button class="vf ${dashView==='all'?'on':''}" onclick="setDashView('all',this)">🌐 Todas</button>`;
-    if(isAdm())vh+=`<button class="vf ${dashView==='custom'?'on':''}" onclick="setDashView('custom',this)">⚙️ Personalizado</button>`;
+    vh+=`<button class="vf ${dashView==='custom'?'on':''}" onclick="setDashView('custom',this)">⚙️ Personalizado</button>`;
     vfEl.innerHTML=vh;
   }
 
