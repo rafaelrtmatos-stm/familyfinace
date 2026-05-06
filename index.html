@@ -3210,7 +3210,7 @@ function refreshDet(id){
          onmouseenter="this.style.background='rgba(231,76,60,.06)'"
          onmouseleave="this.style.background=''">
       <div class="pi-ico">${pmico(p.method)}</div>
-      <div style="flex:1"><div class="pi-method">${pmlbl(p.method)}</div><div class="pi-date">${fmtdate(p.date)}</div></div>
+      <div style="flex:1"><div class="pi-method">${pmlbl(p.method)}</div><div class="pi-date">${fmtdate(p.date)}${p.time?` · ${p.time}`:''}</div></div>
       <div class="pi-val">+ ${fmt(p.amount)}</div>
       <div style="color:var(--red);font-size:.78rem;font-weight:900;margin-left:8px;opacity:.7;flex-shrink:0">✕</div>
     </div>`).join('');
@@ -3601,7 +3601,9 @@ function confirmPay(){
   if(!amount||amount<=0){toast('Digite o valor');return;}
   if(!date){toast('Selecione a data');return;}
   if(!b.payments)b.payments=[];
-  b.payments.push({id:uid(),amount,date,method});
+  const now=new Date();
+  const time=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  b.payments.push({id:uid(),amount,date,method,time});
   sdb();saveBillSupa(b);
   const c=calc(b,date);
   const fullyPaid=c.bal<=0;
