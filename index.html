@@ -1016,7 +1016,15 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
           oninput="const v=this.value;if(v){const p=v.split('-');document.getElementById('editMonthLabel').textContent=MN[parseInt(p[1])-1]+' '+p[0];}"/>
       </div>
     </div>
-    <div class="us-field"><div class="us-label">Ciclo de cobrança</div>
+    <div class="us-field"><div class="us-label">Tipo de conta</div>
+      <div style="display:flex;gap:6px">
+        <button class="pm-chip" id="editTypeAvista" onclick="setEditType('avista',this)">💳 À vista</button>
+        <button class="pm-chip" id="editTypeParcelada" onclick="setEditType('parcelada',this)">📋 Parcelada</button>
+        <button class="pm-chip" id="editTypeRecorrente" onclick="setEditType('recorrente',this)">↺ Recorrente</button>
+      </div>
+      <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
+    </div>
+    <div class="us-field" id="editCycleRow"><div class="us-label">Ciclo de cobrança (diária)</div>
       <div style="display:flex;gap:6px">
         <button class="pm-chip sel" id="editCycleDay" onclick="setEditCycle('day',this)">📅 Por dia</button>
         <button class="pm-chip" id="editCycleFortnight" onclick="setEditCycle('fortnight',this)">📅 Quinzenal</button>
@@ -1233,6 +1241,7 @@ async function loadFromSupa(){
         amount:parseFloat(b.amount), day:b.day, month:b.month,
         userId:b.user_id, payMethod:b.pay_method, category:b.category,
         cycle:b.cycle||'day', recurring:b.recurring||false,
+        noDaily:b.no_daily||false,
         installment:b.installment||null, payments:b.payments||[],
         shared:b.shared||false
       }));
@@ -1439,7 +1448,13 @@ function calc(b,ref){
 
   let daysElapsed,daysLeft,late,acc,accrued;
 
-  if(refDate<=dueDate){
+  if(b.noDaily){
+    // À vista / sem diária: valor fixo, sem acumulação de penalidade
+    daysElapsed=0;daysLeft=0;late=0;acc=0;
+    const pastDue=refDate>piso(dISO);
+    late=pastDue?wdb(dISO,ref):0;
+    accrued=b.amount;
+  } else if(refDate<=piso(dISO)){
     // Before or on due: count workdays elapsed from period start up to today (not incl today)
     daysElapsed=wdBefore(periodStart,ref);
     // Days left: workdays from today up to and including adjusted due
@@ -1455,8 +1470,8 @@ function calc(b,ref){
     accrued=r2(b.amount+acc);
   }
 
-  const upd=r2(b.amount+acc);
-  const bal=Math.max(0,r2(accrued-paid));
+  const upd=b.noDaily?b.amount:r2(b.amount+acc);
+  const bal=Math.max(0,r2((b.noDaily?b.amount:accrued)-paid));
 
   let st;
   if(paid>=b.amount&&paid>0)st='paid';
@@ -2291,7 +2306,7 @@ function saveAdd(){
     const id=uid();
     const bill={id,templateId:id,name:billName,amount:total,day:billDay,month:billMonth,
       userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
-      recurring:false,installment:null,payments:[],shared:addShared};
+      recurring:false,noDaily:true,installment:null,payments:[],shared:addShared};
     db.bills.push(bill);
     sdb();saveBillSupa(bill);
     toast(`✓ Conta adicionada — ${fmt(total)}`);
@@ -2612,10 +2627,12 @@ function renderBills(){
       <div style="display:flex;align-items:center;gap:11px;cursor:pointer" onclick="openDet('${b.id}')">
         <div class="bc-ico" style="background:${cat.bg}">${cat.ico}</div>
         <div style="flex:1">
-          <div class="bc-name">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
+          <div class="bc-name">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${b.noDaily?'<span class="rec-badge" style="background:rgba(127,140,141,.1);color:#7f8c8d"> 💳 fixo</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
           <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
           <div style="display:flex;gap:8px;margin-top:3px;align-items:center">
-            <span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia</span>
+            ${b.noDaily
+              ?'<span style="font-size:.66rem;font-weight:800;color:#7f8c8d;background:rgba(127,140,141,.1);padding:2px 7px;border-radius:100px">sem diária</span>'
+              :`<span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia</span>`}
             <span style="font-size:.66rem;font-weight:700;color:var(--ink3)">Mês: ${fmt(b.amount)}</span>
           </div>
         </div>
@@ -2809,6 +2826,28 @@ function setEditCycle(c,el){
   if(el)el.classList.add('sel');
 }
 
+let _editBillType='avista';
+function setEditType(t,el){
+  _editBillType=t;
+  document.querySelectorAll('#editTypeAvista,#editTypeParcelada,#editTypeRecorrente').forEach(b=>b.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+  const note=document.getElementById('editTypeNote');
+  const cycleRow=document.getElementById('editCycleRow');
+  if(t==='avista'){
+    note.style.display='block';
+    note.textContent='💳 À vista: valor fixo, sem acréscimo de diária. Aparece como atrasada se não paga.';
+    cycleRow.style.display='none';
+  } else if(t==='parcelada'){
+    note.style.display='block';
+    note.textContent='📋 Parcelada: cada parcela acumula diária normalmente até o vencimento.';
+    cycleRow.style.display='block';
+  } else {
+    note.style.display='block';
+    note.textContent='↺ Recorrente: gera nova parcela todo mês e acumula diária normalmente.';
+    cycleRow.style.display='block';
+  }
+}
+
 // Flag: whether to apply edit to all siblings
 let _editAll=false;
 
@@ -2824,6 +2863,11 @@ function openEditSheet(id,applyAll){
   const{y:my,m:mm}=ymk(b.month);
   const mlbl=document.getElementById('editMonthLabel');
   if(mlbl)mlbl.textContent=MN[mm]+' '+my;
+  // Set bill type selector
+  const bType=b.recurring?'recorrente':(b.installment&&b.installment.total>1?'parcelada':'avista');
+  setEditType(bType,document.getElementById(
+    bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista'
+  ));
   // Set cycle
   const cycle=b.cycle||'day';
   setEditCycle(cycle,document.getElementById(
@@ -2877,6 +2921,9 @@ function saveEditBill(){
   // Get selected cycle
   const cycleEl=['editCycleDay','editCycleFortnight','editCycleMonth'].find(id=>document.getElementById(id)?.classList.contains('sel'));
   const cycle=cycleEl==='editCycleFortnight'?'fortnight':cycleEl==='editCycleMonth'?'month':'day';
+  // Derive type fields from _editBillType
+  const noDaily=_editBillType==='avista';
+  const newRecurring=_editBillType==='recorrente';
   if(!name){toast('Digite o nome');return;}
   if(!amount||amount<=0){toast('Valor inválido');return;}
   if(!day||day<1||day>31){toast('Dia inválido');return;}
@@ -2886,11 +2933,11 @@ function saveEditBill(){
     const siblings=db.bills.filter(x=>x.templateId===tid&&!x.payments?.length);
     siblings.forEach(s=>{
       const suffix=s.installment?` (${s.installment.index}/${s.installment.total})`:'';
-      Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category});
+      Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category,noDaily,recurring:newRecurring,cycle});
     });
     toast(`✓ ${siblings.length} parcela${siblings.length!==1?'s':''} atualizadas`);
   } else {
-    Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle});
+    Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle,noDaily,recurring:newRecurring});
     toast('✓ Conta atualizada');
   }
   sdb();closeEditSheet();
