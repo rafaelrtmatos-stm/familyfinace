@@ -862,6 +862,8 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <div style="width:80px;text-align:right"><button class="inner-action" onclick="go('sc-admin')" id="dashAdminBtn" style="display:none;padding:6px 10px;font-size:.68rem">⚙️ ADM</button></div>
     </div>
   </div>
+  <div id="dashVfbar" style="display:flex;gap:5px;overflow-x:auto;padding:8px 14px 6px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
+  <div id="dashCustomUsers" style="display:none;flex-wrap:nowrap;gap:5px;overflow-x:auto;padding:5px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
   <div class="dash-scroll" id="dashContent"></div>
 </div>
 
@@ -2051,7 +2053,11 @@ function go(id){
     if(vfEl)vfEl.innerHTML=''; // force re-render of view filter
     renderBills();
   }
-  else if(id==='sc-dashboard')renderDash();
+  else if(id==='sc-dashboard'){
+    const dvfEl=document.getElementById('dashVfbar');
+    if(dvfEl)dvfEl.innerHTML=''; // force re-render of view filter
+    renderDash();
+  }
   else if(id==='sc-charts')renderCharts();
   else if(id==='sc-users')renderUsers();
   else if(id==='sc-admin')renderAdmin();
@@ -3823,8 +3829,30 @@ function confirmPay(){
 ══════════════════════════════════════════════════ */
 function setDashView(v,el){
   dashView=v;
-  document.querySelectorAll('.vf').forEach(b=>b.classList.remove('on'));
+  if(v!=='custom')dashCustomUsers=[];
+  document.querySelectorAll('#dashVfbar .vf').forEach(b=>b.classList.remove('on'));
   if(el)el.classList.add('on');
+  const cuDiv=document.getElementById('dashCustomUsers');
+  if(cuDiv){
+    if(v==='custom'){
+      cuDiv.style.display='flex';
+      cuDiv.innerHTML=db.users.map(u=>`<button onclick="toggleDashUser('${u.id}',this)" class="vf" style="color:${u.color};border-color:${u.color};flex-shrink:0">${u.name.slice(0,1)} ${esc(u.name)}</button>`).join('');
+    } else cuDiv.style.display='none';
+  }
+  renderDash();
+}
+
+function toggleDashUser(uid2,el){
+  const idx=dashCustomUsers.indexOf(uid2);
+  if(idx>=0)dashCustomUsers.splice(idx,1); else dashCustomUsers.push(uid2);
+  el.classList.toggle('on',dashCustomUsers.includes(uid2));
+  if(el.classList.contains('on')){
+    const u=db.users.find(x=>x.id===uid2);
+    if(u){el.style.background=u.color;el.style.color='#fff';}
+  } else {
+    const u=db.users.find(x=>x.id===uid2);
+    if(u){el.style.background='';el.style.color=u.color;}
+  }
   renderDash();
 }
 
@@ -3858,6 +3886,9 @@ function getBillsForDash(view){
   if(view==='mine'){
     if(curUser&&curUser.id)
       bills=bills.filter(b=>b.userId===curUser.id);
+  } else if(view==='custom'){
+    if(dashCustomUsers.length>0)
+      bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
   } else if(view==='couple'){
     const coupleIds=db.couple||[];
     bills=bills.filter(b=>coupleIds.includes(b.userId));
@@ -3872,15 +3903,13 @@ function renderDash(){
   const coupleIds=db.couple||[];
   const td=today();
 
-  // View filter buttons
-  let vfHTML=`<button class="vf ${dashView==='mine'?'on':''}" data-v="mine" onclick="setDashView('mine',this)">👤 Minhas</button>`;
-  if(p.viewAll)
-    vfHTML+=`<button class="vf ${dashView==='all'?'on':''}" data-v="all" onclick="setDashView('all',this)">🌐 Todas</button>`;
-  if(isAdm()){
-    db.users.forEach(u=>{
-      const vid='u_'+u.id;
-      vfHTML+=`<button class="vf ${dashView===vid?'on':''}" data-v="${vid}" onclick="setDashView('${vid}',this)" style="border-color:${u.color};${dashView===vid?'background:'+u.color+';color:#fff':'color:'+u.color}">${u.name.slice(0,1)} ${esc(u.name)}</button>`;
-    });
+  // View filter buttons (populate static dashVfbar)
+  const vfEl=document.getElementById('dashVfbar');
+  if(vfEl&&!vfEl.hasChildNodes()){
+    let vh=`<button class="vf ${dashView==='mine'?'on':''}" onclick="setDashView('mine',this)">👤 Minhas</button>`;
+    if(p.viewAll)vh+=`<button class="vf ${dashView==='all'?'on':''}" onclick="setDashView('all',this)">🌐 Todas</button>`;
+    if(isAdm())vh+=`<button class="vf ${dashView==='custom'?'on':''}" onclick="setDashView('custom',this)">⚙️ Personalizado</button>`;
+    vfEl.innerHTML=vh;
   }
 
   const bills=getBillsForDash(dashView);
@@ -3938,11 +3967,10 @@ function renderDash(){
     </div>`;
   }).join(''):`<div style="text-align:center;padding:28px;color:var(--ink3);font-size:.84rem;font-weight:700">Nenhuma conta em ${MN[dashCM].slice(0,3)} ${dashCY}</div>`;
 
-  const viewLbl={mine:'Minhas Contas',couple:'Contas do Casal',all:'Todas as Contas'}[dashView]
+  const viewLbl={mine:'Minhas Contas',all:'Todas as Contas',custom:'Personalizado',couple:'Contas do Casal'}[dashView]
     ||(dashView.startsWith('u_')?'Usuário: '+(db.users.find(u=>'u_'+u.id===dashView)?.name||''):'');
 
   document.getElementById('dashContent').innerHTML=`
-    <div class="vfbar" style="-webkit-overflow-scrolling:touch">${vfHTML}</div>
     <!-- Month navigator -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
       <button onclick="chDashMon(-1)" style="background:none;border:1.5px solid #dde2ec;border-radius:8px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink2)">
