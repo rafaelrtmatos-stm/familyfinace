@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,interactive-widget=resizes-visual">
 <title>Family Finance</title>
 <meta name="apple-mobile-web-app-title" content="FamilyFinance">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -34,8 +34,9 @@ html,body{height:100%;overflow:hidden;background:#1a1a2e;font-family:'Nunito',sa
 }
 body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 @media(max-width:420px){
+  html{height:100%;overflow:hidden}
+  body{position:fixed;top:0;left:0;width:100%;height:100%;overflow:hidden;background:var(--bg)}
   .phone{width:100%;height:100%;border-radius:0;box-shadow:none}
-  body{background:var(--bg)}
 }
 
 /* ── SCREENS ── */
@@ -1480,6 +1481,19 @@ async function loadFromSupa(){
           }
         });
       }
+      if(adminProf?.perms?._userdata){
+        // Apply saved name/email/color/role overrides (survives RLS restrictions on profile rows)
+        const savedData=adminProf.perms._userdata;
+        db.users.forEach(u=>{
+          if(savedData[u.id]){
+            const d=savedData[u.id];
+            if(d.name)u.name=d.name;
+            if(d.email)u.email=d.email;
+            if(d.color)u.color=d.color;
+            if(d.role)u.role=d.role;
+          }
+        });
+      }
       // Sync cofre — pick newest snapshot across all profiles
       let bestSnap=null,bestTs=0;
       profiles.forEach(p=>{
@@ -1524,13 +1538,18 @@ async function saveAdminSettingsToProfiles(){
     // Read current profile perms to preserve _cofre and any other keys
     const{data:prof}=await s.from('profiles').select('perms').eq('id',adminUser.id).single();
     const existing=prof?.perms||{};
-    // Build perms map for non-admin users (only valid UUIDs)
+    // Build perms map and userdata map for all users with valid UUIDs
     const usersPerms={};
-    db.users.filter(u=>u.role!=='admin'&&isUUID(u.id)).forEach(u=>{usersPerms[u.id]=u.perms||{};});
+    const usersData={};
+    db.users.filter(u=>isUUID(u.id)).forEach(u=>{
+      if(u.role!=='admin')usersPerms[u.id]=u.perms||{};
+      usersData[u.id]={name:u.name,email:u.email,color:u.color,role:u.role};
+    });
     const{error}=await s.from('profiles').update({
       perms:{...existing,
         _settings:{cats:db.cats,couple:db.couple,ts:Date.now()},
-        _perms:usersPerms
+        _perms:usersPerms,
+        _userdata:usersData
       }
     }).eq('id',adminUser.id);
     if(error)console.warn('saveAdminSettings error',error);
@@ -4636,13 +4655,17 @@ async function saveUserEdit(){
   if(dup){toast('E-mail já cadastrado');return;}
 
   if(editId){
-    // Editing existing user — update locally + update profile in Supabase
+    // Editing existing user — update locally first
     const u=db.users.find(x=>x.id===editId);
     if(u)Object.assign(u,{name,email,login:email,password:pass,role,color});
+    // Try to update the profile row directly (works for own row; fails silently if RLS blocks it)
     try{
-      await getSupa().from('profiles').update({name,email,role,color}).eq('id',editId);
+      const{error:upErr}=await getSupa().from('profiles').update({name,email,role,color}).eq('id',editId);
+      if(upErr)console.warn('profile direct update blocked (RLS):',upErr.message);
     }catch(e){console.warn('profile update error',e);}
-    sdb();closeUserEdit();
+    // Always save via admin perms._userdata so changes persist even when RLS blocks direct update
+    await saveAdminSettingsToProfiles();
+    closeUserEdit();
     const ct=document.getElementById('settingsContent');
     if(ct&&curSc==='sc-settings')renderSTUsers(ct);
     toast('Usuário atualizado ✓');
