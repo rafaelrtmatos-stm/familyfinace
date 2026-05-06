@@ -1714,23 +1714,7 @@ async function doLoginBtn(){
 
   showLoader('Entrando...');
 
-  // 1) Check hardcoded local credentials first (instant, no network)
-  const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
-  if(hardcoded){
-    hideLoader();
-    await doLogin({...hardcoded});
-    return;
-  }
-
-  // 2) Check local db users (may have custom passwords saved)
-  const localU=db.users.find(u=>(u.email||'').toLowerCase()===emailVal);
-  if(localU && localU.password && localU.password===passVal){
-    hideLoader();
-    await doLogin({...localU});
-    return;
-  }
-
-  // 3) Try Supabase with 8s timeout
+  // Always authenticate with Supabase to get a valid JWT (required for RLS)
   try{
     const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),8000));
     const authCall=getSupa().auth.signInWithPassword({email:emailVal,password:passVal});
@@ -1738,16 +1722,26 @@ async function doLoginBtn(){
     if(!error && data?.user){
       const email=data.user.email;
       const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
+      // Merge profile with hardcoded defaults for name/role/color/perms
+      const hardcoded=LOCAL_CREDS.find(c=>c.email===email)||{};
       const u={
         id:data.user.id,
-        name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
+        name:profile?.name||hardcoded.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
         email,
-        role:profile?.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
-        color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
-        perms:profile?.perms||{}
+        role:profile?.role||hardcoded.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
+        color:profile?.color||hardcoded.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
+        perms:profile?.perms||hardcoded.perms||{}
       };
       hideLoader();
       await doLogin(u);
+      return;
+    }
+    // Supabase auth failed — try hardcoded local credentials as offline fallback
+    const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
+    if(hardcoded){
+      hideLoader();
+      toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+      await doLogin({...hardcoded});
       return;
     }
     hideLoader();
@@ -1755,6 +1749,13 @@ async function doLoginBtn(){
   }catch(e){
     hideLoader();
     if(e.message==='timeout'){
+      // On timeout, try hardcoded local credentials as offline fallback
+      const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
+      if(hardcoded){
+        toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+        await doLogin({...hardcoded});
+        return;
+      }
       errEl.textContent='Servidor demorou demais. Verifique a internet.';
     }else{
       errEl.textContent='Erro de conexão. Verifique a internet.';
