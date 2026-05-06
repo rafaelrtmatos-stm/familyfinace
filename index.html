@@ -5135,11 +5135,11 @@ async function updateMyPresence(readTs){
   try{
     const s=getSupa();
     const myId=curUser.id||curUser.login;
-    const{data}=await s.from('app_settings').select('id,value').eq('key',PRESENCE_KEY).single();
+    const{data}=await s.from('app_settings').select('value').eq('key',PRESENCE_KEY).maybeSingle();
     const presence=(data?.value&&typeof data.value==='object')?{...data.value}:{};
     presence[myId]={ts:Date.now(),readTs:readTs||presence[myId]?.readTs||0,name:curUser.name};
-    if(data?.id){await s.from('app_settings').update({value:presence,updated_at:new Date().toISOString()}).eq('key',PRESENCE_KEY);}
-    else{await s.from('app_settings').insert({key:PRESENCE_KEY,value:presence});}
+    const{error}=await s.from('app_settings').upsert({key:PRESENCE_KEY,value:presence,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error)console.warn('presence upsert error',error);
   }catch(e){console.warn('presence update',e);}
 }
 
@@ -5147,7 +5147,7 @@ async function loadPresence(){
   if(!curUser)return;
   try{
     const s=getSupa();
-    const{data}=await s.from('app_settings').select('value').eq('key',PRESENCE_KEY).single();
+    const{data}=await s.from('app_settings').select('value').eq('key',PRESENCE_KEY).maybeSingle();
     if(data?.value&&typeof data.value==='object'){
       const myId=curUser.id||curUser.login;
       const others=Object.entries(data.value).filter(([id])=>id!==myId);
@@ -5185,7 +5185,8 @@ function renderChatPresence(){
 async function loadChatMessages(showToast){
   try{
     const s=getSupa();
-    const{data}=await s.from('app_settings').select('value').eq('key',CHAT_KEY).single();
+    const{data,error}=await s.from('app_settings').select('value').eq('key',CHAT_KEY).maybeSingle();
+    if(error)console.warn('chat load error',error);
     if(data?.value&&Array.isArray(data.value)){
       _chatMsgs=data.value;
     } else {
@@ -5225,12 +5226,8 @@ async function saveChatMessages(){
   try{localStorage.setItem(CHAT_KEY,JSON.stringify(_chatMsgs));}catch{}
   try{
     const s=getSupa();
-    const{data}=await s.from('app_settings').select('id').eq('key',CHAT_KEY).single();
-    if(data?.id){
-      await s.from('app_settings').update({value:_chatMsgs,updated_at:new Date().toISOString()}).eq('key',CHAT_KEY);
-    } else {
-      await s.from('app_settings').insert({key:CHAT_KEY,value:_chatMsgs});
-    }
+    const{error}=await s.from('app_settings').upsert({key:CHAT_KEY,value:_chatMsgs,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error)console.warn('chat save error',error);
   }catch(e){console.warn('chat save',e);}
 }
 
