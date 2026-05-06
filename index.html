@@ -1373,7 +1373,7 @@ async function loadFromSupa(){
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
     if(hols)db.holidays=hols.map(h=>({id:String(h.id),date:h.date,name:h.name}));
-    // Load cats + couple from settings
+    // Load cats + couple from app_settings (backward compat read — writes go to profiles now)
     const{data:sets}=await s.from('app_settings').select('*');
     if(sets){
       const catSetting=sets.find(s=>s.key==='cats');
@@ -1381,17 +1381,31 @@ async function loadFromSupa(){
       const coupleSetting=sets.find(s=>s.key==='couple');
       if(coupleSetting?.value)db.couple=coupleSetting.value;
     }
-    // Sync cofre from profiles (no extra round-trip — profiles already loaded above)
+    // Apply settings, perms and cofre from profiles (no extra round-trip)
     if(profiles){
+      const adminProf=profiles.find(p=>p.email==='rafaelrtmatos@gmail.com'||p.role==='admin');
+      if(adminProf?.perms?._settings){
+        const ps=adminProf.perms._settings;
+        // Profile settings override app_settings (newer source of truth)
+        if(Array.isArray(ps.cats)&&ps.cats.length)db.cats=ps.cats;
+        if(Array.isArray(ps.couple))db.couple=ps.couple;
+      }
+      if(adminProf?.perms?._perms){
+        // Apply saved perms to non-admin users
+        const savedPerms=adminProf.perms._perms;
+        db.users.forEach(u=>{
+          if(u.role!=='admin'&&savedPerms[u.id]){
+            u.perms=Object.assign({},u.perms,savedPerms[u.id]);
+          }
+        });
+      }
+      // Sync cofre — pick newest snapshot across all profiles
       let bestSnap=null,bestTs=0;
       profiles.forEach(p=>{
         const snap=p?.perms?._cofre;
         if(snap&&typeof snap==='object'&&(snap.ts||0)>bestTs){bestTs=snap.ts||0;bestSnap=snap;}
       });
-      if(bestSnap){
-        _applyCofreSnapshot(bestSnap);
-        _cofreSynced=true;_cofreSyncTs=bestTs;
-      }
+      if(bestSnap){_applyCofreSnapshot(bestSnap);_cofreSynced=true;_cofreSyncTs=bestTs;}
     }
     hideLoader();
   }catch(e){
@@ -1417,6 +1431,28 @@ async function syncData(){
 }
 
 // Sync db state to Supabase
+// Save shared settings (cats, couple, user perms) into admin's profile row.
+// Uses profiles table with default "user can update own row" RLS — no SQL fix needed.
+async function saveAdminSettingsToProfiles(){
+  try{
+    const s=getSupa();if(!s||!curUser)return;
+    const adminUser=db.users.find(u=>u.role==='admin')||curUser;
+    // Read current profile perms to preserve _cofre and any other keys
+    const{data:prof}=await s.from('profiles').select('perms').eq('id',adminUser.id).single();
+    const existing=prof?.perms||{};
+    // Build perms map for all non-admin users
+    const usersPerms={};
+    db.users.filter(u=>u.role!=='admin').forEach(u=>{usersPerms[u.id]=u.perms||{};});
+    const{error}=await s.from('profiles').update({
+      perms:{...existing,
+        _settings:{cats:db.cats,couple:db.couple,ts:Date.now()},
+        _perms:usersPerms
+      }
+    }).eq('id',adminUser.id);
+    if(error)console.warn('saveAdminSettings error',error);
+  }catch(e){console.warn('saveAdminSettings',e);}
+}
+
 async function syncToSupa(){
   if(!curUser)return;
   const s=getSupa();
@@ -1436,12 +1472,8 @@ async function syncToSupa(){
       const{error:billsErr}=await s.from('bills').upsert(rows,{onConflict:'id'});
       if(billsErr)console.warn('syncToSupa bills error',billsErr);
     }
-    // Upsert settings (cats, couple)
-    const{error:settingsErr}=await s.from('app_settings').upsert([
-      {key:'cats',value:db.cats,updated_at:new Date().toISOString()},
-      {key:'couple',value:db.couple,updated_at:new Date().toISOString()},
-    ],{onConflict:'key'});
-    if(settingsErr)console.warn('syncToSupa settings error',settingsErr);
+    // Save settings (cats, couple, user perms) to admin profile — no app_settings needed
+    await saveAdminSettingsToProfiles();
   }catch(e){
     console.error('syncToSupa error',e);
   }
@@ -4680,7 +4712,10 @@ function savePerms(){
   const u=db.users.find(x=>x.id===uid2);if(!u)return;
   const perms={};
   Object.keys(PERM_LABELS).forEach(k=>{perms[k]=!!(document.getElementById('pt_'+k)?.classList.contains('on'));});
-  u.perms=perms;sdb();toast('✓ Permissões salvas para '+u.name);
+  u.perms=perms;
+  // Save directly to admin profile (profiles table, no RLS issue)
+  saveAdminSettingsToProfiles();
+  toast('✓ Permissões salvas para '+u.name);
 }
 
 /* ── COUPLE TAB ── */
