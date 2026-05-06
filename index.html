@@ -1329,6 +1329,7 @@ function _onBillsChange(){
     if(!curUser)return;
     await loadFromSupa();
     preFillFutureMonths();
+    updateCaixa();
     renderHome();
     if(curSc==='sc-bills')renderBills();
     else if(curSc==='sc-charts')renderCharts();
@@ -1440,6 +1441,7 @@ async function loadFromSupa(){
       if(bestSnap){_applyCofreSnapshot(bestSnap);_cofreSynced=true;_cofreSyncTs=bestTs;}
     }
     hideLoader();
+    updateCaixa();
   }catch(e){
     console.error('loadFromSupa error',e);
     hideLoader();
@@ -2154,6 +2156,64 @@ function getLateBillsPrevMonths(){
   return bills;
 }
 
+function updateCaixa(){
+  if(!curUser)return;
+  const td=today();
+  const{y,m}=ymk(mk(CY,CM));
+  const bills=getHomeBills();
+  let totalDailies=0,totalDaily=0,totalBal=0,totalPaid=0,totalOrig=0;
+  bills.forEach(b=>{
+    const c=calc(b,td);
+    totalDailies=r2(totalDailies+c.acc);
+    totalDaily  =r2(totalDaily+c.daily);
+    totalBal    =r2(totalBal+c.bal);
+    totalPaid   =r2(totalPaid+c.paid);
+    totalOrig   =r2(totalOrig+b.amount);
+  });
+  const prevLateBills=getLateBillsPrevMonths();
+  const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+calc(b,td).bal,0));
+  const remainWd=Math.max(1,wdBefore(td,iso(new Date(y,m+1,1))));
+  const lateAddonDaily=totalPrevLateBal>0?r2(totalPrevLateBal/remainWd):0;
+  const totalDailyWithLate=r2(totalDaily+lateAddonDaily);
+  const grandTotalBal=r2(totalBal+totalPrevLateBal);
+  const caixaVal=getCofreVal();
+  const diff=r2(caixaVal-grandTotalBal);
+  const htEl=document.getElementById('homeTotal');
+  const hdEl=document.getElementById('homeDailyRow');
+  const tmEl=document.getElementById('homeTotalMes');
+  const tpEl=document.getElementById('homeTotalPago');
+  const tdEl=document.getElementById('homeDiariaVal');
+  const dvEl=document.getElementById('donutVal');
+  const caixaEl=document.getElementById('homeCaixaVal');
+  const caixaSubEl=document.getElementById('homeCaixaSub');
+  const faltaEl=document.getElementById('homeFaltaVal');
+  const faltaSubEl=document.getElementById('homeFaltaSub');
+  const faltaLblEl=document.getElementById('homeFaltaLbl');
+  if(htEl)htEl.textContent=fmt(grandTotalBal);
+  if(tmEl)tmEl.textContent=fmtn(totalOrig);
+  if(tpEl)tpEl.textContent=fmtn(totalPaid);
+  if(dvEl)dvEl.textContent=fmt(grandTotalBal);
+  if(tdEl){
+    tdEl.textContent=fmt(totalDailyWithLate)+'/dia';
+    tdEl.style.cursor='pointer';
+    tdEl.title='Ver contas atrasadas de meses anteriores';
+    tdEl.style.color=prevLateBills.length>0?'rgba(255,180,80,.95)':'';
+    tdEl.onclick=()=>openLateBillsModal();
+  }
+  if(hdEl){
+    if(totalDailies>0){hdEl.textContent=`⚠️ +${fmt(totalDailies)} em atraso`;hdEl.style.display='block';}
+    else{hdEl.style.display='none';}
+  }
+  if(caixaEl)caixaEl.textContent=fmt(caixaVal);
+  if(caixaSubEl)caixaSubEl.textContent=diff>=0?`✓ Sobra ${fmt(diff)}`:`Falta ${fmt(Math.abs(diff))}`;
+  if(faltaEl){
+    faltaEl.textContent=fmt(Math.abs(diff));
+    faltaEl.style.color=diff>=0?'rgba(150,255,200,.95)':'rgba(255,100,100,.95)';
+  }
+  if(faltaLblEl)faltaLblEl.textContent=diff>=0?'Saldo':'Débito';
+  if(faltaSubEl)faltaSubEl.textContent=diff>=0?'Cofre OK':'para cobrir tudo';
+}
+
 function openLateBillsModal(){
   const bills=getLateBillsPrevMonths();
   const td=today();
@@ -2275,59 +2335,17 @@ function renderHome(){
   // Grand total = current month balance + overdue from previous months
   const grandTotalBal=r2(totalBal+totalPrevLateBal);
 
-  // ── Header widget ──
-  const htEl=document.getElementById('homeTotal');
-  const hdEl=document.getElementById('homeDailyRow');
-  const tmEl=document.getElementById('homeTotalMes');
-  const tpEl=document.getElementById('homeTotalPago');
-  const tdEl=document.getElementById('homeDiariaVal');
-  const ulEl=document.getElementById('ghUserLbl');
-  if(htEl)htEl.textContent=fmt(grandTotalBal);
-  if(tmEl)tmEl.textContent=fmtn(totalOrig);
-  if(tpEl)tpEl.textContent=fmtn(totalPaid);
-  if(tdEl){
-    tdEl.textContent=fmt(totalDailyWithLate)+'/dia';
-    tdEl.style.cursor='pointer';
-    tdEl.title='Ver contas atrasadas de meses anteriores';
-    if(prevLateBills.length>0){tdEl.style.color='rgba(255,180,80,.95)';}
-    else{tdEl.style.color='';}
-    tdEl.onclick=()=>openLateBillsModal();
-  }
-  // Update donut center — show calendar month workdays only
+  // ── Header balances (totals + caixa + saldo) ──
+  updateCaixa();
+  // Update donut center workdays label and view name
   const calWd=wdm(y,m);
   const wdEl=document.getElementById('donutDailyWd');
   if(wdEl)wdEl.textContent=calWd;
+  const ulEl=document.getElementById('ghUserLbl');
   if(ulEl){
     const viewNames={mine:curUser?.name||'Minhas',all:'Todas as Contas',custom:'Personalizado'};
     ulEl.textContent=viewNames[dashView]||curUser?.name||'—';
   }
-  if(hdEl){
-    if(totalDailies>0){hdEl.textContent=`⚠️ +${fmt(totalDailies)} em atraso`;hdEl.style.display='block';}
-    else{hdEl.style.display='none';}
-  }
-  const dvEl=document.getElementById('donutVal');
-  if(dvEl)dvEl.textContent=fmt(grandTotalBal);
-
-  // ── Header caixa value ──
-  const caixaVal=getCofreVal();
-  const caixaEl=document.getElementById('homeCaixaVal');
-  const caixaSubEl=document.getElementById('homeCaixaSub');
-  if(caixaEl)caixaEl.textContent=fmt(caixaVal);
-  if(caixaSubEl){
-    const diff=r2(caixaVal-grandTotalBal);
-    caixaSubEl.textContent=diff>=0?`✓ Sobra ${fmt(diff)}`:`Falta ${fmt(Math.abs(diff))}`;
-  }
-  // Saldo vs Débito
-  const faltaEl=document.getElementById('homeFaltaVal');
-  const faltaSubEl=document.getElementById('homeFaltaSub');
-  const faltaLblEl=document.getElementById('homeFaltaLbl');
-  const diff=r2(caixaVal-grandTotalBal);
-  if(faltaEl){
-    faltaEl.textContent=fmt(Math.abs(diff));
-    faltaEl.style.color=diff>=0?'rgba(150,255,200,.95)':'rgba(255,100,100,.95)';
-  }
-  if(faltaLblEl)faltaLblEl.textContent=diff>=0?'Saldo':'Débito';
-  if(faltaSubEl)faltaSubEl.textContent=diff>=0?'Cofre OK':'para cobrir tudo';
 
   // ── Chart 1: Daily donut ──
   const catDaily={};
