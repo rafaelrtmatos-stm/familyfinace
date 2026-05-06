@@ -402,10 +402,49 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .vb-couple{background:rgba(92,107,192,.12);color:var(--g2)}
 .vb-all{background:rgba(155,89,182,.12);color:var(--purple)}
 
+/* ── PULL-TO-REFRESH ── */
+.ptr-wrap{position:absolute;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:center;gap:10px;height:52px;background:var(--white);border-bottom:1px solid #eef0f5;transform:translateY(-100%);transition:transform .25s ease;pointer-events:none}
+.ptr-wrap.ptr-visible{transform:translateY(0)}
+.ptr-spinner{width:22px;height:22px;border:3px solid #eef0f5;border-top-color:var(--g2);border-radius:50%}
+.ptr-spinner.spinning{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ptr-lbl{font-size:.74rem;font-weight:800;color:var(--ink2)}
+
+/* ── CHAT ── */
+.chat-body{flex:1;overflow-y:auto;padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.chat-body::-webkit-scrollbar{display:none}
+.chat-bubble{max-width:78%;display:flex;flex-direction:column}
+.chat-bubble.mine{align-self:flex-end;align-items:flex-end}
+.chat-bubble.theirs{align-self:flex-start;align-items:flex-start}
+.chat-name{font-size:.6rem;font-weight:800;color:var(--ink3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;padding:0 4px}
+.chat-text{padding:10px 14px;border-radius:20px;font-size:.86rem;font-weight:700;line-height:1.45;word-break:break-word}
+.chat-bubble.mine .chat-text{background:var(--g2);color:#fff;border-bottom-right-radius:4px}
+.chat-bubble.theirs .chat-text{background:var(--white);color:var(--ink);border-bottom-left-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.chat-ts{font-size:.58rem;font-weight:700;margin-top:3px;padding:0 4px}
+.chat-bubble.mine .chat-ts{color:rgba(255,255,255,.6)}
+.chat-bubble.theirs .chat-ts{color:var(--ink3)}
+.chat-input-row{display:flex;gap:8px;padding:10px 14px 14px;background:var(--white);border-top:1px solid #eef0f5;flex-shrink:0;align-items:center}
+.chat-inp{flex:1;background:var(--bg);border:1.5px solid #dde2ec;border-radius:100px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:700;color:var(--ink);outline:none}
+.chat-send{width:42px;height:42px;border-radius:50%;background:var(--g2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
+.chat-send:active{transform:scale(.9)}
+.chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:.45}
+.chat-unread{position:absolute;top:3px;right:8px;width:8px;height:8px;background:#e74c3c;border-radius:50%;display:none}
+
+/* ── THEME PICKER ── */
+.theme-card{margin:14px;background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh)}
+.theme-dot{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .2s;flex-shrink:0}
+.theme-dot.tactive{border-color:var(--ink);transform:scale(1.18);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+
 </style>
 </head>
 <body>
 <div class="phone">
+
+<!-- Pull-to-refresh indicator -->
+<div class="ptr-wrap" id="ptrWrap">
+  <div class="ptr-spinner" id="ptrSpinner"></div>
+  <div class="ptr-lbl" id="ptrLbl">Puxe para atualizar</div>
+</div>
 
 <!-- ══ LOGIN SCREEN ══ -->
 <div class="screen" id="loginScreen" style="background:linear-gradient(160deg,#1a1060 0%,#3d2db5 45%,#5b4fd4 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;overflow:hidden">
@@ -559,9 +598,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <div class="bni-lbl">Gráficos</div>
     </button>
-    <button class="bni" id="bni-dashboard" onclick="go('sc-dashboard')">
-      <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
-      <div class="bni-lbl">Painel</div>
+    <button class="bni" id="bni-chat" onclick="go('sc-chat')" style="position:relative">
+      <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="bni-lbl">Chat</div>
+      <span class="chat-unread" id="chatUnreadDot"></span>
     </button>
   </div>
 </div>
@@ -768,6 +808,24 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="inner-action" id="addUserBtn" onclick="openUserEdit()" style="display:none">+ Add</button>
     </div>
   </div>
+  <!-- Theme picker card -->
+  <div class="theme-card">
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:12px">🎨 Tema do aplicativo</div>
+    <div style="display:flex;gap:14px;align-items:center" id="themePickerRow">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer" onclick="applyTheme('default')">
+        <div class="theme-dot" id="tdot-default" style="background:linear-gradient(135deg,#3b4fd4,#1e8449)"></div>
+        <span style="font-size:.58rem;font-weight:800;color:var(--ink3)">Padrão</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer" onclick="applyTheme('rose')">
+        <div class="theme-dot" id="tdot-rose" style="background:linear-gradient(135deg,#e91e8c,#f06292)"></div>
+        <span style="font-size:.58rem;font-weight:800;color:var(--ink3)">Rosa</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer" onclick="applyTheme('dark')">
+        <div class="theme-dot" id="tdot-dark" style="background:linear-gradient(135deg,#1a1a2e,#5c6bc0)"></div>
+        <span style="font-size:.58rem;font-weight:800;color:var(--ink3)">Dark</span>
+      </div>
+    </div>
+  </div>
   <div class="users-scroll" id="usersList"></div>
 </div>
 
@@ -782,6 +840,30 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
   </div>
   <div class="admin-scroll" id="adminContent"></div>
+</div>
+
+<!-- ══ CHAT SCREEN ══ -->
+<div class="screen off" id="sc-chat">
+  <div class="sbar" style="background:var(--g2)"></div>
+  <div class="inner-gh">
+    <div class="inner-top">
+      <button class="back-btn" onclick="back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="inner-title">💬 Mensagens</div>
+      <button onclick="loadChatMessages(true)" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;padding:6px;font-size:.78rem;font-weight:800">↻</button>
+    </div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="chat-empty">
+      <div style="font-size:2rem">💬</div>
+      <div style="font-size:.8rem;font-weight:700;color:var(--ink3)">Sem mensagens ainda</div>
+    </div>
+  </div>
+  <div class="chat-input-row">
+    <input class="chat-inp" id="chatInp" placeholder="Digite uma mensagem…" onkeydown="if(event.key==='Enter')sendChatMsg()"/>
+    <button class="chat-send" onclick="sendChatMsg()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
 </div>
 
 <!-- ══ PAYMENT SHEET ══ -->
@@ -1580,6 +1662,7 @@ async function doLogin(u){
   const homeBtn=document.getElementById(BNAV_MAP['sc-home']);
   if(homeBtn)homeBtn.classList.add('active');
   toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}! ${u.role==='admin'?'👑':''}`);
+  startChatPoll();
 }
 
 function updateUIForUser(){
@@ -1596,6 +1679,7 @@ function reqAdm(msg){if(!isAdm()){toast(msg||'⚠️ Somente administrador');ret
 function hasPerm(key){return isAdm()||!!(getPerms(curUser)[key]);}
 
 async function logout(){
+  stopChatPoll();
   curUser=null;selectedLoginUser=null;
   localStorage.removeItem('cpro4_stay');
   try{await getSupa().auth.signOut();}catch{}
@@ -1612,7 +1696,7 @@ async function logout(){
 ══════════════════════════════════════════════════ */
 let curSc='sc-home';
 const navStack=[];  // navigation history stack
-const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts','sc-dashboard':'bni-dashboard'};
+const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts','sc-chat':'bni-chat'};
 
 function go(id){
   if(id===curSc)return;
@@ -1638,6 +1722,7 @@ function go(id){
   else if(id==='sc-admin')renderAdmin();
   else if(id==='sc-add'){populateUserSel();resetAddForm();}
   else if(id==='sc-settings'){renderSettings();showST('users',document.querySelector('.stab'));}
+  else if(id==='sc-chat'){loadChatMessages(false);markChatRead();}
 }
 
 function back(){
@@ -4336,6 +4421,7 @@ function seed(){
    INIT
 ══════════════════════════════════════════════════ */
 window.onload=async()=>{
+  initTheme();
   await ldb();
   // Seed local user chips (for login screen display)
   if(!db.users.length){
@@ -4376,6 +4462,192 @@ window.onload=async()=>{
     if(event==='SIGNED_OUT'&&curUser){await logout();}
   });
 };
+
+/* ══════════════════════════════════════════════════
+   THEMES
+══════════════════════════════════════════════════ */
+const THEMES={
+  default:{'--g':'#5c6bc0','--g2':'#3b4fd4','--g3':'#1e8449','--bg':'#f0f2f5','--white':'#ffffff','--ink':'#1a1a2e','--ink2':'#555e7a','--ink3':'#9ca3af','bodyBg':'#1a1a2e'},
+  rose:   {'--g':'#f06292','--g2':'#e91e8c','--g3':'#c2185b','--bg':'#fce4ec','--white':'#ffffff','--ink':'#1a0010','--ink2':'#6d3047','--ink3':'#c084a0','bodyBg':'#3d0030'},
+  dark:   {'--g':'#7c83e0','--g2':'#5c6bc0','--g3':'#27ae60','--bg':'#0f0f1a','--white':'#1a1a2e','--ink':'#e8eaf6','--ink2':'#9fa8da','--ink3':'#555e7a','bodyBg':'#050510'}
+};
+let curTheme='default';
+function applyTheme(name){
+  const t=THEMES[name]||THEMES.default;
+  const r=document.documentElement;
+  Object.entries(t).forEach(([k,v])=>{
+    if(k==='bodyBg')document.body.style.background=v;
+    else r.style.setProperty(k,v);
+  });
+  localStorage.setItem('cpro4_theme',name);
+  curTheme=name;
+  document.querySelectorAll('.theme-dot').forEach(d=>d.classList.remove('tactive'));
+  const dot=document.getElementById('tdot-'+name);
+  if(dot)dot.classList.add('tactive');
+}
+function initTheme(){
+  const saved=localStorage.getItem('cpro4_theme')||'default';
+  applyTheme(saved);
+}
+
+/* ══════════════════════════════════════════════════
+   PULL-TO-REFRESH
+══════════════════════════════════════════════════ */
+(function initPTR(){
+  const phone=document.querySelector('.phone');
+  if(!phone)return;
+  let startY=0,pulling=false,triggered=false;
+  const THRESHOLD=70;
+  const wrap=document.getElementById('ptrWrap');
+  const spin=document.getElementById('ptrSpinner');
+  const lbl=document.getElementById('ptrLbl');
+
+  phone.addEventListener('touchstart',e=>{
+    if(!curUser)return;
+    // Only trigger from top of scrollable content
+    const scEl=document.querySelector('#sc-'+curSc.replace('sc-','')+' .sbody, #sc-home .sbody');
+    const scrolled=scEl?scEl.scrollTop:0;
+    if(scrolled>5)return;
+    startY=e.touches[0].clientY;
+    pulling=true;triggered=false;
+  },{passive:true});
+
+  phone.addEventListener('touchmove',e=>{
+    if(!pulling||triggered)return;
+    const dy=e.touches[0].clientY-startY;
+    if(dy>10){
+      wrap.classList.add('ptr-visible');
+      lbl.textContent=dy>THRESHOLD?'Solte para atualizar':'Puxe para atualizar';
+    }
+  },{passive:true});
+
+  phone.addEventListener('touchend',async e=>{
+    if(!pulling)return;
+    pulling=false;
+    const dy=e.changedTouches[0].clientY-startY;
+    if(dy>THRESHOLD&&!triggered&&curUser){
+      triggered=true;
+      lbl.textContent='Atualizando…';
+      spin.classList.add('spinning');
+      try{
+        await loadFromSupa();
+        renderHome();
+        toast('✓ Dados atualizados');
+      }catch{}
+      spin.classList.remove('spinning');
+      wrap.classList.remove('ptr-visible');
+      lbl.textContent='Puxe para atualizar';
+    } else {
+      wrap.classList.remove('ptr-visible');
+      lbl.textContent='Puxe para atualizar';
+    }
+  },{passive:true});
+})();
+
+/* ══════════════════════════════════════════════════
+   CHAT
+══════════════════════════════════════════════════ */
+let _chatMsgs=[];
+let _chatPollTimer=null;
+let _chatLastSeen=0;
+const CHAT_KEY='cpro4_chat';
+
+function fmtChatTime(ts){
+  const d=new Date(ts);
+  const now=new Date();
+  const sameDay=d.toDateString()===now.toDateString();
+  if(sameDay)return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadChatMessages(showToast){
+  try{
+    const s=getSupa();
+    const{data}=await s.from('app_settings').select('value').eq('key',CHAT_KEY).single();
+    if(data?.value&&Array.isArray(data.value)){
+      _chatMsgs=data.value;
+    } else {
+      // Try localStorage fallback
+      try{const c=localStorage.getItem(CHAT_KEY);if(c)_chatMsgs=JSON.parse(c);}catch{}
+    }
+  }catch{
+    try{const c=localStorage.getItem(CHAT_KEY);if(c)_chatMsgs=JSON.parse(c);}catch{}
+  }
+  renderChatMsgs();
+  checkChatUnread();
+  if(showToast)toast('✓ Chat atualizado');
+}
+
+function renderChatMsgs(){
+  const body=document.getElementById('chatBody');
+  if(!body)return;
+  if(!_chatMsgs.length){
+    body.innerHTML=`<div class="chat-empty"><div style="font-size:2.5rem">💬</div><div style="font-size:.84rem;font-weight:700;color:var(--ink3)">Sem mensagens ainda</div><div style="font-size:.72rem;color:var(--ink3)">Diga olá para começar!</div></div>`;
+    return;
+  }
+  body.innerHTML=_chatMsgs.map(m=>{
+    const mine=m.from_id===curUser?.id||m.from_id===curUser?.login;
+    return`<div class="chat-bubble ${mine?'mine':'theirs'}">
+      ${!mine?`<div class="chat-name">${esc(m.from_name||'?')}</div>`:''}
+      <div class="chat-text">${esc(m.text)}</div>
+      <div class="chat-ts">${fmtChatTime(m.ts)}</div>
+    </div>`;
+  }).join('');
+  body.scrollTop=body.scrollHeight;
+}
+
+async function saveChatMessages(){
+  try{localStorage.setItem(CHAT_KEY,JSON.stringify(_chatMsgs));}catch{}
+  try{
+    const s=getSupa();
+    const{data}=await s.from('app_settings').select('id').eq('key',CHAT_KEY).single();
+    if(data?.id){
+      await s.from('app_settings').update({value:_chatMsgs}).eq('key',CHAT_KEY);
+    } else {
+      await s.from('app_settings').insert({key:CHAT_KEY,value:_chatMsgs});
+    }
+  }catch(e){console.warn('chat save',e);}
+}
+
+async function sendChatMsg(){
+  const inp=document.getElementById('chatInp');
+  if(!inp||!curUser)return;
+  const text=inp.value.trim();
+  if(!text)return;
+  inp.value='';
+  const msg={id:uid(),from_id:curUser.id||curUser.login,from_name:curUser.name,text,ts:Date.now()};
+  _chatMsgs.push(msg);
+  renderChatMsgs();
+  _chatLastSeen=Date.now();
+  await saveChatMessages();
+}
+
+function markChatRead(){
+  _chatLastSeen=_chatMsgs.length?_chatMsgs[_chatMsgs.length-1].ts:Date.now();
+  localStorage.setItem('cpro4_chat_seen',String(_chatLastSeen));
+  const dot=document.getElementById('chatUnreadDot');
+  if(dot)dot.style.display='none';
+}
+
+function checkChatUnread(){
+  const seen=parseInt(localStorage.getItem('cpro4_chat_seen')||'0');
+  const hasNew=_chatMsgs.some(m=>m.ts>seen&&(m.from_id!==curUser?.id&&m.from_id!==curUser?.login));
+  const dot=document.getElementById('chatUnreadDot');
+  if(dot)dot.style.display=hasNew?'block':'none';
+}
+
+function startChatPoll(){
+  stopChatPoll();
+  _chatPollTimer=setInterval(async()=>{
+    if(!curUser)return;
+    await loadChatMessages(false);
+    if(curSc==='sc-chat')markChatRead();
+  },8000);
+}
+
+function stopChatPoll(){
+  if(_chatPollTimer){clearInterval(_chatPollTimer);_chatPollTimer=null;}
+}
 
 </script>
 </body>
