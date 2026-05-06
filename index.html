@@ -1474,8 +1474,10 @@ async function doLoginBtn(){
   showLoader('Entrando...');
 
   // Try Supabase first
+  let supaError=null;
   try{
     const{data,error}=await getSupa().auth.signInWithPassword({email:emailVal,password:passVal});
+    supaError=error;
     if(!error && data?.user){
       const email=data.user.email;
       const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
@@ -1492,7 +1494,8 @@ async function doLoginBtn(){
       return;
     }
   }catch(e){
-    console.warn('Supabase auth failed, trying local:',e);
+    supaError=e;
+    console.warn('Supabase auth exception:',e);
   }
 
   // Fallback: check local stored users then hardcoded credentials
@@ -1510,7 +1513,18 @@ async function doLoginBtn(){
   }
 
   hideLoader();
-  errEl.textContent='E-mail ou senha incorretos.';
+  // Show informative error
+  const msg=supaError?.message||'';
+  if(msg.includes('Email not confirmed')||msg.includes('email')){
+    errEl.textContent='E-mail não confirmado. Verifique sua caixa de entrada.';
+  } else if(msg.includes('Invalid login')||msg.includes('Invalid credentials')){
+    errEl.textContent='E-mail ou senha incorretos no Supabase.';
+  } else if(msg.includes('network')||msg.includes('fetch')||msg.toLowerCase().includes('failed')){
+    errEl.textContent='Sem conexão com o servidor. Verifique a internet.';
+  } else {
+    errEl.textContent='E-mail ou senha incorretos.';
+  }
+  console.error('Login failed. Supabase error:',supaError);
   document.getElementById('loginPass').value='';
   document.getElementById('loginPass').focus();
 }
