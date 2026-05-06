@@ -509,6 +509,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="0" y1="1" x2="20" y2="1"/><line x1="0" y1="7" x2="20" y2="7"/><line x1="0" y1="13" x2="20" y2="13"/></svg>
       </button>
       <div id="ghUserLbl" style="font-size:.72rem;font-weight:800;color:rgba(255,255,255,.85);letter-spacing:.04em;text-align:center;flex:1">— Contas Pro —</div>
+      <button class="gh-menu" id="syncBtn" onclick="syncData()" title="Sincronizar dados">
+        <svg id="syncIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+      </button>
       <button class="gh-menu" onclick="go('sc-dashboard')">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       </button>
@@ -1350,6 +1353,21 @@ async function loadFromSupa(){
     hideLoader();
     toast('⚠️ Erro ao carregar dados da nuvem');
   }
+}
+
+// Manual sync button — refresh all data from Supabase
+async function syncData(){
+  if(!curUser)return;
+  const btn=document.getElementById('syncBtn');
+  const ic=document.getElementById('syncIcon');
+  if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';}
+  if(ic)ic.style.animation='spin .7s linear infinite';
+  await loadFromSupa();
+  preFillFutureMonths();
+  renderHome();
+  toast('✓ Sincronizado com a nuvem');
+  if(btn){btn.style.opacity='';btn.style.pointerEvents='';}
+  if(ic)ic.style.animation='';
 }
 
 // Sync db state to Supabase
