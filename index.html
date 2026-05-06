@@ -1510,16 +1510,20 @@ function calc(b,ref){
   const wd=wdBefore(periodStart,rawDueISO)+1;
 
   // Daily rate depends on cycle type
+  // Weekly bills (weeklyDay set) always divide by 6 (Mon–Sat work week)
   // 'day' = divide by workdays in cycle (default)
   // 'fortnight' = divide by 15 (quinzena)
   // 'month' = divide by calendar days in cycle (~30)
   let divisor=wd;
-  const cycle=b.cycle||'day';
-  if(cycle==='fortnight') divisor=15;
-  else if(cycle==='month'){
-    // count calendar days in cycle
-    const ps=piso(periodStart),pd=piso(rawDueISO);
-    divisor=Math.round((pd-ps)/(864e5))+1;
+  if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
+    divisor=6;
+  } else {
+    const cycle=b.cycle||'day';
+    if(cycle==='fortnight') divisor=15;
+    else if(cycle==='month'){
+      const ps=piso(periodStart),pd=piso(rawDueISO);
+      divisor=Math.round((pd-ps)/(864e5))+1;
+    }
   }
   if(divisor<1)divisor=1;
   const daily=r2(b.amount/divisor);
