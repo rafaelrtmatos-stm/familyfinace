@@ -665,6 +665,19 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip sel" id="typeAvista" onclick="setType('avista')">💳 À vista</button>
         <button class="pm-chip" id="typeParcelada" onclick="setType('parcelada')">📋 Parcelada</button>
         <button class="pm-chip" id="typeRecorrente" onclick="setType('recorrente')">↺ Recorrente</button>
+        <button class="pm-chip" id="typeSemanal" onclick="setType('semanal')">📅 Semanal</button>
+      </div>
+      <div id="semanalWrap" style="display:none;margin-bottom:10px">
+        <div class="abl">Dia da semana</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="pm-chip" id="wd0" onclick="setWeekday(0,this)">Dom</button>
+          <button class="pm-chip sel" id="wd1" onclick="setWeekday(1,this)">Seg</button>
+          <button class="pm-chip" id="wd2" onclick="setWeekday(2,this)">Ter</button>
+          <button class="pm-chip" id="wd3" onclick="setWeekday(3,this)">Qua</button>
+          <button class="pm-chip" id="wd4" onclick="setWeekday(4,this)">Qui</button>
+          <button class="pm-chip" id="wd5" onclick="setWeekday(5,this)">Sex</button>
+          <button class="pm-chip" id="wd6" onclick="setWeekday(6,this)">Sáb</button>
+        </div>
       </div>
       <div id="parcelaWrap" style="display:none;margin-bottom:10px">
         <div class="af-val" style="align-items:center;gap:10px">
@@ -688,6 +701,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="add-body" style="flex:1;overflow-y:auto;padding:14px 16px">
       <div class="abl">Nome da conta</div>
       <div class="af-val" style="margin-bottom:14px"><input type="text" id="addName" placeholder="Ex: Aluguel, Energia…" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:700;color:var(--ink);width:100%;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('addDay').focus()"/></div>
+      <div id="addDayWrap">
       <div class="abl">Dia de vencimento</div>
       <div class="af-val" style="margin-bottom:14px;gap:10px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -695,6 +709,8 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <input type="number" id="addDay" inputmode="numeric" pattern="[0-9]*" placeholder="Ex: 20" min="1" max="31"
           style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;color:var(--g2);width:60px;outline:none;text-align:right"/>
       </div>
+      </div>
+      <div id="addSemanalNote" style="display:none;background:rgba(59,79,212,.07);border-radius:10px;padding:9px 12px;margin-bottom:14px;font-size:.78rem;font-weight:700;color:var(--g2)" id="addSemanalNote"></div>
       <div class="abl">Quando entra no sistema</div>
       <div class="qdates">
         <button class="qd" data-opt="prev" onclick="applyQD('prev',this)">← Mês anterior</button>
@@ -2338,6 +2354,7 @@ function onAddMonthChange(val){
   const y=parseInt(p[0]),m=parseInt(p[1])-1;
   document.getElementById('addMonthLabel').textContent=MN[m]+' '+y;
   updateParcelaPreview();
+  if(addType==='semanal')updateSemanalNote();
 }
 
 let addPickerYear=new Date().getFullYear();
@@ -2437,13 +2454,44 @@ function setCycle(c,el){
   if(el)el.classList.add('sel');
 }
 
+const WD_NAMES=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+let addWeekday=1;
+
+function setWeekday(d,el){
+  addWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('wd'+i)?.classList.toggle('sel',i===d));
+  updateSemanalNote();
+}
+
+function getDatesOfWeekday(y,m,wd){
+  const dates=[];
+  const days=new Date(y,m+1,0).getDate();
+  for(let d=1;d<=days;d++){if(new Date(y,m,d).getDay()===wd)dates.push(d);}
+  return dates;
+}
+
+function updateSemanalNote(){
+  const note=document.getElementById('addSemanalNote');
+  if(!note)return;
+  const mv=document.getElementById('addMonth').value;
+  if(!mv){note.textContent='📅 Datas calculadas ao selecionar o mês';return;}
+  const{y,m}=ymk(mv);
+  const dates=getDatesOfWeekday(y,m,addWeekday);
+  note.textContent=`📅 Toda ${WD_NAMES[addWeekday]} — ${dates.length} ocorrências: dias ${dates.join(', ')}`;
+}
+
 function setType(t){
   addType=t;
-  ['avista','parcelada','recorrente'].forEach(v=>{
-    document.getElementById('type'+v.charAt(0).toUpperCase()+v.slice(1))
-      .classList.toggle('sel',v===t);
+  ['avista','parcelada','recorrente','semanal'].forEach(v=>{
+    const el=document.getElementById('type'+v.charAt(0).toUpperCase()+v.slice(1));
+    if(el)el.classList.toggle('sel',v===t);
   });
   document.getElementById('parcelaWrap').style.display=t==='parcelada'?'block':'none';
+  document.getElementById('semanalWrap').style.display=t==='semanal'?'block':'none';
+  const dw=document.getElementById('addDayWrap');
+  if(dw)dw.style.display=t==='semanal'?'none':'block';
+  const sn=document.getElementById('addSemanalNote');
+  if(sn){sn.style.display=t==='semanal'?'block':'none';if(t==='semanal')updateSemanalNote();}
   if(t==='parcelada')updateParcelaPreview();
 }
 
@@ -2466,11 +2514,12 @@ function resetAddForm(){
   document.getElementById('addDay').value='';
   document.getElementById('addMonth').value=mk(CY,CM);
   onAddMonthChange(mk(CY,CM));
-  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false;
+  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1;
   renderAddCatGrid();
   const pmRow=document.querySelector('#addStep2 .pm-row');
   if(pmRow){pmRow.querySelectorAll('.pm-chip').forEach((b,i)=>b.classList.toggle('sel',i===0));}
   document.querySelectorAll('#addStep2 .qd').forEach(b=>b.classList.toggle('on',b.dataset.opt==='current'));
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('wd'+i)?.classList.toggle('sel',i===1));
   setType('avista');
   setCycle('day',document.getElementById('cycleDay'));
   const np=document.getElementById('addParcelas');if(np)np.value=2;
@@ -2496,7 +2545,7 @@ function saveAdd(){
   const errors=[];
   if(!total||total<=0)      errors.push({id:'addAmt',     msg:'Digite o valor da conta'});
   if(!name)                 errors.push({id:'addName',    msg:'Digite o nome da conta'});
-  if(!day||day<1||day>31)   errors.push({id:'addDay',     msg:'Digite o dia de vencimento (1-31)'});
+  if(addType!=='semanal'&&(!day||day<1||day>31))errors.push({id:'addDay',msg:'Digite o dia de vencimento (1-31)'});
   if(!startMonth)           errors.push({id:'addMonthLabel',msg:'Selecione o mês de início'});
   if(userId===undefined||userId===null)errors.push({id:'addUser',msg:'Selecione o responsável'});
 
@@ -2568,6 +2617,24 @@ function saveAdd(){
     sdb();saveBillSupa(bill);
     preFillFutureMonths();
     toast(`✓ Recorrente criada — aparece em todos os meses`);
+
+  } else if(addType==='semanal'){
+    const tid=uid();
+    const{y,m}=ymk(billMonth);
+    const dates=getDatesOfWeekday(y,m,addWeekday);
+    const newBills=[];
+    dates.forEach(d=>{
+      const bill={
+        id:uid(),templateId:tid,
+        name:billName,amount:total,day:d,month:billMonth,
+        userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
+        recurring:true,weeklyDay:addWeekday,payments:[],shared:addShared
+      };
+      db.bills.push(bill);newBills.push(bill);
+    });
+    sdb();newBills.forEach(b=>saveBillSupa(b));
+    preFillFutureMonths();
+    toast(`✓ Toda ${WD_NAMES[addWeekday]} — ${dates.length} contas criadas`);
   }
 
   back();
@@ -2626,14 +2693,30 @@ function ensureRecurringForMonth(monthKey){
     if(!template)return;
     // Only generate if monthKey >= template's start month
     if(monthKey<template.month)return;
-    db.bills.push({
-      id:uid(),templateId:tid,
-      name:template.name,amount:template.amount,day:template.day,
-      month:monthKey,userId:template.userId,
-      payMethod:template.payMethod,category:template.category,
-      recurring:true,payments:[]
-    });
-    added++;
+    // Weekly recurring: generate one entry per weekday occurrence in the month
+    if(template.weeklyDay!==undefined){
+      const{y,m}=ymk(monthKey);
+      const dates=getDatesOfWeekday(y,m,template.weeklyDay);
+      dates.forEach(d=>{
+        db.bills.push({
+          id:uid(),templateId:tid,
+          name:template.name,amount:template.amount,day:d,
+          month:monthKey,userId:template.userId,
+          payMethod:template.payMethod,category:template.category,
+          recurring:true,weeklyDay:template.weeklyDay,payments:[],shared:template.shared
+        });
+        added++;
+      });
+    } else {
+      db.bills.push({
+        id:uid(),templateId:tid,
+        name:template.name,amount:template.amount,day:template.day,
+        month:monthKey,userId:template.userId,
+        payMethod:template.payMethod,category:template.category,
+        recurring:true,payments:[]
+      });
+      added++;
+    }
   });
   if(added>0)sdb();
 }
