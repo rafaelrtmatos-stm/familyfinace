@@ -1435,6 +1435,7 @@ async function loadFromSupa(){
           amount:parseFloat(b.amount), day:b.day, month:b.month,
           userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
           cycle:b.cycle||'day', recurring:b.recurring||false,
+          noDaily:b.cycle==='avista'||b.no_daily||false,
           installment:b.installment||null, payments:b.payments||[],
           shared:b.shared||false,
           _ownerId:b.user_id
@@ -1793,7 +1794,7 @@ function calc(b,ref){
 
   let daysElapsed,daysLeft,late,acc,accrued;
 
-  if(b.noDaily){
+  if(b.noDaily||b.cycle==='avista'){
     // À vista: valor fixo, sem multa extra, mas diária calculada sobre os dias restantes
     acc=0;
     if(refDate>piso(dISO)){
@@ -2625,12 +2626,15 @@ function renderHome(){
   // Emergency daily shown directly below daily widget when caixa is short
   if(caixaVal<totalBal&&bills.length){
     let totalEmerDay=0;
+    const totalBills=bills.reduce((s,x)=>s+x.amount,0);
     bills.forEach(b=>{
-      // contas à vista agora participam da diária (daily recalculado por dias restantes)
+      // diária de emergência: usa dias corridos até o vencimento (não dias úteis)
       const c=calc(b,td);
       if(c.bal<=0)return;
-      const dLeft=Math.max(1,c.daysLeft||1);
-      const totalBills=bills.reduce((s,x)=>s+x.amount,0);
+      const{y:_ey,m:_em}=ymk(b.month);
+      const _dueDt=new Date(_ey,_em,b.day).getTime();
+      const _todayDt=piso(today()).getTime();
+      const dLeft=Math.max(1,Math.round((_dueDt-_todayDt)/86400000));
       const share=totalBills>0?r2(caixaVal*(b.amount/totalBills)):0;
       const needed=Math.max(0,r2(b.amount-share));
       totalEmerDay=r2(totalEmerDay+r2(needed/dLeft));
@@ -2986,7 +2990,7 @@ async function saveAdd(){
   if(addType==='avista'){
     const id=uid();
     const bill={id,templateId:id,name:billName,amount:total,day:billDay,month:billMonth,
-      userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
+      userId,payMethod:selPMethod,category:selCat,cycle:'avista',
       recurring:false,noDaily:true,installment:null,payments:[],shared:addShared};
     db.bills.push(bill);
     await insertBillSupa(bill);
@@ -3687,7 +3691,7 @@ async function saveEditBill(){
   const category=document.getElementById('editCategory').value;
   // Get selected cycle
   const cycleEl=['editCycleDay','editCycleFortnight','editCycleMonth'].find(id=>document.getElementById(id)?.classList.contains('sel'));
-  const cycle=cycleEl==='editCycleFortnight'?'fortnight':cycleEl==='editCycleMonth'?'month':'day';
+  const cycle=_editBillType==='avista'?'avista':(cycleEl==='editCycleFortnight'?'fortnight':cycleEl==='editCycleMonth'?'month':'day');
   // Derive type fields from _editBillType
   const noDaily=_editBillType==='avista';
   const newRecurring=_editBillType==='recorrente';
