@@ -1711,11 +1711,11 @@ function getHomeBills(){
     ensureRecurringForMonth(mk(CY,CM));
     bills=db.bills.filter(b=>b.month===mk(CY,CM));
   }
-  // Apply user filter
+  // Apply user filter ('todos' bills always appear for every user)
   if(dashView==='mine'&&curUser?.id)
-    bills=bills.filter(b=>b.userId===curUser.id);
+    bills=bills.filter(b=>b.userId===curUser.id||b.userId==='todos');
   else if(dashView==='custom'&&dashCustomUsers.length>0)
-    bills=bills.filter(b=>dashCustomUsers.includes(b.userId));
+    bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
   return bills;
 }
 
@@ -1955,7 +1955,7 @@ function renderHome(){
     });
     const next=sorted2[0];
     const cn=calc(next,td2);
-    const uname=db.users.find(u=>u.id===next.userId)?.name||'';
+    const uname=next.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===next.userId)?.name||'');
     const cat=catBy(next.category);
     const daysMsg=cn.daysLeft>0?`${cn.daysLeft} dia${cn.daysLeft!==1?'s úteis':' útil'} para vencer`:
                   cn.late>0?`${cn.late}d em atraso`:'Vence hoje';
@@ -2095,6 +2095,7 @@ function renderAddCatGrid(){
 function populateUserSel(){
   const s=document.getElementById('addUser');
   s.innerHTML='<option value="">— Sem responsável —</option>'+
+    '<option value="todos">👥 Todos</option>'+
     db.users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
   // Pre-select current user if they have an id (not guest/adm without id)
   if(curUser&&curUser.id&&db.users.find(u=>u.id===curUser.id)){
@@ -2177,7 +2178,7 @@ function saveAdd(){
   if(!name)                 errors.push({id:'addName',    msg:'Digite o nome da conta'});
   if(!day||day<1||day>31)   errors.push({id:'addDay',     msg:'Digite o dia de vencimento (1-31)'});
   if(!startMonth)           errors.push({id:'addMonthLabel',msg:'Selecione o mês de início'});
-  if(!userId)               errors.push({id:'addUser',    msg:'Selecione o responsável'});
+  if(userId===undefined||userId===null)errors.push({id:'addUser',msg:'Selecione o responsável'});
 
   if(errors.length){
     // Show first error and highlight field
@@ -2410,15 +2411,15 @@ function getBillsForView(view){
 
   if(view==='mine'){
     if(curUser&&curUser.id)
-      bills=bills.filter(b=>b.userId===curUser.id);
+      bills=bills.filter(b=>b.userId===curUser.id||b.userId==='todos');
   } else if(view==='couple'){
     const coupleIds=db.couple||[];
-    bills=bills.filter(b=>coupleIds.includes(b.userId));
+    bills=bills.filter(b=>coupleIds.includes(b.userId)||b.userId==='todos');
   } else if(view==='custom'){
     if(dashCustomUsers.length>0)
-      bills=bills.filter(b=>dashCustomUsers.includes(b.userId));
+      bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
   } else if(view&&view.startsWith('u_')){
-    bills=bills.filter(b=>b.userId===view.slice(2));
+    bills=bills.filter(b=>b.userId===view.slice(2)||b.userId==='todos');
   }
   return bills;
 }
@@ -2484,12 +2485,12 @@ function renderBills(){
   const td=today();
   const stLbl={paid:'✓ Pago',pending:'Pendente',late:'Em Atraso',partial:'Parcial'};
 
-  // Apply view filter (who's bills to show)
+  // Apply view filter (who's bills to show — 'todos' always visible)
   let allBills=getBillsForView('all');
   if(billsView==='mine'&&curUser?.id)
-    allBills=allBills.filter(b=>b.userId===curUser.id);
+    allBills=allBills.filter(b=>b.userId===curUser.id||b.userId==='todos');
   else if(billsView==='custom'&&billsCustomUids.length>0)
-    allBills=allBills.filter(b=>billsCustomUids.includes(b.userId));
+    allBills=allBills.filter(b=>billsCustomUids.includes(b.userId)||b.userId==='todos');
 
   // Apply status filter
   let bills=[...allBills];
@@ -2516,7 +2517,7 @@ function renderBills(){
 
   document.getElementById('billsList').innerHTML=bills.length?bills.map(b=>{
     const c=calc(b,td);const cat=catBy(b.category);
-    const uname=db.users.find(u=>u.id===b.userId)?.name||'';
+    const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
     const isInstallment=!!b.installment;
     return`<div class="bc ${c.st}">
       <div style="display:flex;align-items:center;gap:11px;cursor:pointer" onclick="openDet('${b.id}')">
@@ -2565,7 +2566,7 @@ function refreshDet(id){
   const b=db.bills.find(x=>x.id===id);if(!b)return;
   const td=today();const c=calc(b,td);
   const isPaid=c.st==='paid';
-  const cat=catBy(b.category);const uname=db.users.find(u=>u.id===b.userId)?.name||'Sem responsável';
+  const cat=catBy(b.category);const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'Sem responsável');
   const{y,m}=ymk(b.month);
 
   document.getElementById('detTitle').textContent=b.name;
@@ -2745,6 +2746,7 @@ function openEditSheet(id,applyAll){
   catSel.value=b.category||'outro';
   const uSel=document.getElementById('editUser');
   uSel.innerHTML='<option value="">— Sem responsável —</option>'+
+    '<option value="todos">👥 Todos</option>'+
     db.users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
   uSel.value=b.userId||'';
   const recRow=document.getElementById('editRecurringRow');
