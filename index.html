@@ -1363,10 +1363,11 @@ async function syncToSupa(){
       const rows=db.bills.map(b=>({
         id:b.id, template_id:b.templateId, name:b.name,
         amount:b.amount, day:b.day, month:b.month,
-        user_id:b.userId, pay_method:b.payMethod||'pix',
+        user_id:(b.userId==='todos')?null:b.userId,
+        pay_method:b.payMethod||'pix',
         category:b.category||'outro', cycle:b.cycle||'day',
         recurring:b.recurring||false, installment:b.installment||null,
-        payments:b.payments||[], shared:b.shared||false,
+        payments:b.payments||[], shared:(b.userId==='todos')?true:(b.shared||false),
         updated_at:new Date().toISOString()
       }));
       await s.from('bills').upsert(rows,{onConflict:'id'});
@@ -1384,13 +1385,14 @@ async function syncToSupa(){
 // Insert a new bill into Supabase (used when adding new entries)
 async function insertBillSupa(b){
   const s=getSupa();
+  const isTodos=b.userId==='todos';
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:b.userId, pay_method:b.payMethod||'pix',
+    user_id:isTodos?null:b.userId, pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
-    payments:b.payments||[], shared:b.shared||false,
+    payments:b.payments||[], shared:isTodos?true:(b.shared||false),
     updated_at:new Date().toISOString()
   };
   const{error}=await s.from('bills').insert(row);
@@ -1403,13 +1405,14 @@ async function insertBillSupa(b){
 // Save (upsert) a single bill to Supabase — used for edits/updates
 async function saveBillSupa(b){
   const s=getSupa();
+  const isTodos=b.userId==='todos';
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:b.userId, pay_method:b.payMethod||'pix',
+    user_id:isTodos?null:b.userId, pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
-    payments:b.payments||[], shared:b.shared||false,
+    payments:b.payments||[], shared:isTodos?true:(b.shared||false),
     updated_at:new Date().toISOString()
   };
   const{error}=await s.from('bills').upsert(row,{onConflict:'id'});
