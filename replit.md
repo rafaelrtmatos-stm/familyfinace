@@ -4,7 +4,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 
 ## Run & Operate
 
-- **Start**: `npx serve . -l 5000` (serves static files on port 5000)
+- **Start**: `npm start` (serves static files on port 5000)
 - **No build step** — single `index.html` file
 
 ## Stack
@@ -13,16 +13,18 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Supabase JS SDK (CDN) for auth and database
 - Chart.js (CDN) for donut/bar charts
 - Google Fonts (Nunito)
+- `serve` package for static file hosting
 
 ## Where things live
 
 - `index.html` — entire app (HTML + CSS + JS, ~4200 lines)
+- `package.json` — dependencies and start script
 
 ## Architecture decisions
 
 - Single-file app: all HTML, CSS, and JavaScript are inline in `index.html`
 - Uses Supabase for authentication (email/password) and data persistence
-- Falls back to localStorage (`db` object) for offline/local state
+- Falls back to localStorage (`cpro4_cache`) for offline/local state
 - Mobile-first UI with a 390×844 phone shell wrapper for desktop viewing
 - Hardcoded user profiles (Rafael/admin, Ingrid/user) with role-based permissions
 
@@ -43,6 +45,7 @@ _Populate as you build_
 
 - Supabase credentials are embedded in the HTML (no env vars used)
 - The app requires a Supabase project with `profiles` and related tables
+- favicon.ico is missing (harmless 404 in logs)
 
 ## Pointers
 
