@@ -5629,10 +5629,64 @@ function initTheme(){
 let _chatMsgs=[];
 let _chatPollTimer=null;
 let _chatLastSeen=0;
+let _chatChannel=null;
+let _chatLastMsgTs=0;
 const CHAT_KEY='cpro4_chat';
 const PRESENCE_KEY='cpro4_presence';
 let _myPresenceTimer=null;
 let _otherPresence={ts:0,readTs:0,name:''};
+
+function playChatSound(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.type='sine';
+    osc.frequency.setValueAtTime(1046,ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(784,ctx.currentTime+0.12);
+    gain.gain.setValueAtTime(0,ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25,ctx.currentTime+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.45);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+0.45);
+    ctx.resume();
+  }catch(e){console.warn('chat sound',e);}
+}
+
+function startChatRealtime(){
+  if(_chatChannel)return;
+  _chatChannel=getSupa()
+    .channel('chat-rt')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_settings',filter:'key=eq.'+CHAT_KEY},async()=>{
+      if(!curUser)return;
+      await _onChatRealtimeUpdate();
+    })
+    .subscribe((status,err)=>{
+      console.log('[chat-rt] status:',status,err||'');
+    });
+}
+
+function stopChatRealtime(){
+  if(!_chatChannel)return;
+  try{getSupa().removeChannel(_chatChannel);}catch{}
+  _chatChannel=null;
+}
+
+async function _onChatRealtimeUpdate(){
+  const prevLastTs=_chatLastMsgTs;
+  await loadChatMessages(false);
+  const myId=curUser?.id||curUser?.login;
+  const newFromOthers=_chatMsgs.filter(m=>m.ts>prevLastTs&&m.from_id!==myId&&m.from_id!=='system');
+  if(newFromOthers.length>0){
+    playChatSound();
+    if(curSc!=='sc-chat'){
+      const dot=document.getElementById('chatUnreadDot');
+      if(dot)dot.style.display='block';
+    }
+  }
+  if(curSc==='sc-chat')markChatRead();
+}
 
 function fmtChatTime(ts){
   const d=new Date(ts);
@@ -5707,6 +5761,8 @@ async function loadChatMessages(showToast){
   }catch{
     try{const c=localStorage.getItem(CHAT_KEY);if(c)_chatMsgs=JSON.parse(c);}catch{}
   }
+  // Track last known message timestamp for new-message detection
+  if(_chatMsgs.length)_chatLastMsgTs=Math.max(_chatLastMsgTs,_chatMsgs[_chatMsgs.length-1].ts);
   renderChatMsgs();
   checkChatUnread();
   if(showToast)toast('✓ Chat atualizado');
@@ -5850,16 +5906,20 @@ let _cofrePollTimer=null;
 function startChatPoll(){
   stopChatPoll();
   updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
+  // Realtime subscription — instant delivery
+  startChatRealtime();
+  // Fallback poll every 30s (catches missed realtime events)
   _chatPollTimer=setInterval(async()=>{
     if(!curUser)return;
     await Promise.all([loadChatMessages(false),loadPresence()]);
     if(curSc==='sc-chat')markChatRead();
-  },8000);
+  },30000);
+  // Presence heartbeat every 30s
   _myPresenceTimer=setInterval(()=>{
     if(!curUser)return;
     updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
   },30000);
-  // Poll cofre from Supabase every 8s so both devices stay in sync quickly
+  // Poll cofre from Supabase every 10s so both devices stay in sync quickly
   _cofrePollTimer=setInterval(async()=>{
     if(!curUser)return;
     const prevPix=getCofreFormVal('pix');
@@ -5873,13 +5933,14 @@ function startChatPoll(){
       if(curSc==='sc-home')renderHome();
       toast('💰 Caixa atualizada');
     }
-  },8000);
+  },10000);
 }
 
 function stopChatPoll(){
   if(_chatPollTimer){clearInterval(_chatPollTimer);_chatPollTimer=null;}
   if(_myPresenceTimer){clearInterval(_myPresenceTimer);_myPresenceTimer=null;}
   if(_cofrePollTimer){clearInterval(_cofrePollTimer);_cofrePollTimer=null;}
+  stopChatRealtime();
 }
 
 
