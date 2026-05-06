@@ -17,7 +17,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 
 ## Where things live
 
-- `index.html` — entire app (HTML + CSS + JS, ~4650 lines)
+- `index.html` — entire app (HTML + CSS + JS, ~4870 lines)
 - `package.json` — dependencies and start script
 - `logo.png` — transparent logo for in-app display
 - `apple-touch-icon.png` — icon with background for iPhone home screen
@@ -31,6 +31,8 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Hardcoded user profiles (Rafael/admin, Ingrid/user) with role-based permissions
 - Chat messages stored in `app_settings` table with key `cpro4_chat` as JSON array; polled every 8 s
 - Themes (Default/Rose/Dark) apply CSS vars to `:root` at runtime; persisted in `localStorage` as `cpro4_theme`
+- Add form is a 3-step wizard (amount → category/type → details); step state in `addStep` var, controlled by `goAddStep()`
+- `selPM()` scoped to `.pm-row` parent to avoid cross-step chip deselection
 
 ## Product
 
@@ -44,10 +46,9 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Pull-to-refresh: swipe down from top reloads data from Supabase
 - Three visual themes: Padrão (blue/green), Rosa, Dark — picker in Usuários screen
 - In-app chat between users via bottom-nav Chat tab; unread dot badge; 8 s polling
-
-## User preferences
-
-_Populate as you build_
+- Late bills from previous months are summed into the daily ("diária") value; tapping it opens a detail modal
+- Edit bill sheet supports changing bill type (À vista / Parcelada / Recorrente)
+- Add form: `inputmode="numeric"` on day fields; step-by-step wizard with Avançar/Voltar navigation
 
 ## Gotchas
 
@@ -56,6 +57,8 @@ _Populate as you build_
 - `app_settings` must allow upsert by key; chat uses key `cpro4_chat`
 - favicon.ico is missing (harmless 404 in logs)
 - `stopChatPoll()` / `startChatPoll()` must be called on logout / login to avoid ghost polling
+- `showPicker()` on month inputs uses try/catch to handle cross-origin iframe SecurityError in dev preview
+- `getLateBillsPrevMonths()` respects the current `dashView` user filter (mine/all/custom)
 
 ## Pointers
 

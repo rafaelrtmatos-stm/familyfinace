@@ -1040,7 +1040,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
     </div>
     <div class="us-field"><div class="us-label">Mês de referência</div>
-      <div style="position:relative;display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;cursor:pointer" onclick="document.getElementById('editMonth').showPicker?.()??document.getElementById('editMonth').focus()">
+      <div style="position:relative;display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;cursor:pointer" onclick="try{document.getElementById('editMonth').showPicker();}catch(e){document.getElementById('editMonth').focus()}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span id="editMonthLabel" style="font-size:.88rem;font-weight:700;color:var(--ink);flex:1">—</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -2004,7 +2004,7 @@ function renderHome(){
   // ── Late bills from previous months ──
   const prevLateBills=getLateBillsPrevMonths();
   const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+calc(b,td).bal,0));
-  const remainWd=Math.max(1,wdBefore(td,iso(new Date(y,m+1,0)))+1);
+  const remainWd=Math.max(1,wdBefore(td,iso(new Date(y,m+1,1))));
   const lateAddonDaily=totalPrevLateBal>0?r2(totalPrevLateBal/remainWd):0;
   const totalDailyWithLate=r2(totalDaily+lateAddonDaily);
 
@@ -2301,7 +2301,12 @@ function npDel(){
   document.getElementById('addAmt').textContent=centsDisp(numStr);
   if(addType==='parcelada')updateParcelaPreview();
 }
-function selPM(el,m){selPMethod=m;document.querySelectorAll('.pm-chip').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
+function selPM(el,m){
+  selPMethod=m;
+  const row=el.closest('.pm-row');
+  (row?row.querySelectorAll('.pm-chip'):document.querySelectorAll('.pm-row .pm-chip')).forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+}
 function selCatF(id){selCat=id;renderAddCatGrid();}
 function setAddTab(t,el){document.querySelectorAll('.atab').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
 function onAddMonthChange(val){
@@ -2410,8 +2415,9 @@ function resetAddForm(){
   onAddMonthChange(mk(CY,CM));
   selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false;
   renderAddCatGrid();
-  document.querySelectorAll('.pm-chip').forEach((b,i)=>{b.classList.toggle('sel',i===0);});
-  document.querySelectorAll('.qd').forEach(b=>b.classList.toggle('on',b.dataset.opt==='current'));
+  const pmRow=document.querySelector('#addStep2 .pm-row');
+  if(pmRow){pmRow.querySelectorAll('.pm-chip').forEach((b,i)=>b.classList.toggle('sel',i===0));}
+  document.querySelectorAll('#addStep2 .qd').forEach(b=>b.classList.toggle('on',b.dataset.opt==='current'));
   setType('avista');
   setCycle('day',document.getElementById('cycleDay'));
   const np=document.getElementById('addParcelas');if(np)np.value=2;
@@ -2442,15 +2448,20 @@ function saveAdd(){
   if(userId===undefined||userId===null)errors.push({id:'addUser',msg:'Selecione o responsável'});
 
   if(errors.length){
-    // Show first error and highlight field
     const first=errors[0];
-    const el=document.getElementById(first.id);
-    if(el){
-      el.style.outline='2px solid var(--red)';
-      el.style.borderRadius='8px';
-      setTimeout(()=>{el.style.outline='';el.style.borderRadius='';},2000);
-      el.scrollIntoView({behavior:'smooth',block:'center'});
-    }
+    // Navigate to the step that contains the erroneous field
+    const stepMap={addAmt:0,addUser:1,addName:2,addDay:2,addMonthLabel:2};
+    const targetStep=stepMap[first.id]??2;
+    goAddStep(targetStep);
+    setTimeout(()=>{
+      const el=document.getElementById(first.id);
+      if(el){
+        el.style.outline='2px solid var(--red)';
+        el.style.borderRadius='8px';
+        setTimeout(()=>{el.style.outline='';el.style.borderRadius='';},2000);
+        el.scrollIntoView({behavior:'smooth',block:'center'});
+      }
+    },120);
     toast('⚠️ '+first.msg);
     return;
   }
