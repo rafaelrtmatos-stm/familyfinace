@@ -3988,30 +3988,66 @@ function resetCats(){
 
 /* ── SECURITY TAB ── */
 function renderSTSecurity(ct){
-  const isAdmUser=curUser?.login==='adm'||curUser?.role==='admin';
+  const adm=isAdm();
+  const adminUsersOpts=adm?db.users.filter(u=>u.id!==curUser?.id).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join(''):'';
   ct.innerHTML=`
     <div class="info-card" style="padding:14px;margin-bottom:12px">
-      <div style="font-size:.86rem;font-weight:800;margin-bottom:14px;color:var(--ink)">Alterar minha senha</div>
+      <div style="font-size:.86rem;font-weight:800;margin-bottom:14px;color:var(--ink)">🔑 Alterar minha senha</div>
       <div class="us-field"><div class="us-label">Senha atual</div><input type="password" class="us-inp" id="secOld" placeholder="Senha atual"/></div>
       <div class="us-field"><div class="us-label">Nova senha</div><input type="password" class="us-inp" id="secNew" placeholder="Mínimo 4 caracteres"/></div>
       <div class="us-field" style="margin-bottom:0"><div class="us-label">Confirmar nova senha</div><input type="password" class="us-inp" id="secConfirm" placeholder="Repita a senha"/></div>
     </div>
-    <button onclick="changePass()" style="width:100%;padding:12px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer">Salvar Nova Senha</button>
-    <button onclick="logout()" style="width:100%;margin-top:9px;padding:11px;background:#f5f6fa;color:var(--red);border:1.5px solid rgba(231,76,60,.25);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer">Sair da conta</button>`;
+    <button onclick="changePass()" style="width:100%;padding:12px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;margin-bottom:10px">Salvar Nova Senha</button>
+    ${adm&&adminUsersOpts?`
+    <div class="info-card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.86rem;font-weight:800;margin-bottom:14px;color:var(--ink)">👑 Redefinir senha de outro usuário</div>
+      <div class="us-field"><div class="us-label">Usuário</div>
+        <select class="us-inp" id="secTargetUser">${adminUsersOpts}</select>
+      </div>
+      <div class="us-field"><div class="us-label">Nova senha</div><input type="password" class="us-inp" id="secAdmNew" placeholder="Mínimo 4 caracteres"/></div>
+      <div class="us-field" style="margin-bottom:0"><div class="us-label">Confirmar</div><input type="password" class="us-inp" id="secAdmConfirm" placeholder="Repita a senha"/></div>
+    </div>
+    <button onclick="adminResetPass()" style="width:100%;padding:12px;background:rgba(231,76,60,.1);color:var(--red);border:1.5px solid rgba(231,76,60,.3);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;margin-bottom:10px">Redefinir Senha do Usuário</button>`:''}
+    <button onclick="logout()" style="width:100%;padding:11px;background:#f5f6fa;color:var(--red);border:1.5px solid rgba(231,76,60,.25);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer">Sair da conta</button>`;
 }
+
 function changePass(){
   const old=document.getElementById('secOld').value;
   const nw=document.getElementById('secNew').value;
   const conf=document.getElementById('secConfirm').value;
-  // For adm default user
-  const isDefault=curUser?.login==='adm';
-  const storedPass=isDefault?'Geper3tp@':(curUser?.password||'');
-  if(!isDefault&&old!==storedPass){toast('Senha atual incorreta');return;}
+  // Get current stored password (check LOCAL_CREDS first, then db.users)
+  const lc=LOCAL_CREDS.find(c=>c.email===(curUser?.email||''));
+  const storedPass=lc?.password||(db.users.find(x=>x.id===curUser?.id)?.password)||'';
+  if(old!==storedPass){toast('Senha atual incorreta');return;}
   if(nw.length<4){toast('Nova senha precisa ter ao menos 4 caracteres');return;}
   if(nw!==conf){toast('As senhas não coincidem');return;}
-  if(curUser&&curUser.id){const u=db.users.find(x=>x.id===curUser.id);if(u){u.password=nw;sdb();}}
+  // Update in db.users
+  const u=db.users.find(x=>x.id===curUser?.id);
+  if(u)u.password=nw;
+  // Update in LOCAL_CREDS in memory
+  if(lc)lc.password=nw;
+  // Update curUser
+  if(curUser)curUser.password=nw;
+  sdb();
   toast('Senha alterada ✓');
   document.getElementById('secOld').value='';document.getElementById('secNew').value='';document.getElementById('secConfirm').value='';
+}
+
+function adminResetPass(){
+  if(!reqAdm())return;
+  const uid=document.getElementById('secTargetUser')?.value;
+  const nw=document.getElementById('secAdmNew')?.value||'';
+  const conf=document.getElementById('secAdmConfirm')?.value||'';
+  if(!uid){toast('Selecione um usuário');return;}
+  if(nw.length<4){toast('Nova senha precisa ter ao menos 4 caracteres');return;}
+  if(nw!==conf){toast('As senhas não coincidem');return;}
+  const u=db.users.find(x=>x.id===uid);
+  if(u){u.password=nw;}
+  const lc=LOCAL_CREDS.find(c=>c.id===uid);
+  if(lc)lc.password=nw;
+  sdb();
+  toast(`Senha de ${u?.name||'usuário'} redefinida ✓`);
+  document.getElementById('secAdmNew').value='';document.getElementById('secAdmConfirm').value='';
 }
 
 /* ── EXPORT TAB ── */
@@ -4020,25 +4056,45 @@ function renderSTExport(ct){
     ct.innerHTML='<div style="text-align:center;padding:28px;color:var(--ink3);font-size:.82rem;font-weight:700">Sem permissão para exportar dados</div>';return;
   }
   ct.innerHTML=`
-    <div class="us-field"><div class="us-label">Período</div>
-      <select class="us-inp" id="stExpPeriod">
-        <option value="month">Mês atual</option>
-        <option value="year">Este ano</option>
-        <option value="all">Todos os dados</option>
-        <option value="paid">Somente pagas</option>
-        <option value="pending">Somente pendentes</option>
-        <option value="late">Somente atrasadas</option>
-      </select>
+    <div class="info-card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.86rem;font-weight:800;margin-bottom:12px;color:var(--ink)">☁️ Backup Completo</div>
+      <div style="font-size:.74rem;color:var(--ink3);font-weight:600;margin-bottom:12px;line-height:1.5">Salva todas as contas, histórico e usuários em um arquivo JSON. Para o Google Drive, escolha a pasta do Drive ao salvar.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+        <button onclick="saveBackupToDrive()" style="padding:13px 8px;border-radius:var(--rs);border:1.5px solid rgba(66,133,244,.4);background:rgba(66,133,244,.08);cursor:pointer;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:#4285F4;display:flex;align-items:center;justify-content:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#4285F4"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Salvar no Drive
+        </button>
+        <button onclick="doBackup()" style="padding:13px 8px;border-radius:var(--rs);border:1.5px solid #dde2ec;background:#f7f9fc;cursor:pointer;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:var(--ink2);display:flex;align-items:center;justify-content:center;gap:6px">
+          💾 Baixar .json
+        </button>
+      </div>
     </div>
-    <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:9px">Formato</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px">
-      <button class="exp-btn" onclick="stExport('csv')">📊 CSV / Excel</button>
-      <button class="exp-btn" onclick="stExport('json')">📦 JSON Backup</button>
-      <button class="exp-btn" onclick="stExportPDF()">📄 PDF / Imprimir</button>
-      <button class="exp-btn" onclick="doBackup()">💾 Backup Completo</button>
+    <div class="info-card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.86rem;font-weight:800;margin-bottom:12px;color:var(--ink)">📂 Importar Backup</div>
+      <div style="font-size:.74rem;color:var(--ink3);font-weight:600;margin-bottom:12px;line-height:1.5">Restaura dados a partir de um arquivo de backup (.json). Os dados atuais serão substituídos.</div>
+      <button onclick="importBackupFile()" style="width:100%;padding:12px;border-radius:var(--rs);border:1.5px solid rgba(230,126,34,.3);background:rgba(230,126,34,.08);cursor:pointer;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;color:var(--orange);display:flex;align-items:center;justify-content:center;gap:8px">
+        📂 Selecionar arquivo de backup
+      </button>
+      <input type="file" id="impFileST" accept=".json" style="display:none" onchange="handleImportST(this)"/>
     </div>
-    <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:9px">Compartilhar</div>
-    <button onclick="stWhatsapp()" style="width:100%;padding:12px;background:rgba(37,211,102,.1);border:1.5px solid rgba(37,211,102,.3);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;color:#25D366;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+    <div class="info-card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.86rem;font-weight:800;margin-bottom:12px;color:var(--ink)">📊 Exportar Relatório</div>
+      <div class="us-field" style="margin-bottom:10px"><div class="us-label">Período</div>
+        <select class="us-inp" id="stExpPeriod">
+          <option value="month">Mês atual</option>
+          <option value="year">Este ano</option>
+          <option value="all">Todos os dados</option>
+          <option value="paid">Somente pagas</option>
+          <option value="pending">Somente pendentes</option>
+          <option value="late">Somente atrasadas</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+        <button class="exp-btn" onclick="stExport('csv')">📊 CSV / Excel</button>
+        <button class="exp-btn" onclick="stExportPDF()">📄 PDF / Imprimir</button>
+      </div>
+    </div>
+    <button onclick="stWhatsapp()" style="width:100%;padding:12px;background:rgba(37,211,102,.1);border:1.5px solid rgba(37,211,102,.3);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;color:#25D366;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
       💬 Compartilhar resumo no WhatsApp
     </button>`;
 }
@@ -4152,6 +4208,55 @@ function handleImport(ev){
   const r=new FileReader();
   r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!confirm('Importar pode substituir dados atuais. Continuar?'))return;if(d.bills)db.bills=d.bills;if(d.holidays)db.holidays=d.holidays;if(d.users)db.users=d.users;if(d.nid)db.nid=d.nid;if(d.couple)db.couple=d.couple;sdb();toast('Importado ✓');}catch{toast('Arquivo inválido');}};
   r.readAsText(file);ev.target.value='';
+}
+
+// ── Save backup using File System Access API (allows picking Google Drive folder) ──
+async function saveBackupToDrive(){
+  if(!hasPerm('canExport')&&!isAdm()){toast('Sem permissão');return;}
+  const content=JSON.stringify({...db,exportedAt:new Date().toISOString(),by:curUser?.name},null,2);
+  const filename=`backup_familyfinance_${iso(new Date()).replace(/-/g,'')}.json`;
+  if(window.showSaveFilePicker){
+    try{
+      const fh=await window.showSaveFilePicker({
+        suggestedName:filename,
+        types:[{description:'Backup JSON',accept:{'application/json':['.json']}}]
+      });
+      const writable=await fh.createWritable();
+      await writable.write(content);
+      await writable.close();
+      toast('Backup salvo ✓ (escolha o Google Drive na janela)');
+    }catch(e){
+      if(e.name!=='AbortError'){dldFile(filename,'application/json',content);toast('Backup baixado ✓');}
+    }
+  } else {
+    // Fallback for browsers without File System Access API
+    dldFile(filename,'application/json',content);
+    toast('💡 Para salvar no Drive, abra o Google Drive e faça upload do arquivo baixado');
+  }
+}
+
+function importBackupFile(){if(!reqAdm())return;document.getElementById('impFileST').click();}
+function handleImportST(inp){
+  const file=inp.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      const info=`Backup de: ${d.exportedAt?new Date(d.exportedAt).toLocaleString('pt-BR'):'data desconhecida'}\nPor: ${d.by||'—'}\nContas: ${d.bills?.length||0} | Usuários: ${d.users?.length||0}\n\nSubstituir dados atuais?`;
+      if(!confirm(info))return;
+      if(d.bills)db.bills=d.bills;
+      if(d.holidays)db.holidays=d.holidays;
+      if(d.users)db.users=d.users;
+      if(d.nid)db.nid=d.nid;
+      if(d.couple)db.couple=d.couple;
+      if(d.cats)db.cats=d.cats;
+      sdb();
+      renderHome();
+      toast('✓ Backup restaurado com sucesso!');
+    }catch{toast('❌ Arquivo inválido ou corrompido');}
+  };
+  r.readAsText(file);
+  inp.value='';
 }
 
 /* ══════════════════════════════════════════════════
