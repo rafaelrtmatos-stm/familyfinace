@@ -1327,9 +1327,8 @@ async function loadFromSupa(){
       db.bills=bills.map(b=>({
         id:b.id, templateId:b.template_id, name:b.name,
         amount:parseFloat(b.amount), day:b.day, month:b.month,
-        userId:b.user_id, payMethod:b.pay_method, category:b.category,
+        userId:b.shared ? 'todos' : b.user_id, payMethod:b.pay_method, category:b.category,
         cycle:b.cycle||'day', recurring:b.recurring||false,
-        noDaily:b.no_daily||false,
         installment:b.installment||null, payments:b.payments||[],
         shared:b.shared||false
       }));
@@ -1363,7 +1362,7 @@ async function syncToSupa(){
       const rows=db.bills.map(b=>({
         id:b.id, template_id:b.templateId, name:b.name,
         amount:b.amount, day:b.day, month:b.month,
-        user_id:(b.userId==='todos')?null:b.userId,
+        user_id:(b.userId==='todos')?(curUser?.id||b.userId):b.userId,
         pay_method:b.payMethod||'pix',
         category:b.category||'outro', cycle:b.cycle||'day',
         recurring:b.recurring||false, installment:b.installment||null,
@@ -1389,7 +1388,7 @@ async function insertBillSupa(b){
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?null:b.userId, pay_method:b.payMethod||'pix',
+    user_id:isTodos?(curUser?.id||null):b.userId, pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
@@ -1409,7 +1408,7 @@ async function saveBillSupa(b){
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?null:b.userId, pay_method:b.payMethod||'pix',
+    user_id:isTodos?(curUser?.id||null):b.userId, pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
