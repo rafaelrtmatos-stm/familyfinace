@@ -27,7 +27,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx serve . -l 5000 --no-clipboard"
+args = "npm start"
 waitForPort = 5000
 
 [[ports]]
