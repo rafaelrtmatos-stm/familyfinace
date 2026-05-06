@@ -1165,10 +1165,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="ps-handle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:1.1rem;font-weight:900;color:var(--ink)">💰 Caixa</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button id="cofreSyncBtn" onclick="syncCofreNow()" style="font-size:.68rem;font-weight:800;padding:5px 10px;background:rgba(59,79,212,.1);color:var(--g2);border:1.5px solid rgba(59,79,212,.25);border-radius:100px;cursor:pointer;font-family:'Nunito',sans-serif">☁️ Sincronizar</button>
-        <button onclick="closeCofreSheet()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
-      </div>
+      <button onclick="closeCofreSheet()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
     </div>
     <!-- Saldos atuais -->
     <div id="cofreSaldos" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
@@ -1376,13 +1373,28 @@ async function loadFromSupa(){
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
     if(hols)db.holidays=hols.map(h=>({id:String(h.id),date:h.date,name:h.name}));
-    // Load cats from settings
+    // Load cats from settings + cofre sync
     const{data:sets}=await s.from('app_settings').select('*');
     if(sets){
       const catSetting=sets.find(s=>s.key==='cats');
       if(catSetting?.value)db.cats=catSetting.value;
       const coupleSetting=sets.find(s=>s.key==='couple');
       if(coupleSetting?.value)db.couple=coupleSetting.value;
+      // Sync cofre inline (same query, no extra round-trip)
+      const cofreSetting=sets.find(s=>s.key==='cpro4_cofre');
+      if(cofreSetting?.value&&typeof cofreSetting.value==='object'){
+        const remote=cofreSetting.value;
+        const remoteTs=remote.ts||0;
+        const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+        if(remoteTs>localTs){
+          Object.entries(remote).forEach(([k,v])=>{
+            if(k.startsWith('cofre_')&&typeof v==='number')localStorage.setItem(k,String(v));
+          });
+          localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
+        }
+        _cofreSynced=true;
+        _cofreSyncTs=remoteTs||Date.now();
+      }
     }
     hideLoader();
   }catch(e){
