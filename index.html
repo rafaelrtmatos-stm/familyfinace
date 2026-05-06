@@ -1315,6 +1315,8 @@ function uid(){return Date.now().toString(36)+'_'+Math.random().toString(36).sli
 // sdb: schedule Supabase sync (localStorage removed — Supabase is source of truth)
 function sdb(){
   clearTimeout(_syncTimer);
+  // Always persist bills locally as backup (survives loadFromSupa overwrite)
+  try{localStorage.setItem('cpro4_bills_local',JSON.stringify(db.bills));}catch{}
   _syncTimer=setTimeout(()=>syncToSupa(),400);
 }
 
@@ -1340,14 +1342,33 @@ async function loadFromSupa(){
     // Load bills
     const{data:bills}=await s.from('bills').select('*').order('created_at');
     if(bills){
-      db.bills=bills.map(b=>({
-        id:b.id, templateId:b.template_id, name:b.name,
-        amount:parseFloat(b.amount), day:b.day, month:b.month,
-        userId:b.shared ? 'todos' : b.user_id, payMethod:b.pay_method, category:b.category,
-        cycle:b.cycle||'day', recurring:b.recurring||false,
-        installment:b.installment||null, payments:b.payments||[],
-        shared:b.shared||false
-      })).filter(b=>!_pendingDeletes.has(b.id));
+      // Load local backup to preserve any payments not yet saved to Supabase (e.g. RLS failures)
+      let localBills=[];
+      try{const lc=localStorage.getItem('cpro4_bills_local');if(lc)localBills=JSON.parse(lc);}catch{}
+      const remoteIds=new Set();
+      db.bills=bills.map(b=>{
+        remoteIds.add(b.id);
+        const mapped={
+          id:b.id, templateId:b.template_id, name:b.name,
+          amount:parseFloat(b.amount), day:b.day, month:b.month,
+          userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
+          cycle:b.cycle||'day', recurring:b.recurring||false,
+          installment:b.installment||null, payments:b.payments||[],
+          shared:b.shared||false
+        };
+        // Merge: keep local payments if local has MORE entries (unsaved payments survive reload)
+        const local=localBills.find(l=>l.id===b.id);
+        if(local?.payments?.length>mapped.payments.length){
+          mapped.payments=local.payments;
+        }
+        return mapped;
+      }).filter(b=>!_pendingDeletes.has(b.id));
+      // Also preserve local-only bills not yet in Supabase
+      localBills.forEach(lb=>{
+        if(!remoteIds.has(lb.id)&&!_pendingDeletes.has(lb.id)){
+          db.bills.push(lb);
+        }
+      });
     }
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
