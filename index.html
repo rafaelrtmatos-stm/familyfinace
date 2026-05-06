@@ -872,7 +872,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="ps-handle"></div>
     <div class="ps-title">Registrar Pagamento</div>
     <div class="ps-info" id="psInfo"></div>
-    <div class="ps-field"><div class="ps-label">Valor pago (R$)</div><input type="number" class="ps-inp" id="psVal" step="0.01" placeholder="0,00" oninput="upPayCalc()"/></div>
+    <div class="ps-field"><div class="ps-label">Valor pago (R$)</div><input type="text" inputmode="numeric" class="ps-inp" id="psVal" placeholder="0,00" oninput="currMask(this);upPayCalc()"/></div>
     <div class="ps-row2">
       <div class="ps-field" style="margin-bottom:0"><div class="ps-label">Data</div><input type="date" class="ps-inp" id="psDate"/></div>
       <div class="ps-field" style="margin-bottom:0"><div class="ps-label">Forma</div>
@@ -1001,7 +1001,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px">
       <div class="us-field" style="margin-bottom:0"><div class="us-label">Valor (R$)</div>
-        <input type="number" class="us-inp" id="editAmount" step="0.01" placeholder="0,00"/>
+        <input type="text" inputmode="numeric" class="us-inp" id="editAmount" placeholder="0,00" oninput="currMask(this)"/>
       </div>
       <div class="us-field" style="margin-bottom:0"><div class="us-label">Dia vencimento</div>
         <input type="number" class="us-inp" id="editDay" min="1" max="31" placeholder="Ex: 20"/>
@@ -1374,6 +1374,10 @@ function wdb(s,e){const hs=hset();const sd=piso(s),ed=piso(e);if(ed<=sd)return 0
 function r2(v){return Math.round(v*100)/100;}
 function fmt(v){return'R$\u00a0'+r2(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtn(v){return r2(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function centsDisp(cStr){const n=parseInt(cStr)||0;return(n/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function currMask(el){let d=el.value.replace(/\D/g,'').replace(/^0+/,'')||'0';el.dataset.cents=d;el.value=centsDisp(d);}
+function parseCur(el){if(el.dataset&&el.dataset.cents!==undefined)return(parseInt(el.dataset.cents)||0)/100;return parseFloat(el.value.replace(/\./g,'').replace(',','.'))||0;}
+function setCurVal(el,amount){const c=String(Math.round((amount||0)*100));el.dataset.cents=c;el.value=centsDisp(c);}
 function fmtdate(s){const d=piso(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function pmlbl(v){return{pix:'Pix',dinheiro:'Dinheiro',cartao:'Cartão',outro:'Outro'}[v]||v||'—';}
@@ -2138,13 +2142,13 @@ function renderHome(){
 let numStr='0';let selCat='saude';let selPMethod='pix';
 function np(d){
   if(numStr==='0')numStr=d;
-  else if(numStr.replace('.','').length<10)numStr+=d;
-  document.getElementById('addAmt').textContent=fmtn(parseFloat(numStr)||0);
+  else if(numStr.length<10)numStr+=d;
+  document.getElementById('addAmt').textContent=centsDisp(numStr);
   if(addType==='parcelada')updateParcelaPreview();
 }
 function npDel(){
   numStr=numStr.length>1?numStr.slice(0,-1):'0';
-  document.getElementById('addAmt').textContent=fmtn(parseFloat(numStr)||0);
+  document.getElementById('addAmt').textContent=centsDisp(numStr);
   if(addType==='parcelada')updateParcelaPreview();
 }
 function selPM(el,m){selPMethod=m;document.querySelectorAll('.pm-chip').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
@@ -2216,7 +2220,7 @@ function setType(t){
 
 function updateParcelaPreview(){
   const n=parseInt(document.getElementById('addParcelas').value)||2;
-  const total=parseFloat(numStr)||0;
+  const total=(parseInt(numStr)||0)/100;
   const parcel=total>0?r2(total/n):0;
   const{y,m}=ymk(document.getElementById('addMonth').value||mk(CY,CM));
   let ey=y,em=m+(n-1);while(em>11){em-=12;ey++;}
@@ -2228,7 +2232,7 @@ function updateParcelaPreview(){
 
 function resetAddForm(){
   numStr='0';
-  document.getElementById('addAmt').textContent='0';
+  document.getElementById('addAmt').textContent='0,00';
   document.getElementById('addName').value='';
   document.getElementById('addDay').value='';
   document.getElementById('addMonth').value=mk(CY,CM);
@@ -2251,7 +2255,7 @@ function resetAddForm(){
 function saveAdd(){
   if(!hasPerm('canAdd')){toast('Sem permissão para adicionar');return;}
 
-  const total=parseFloat(numStr)||0;
+  const total=(parseInt(numStr)||0)/100;
   const name=document.getElementById('addName').value.trim();
   const day=parseInt(document.getElementById('addDay').value);
   const startMonth=document.getElementById('addMonth').value;
@@ -2813,7 +2817,7 @@ function openEditSheet(id,applyAll){
   const b=db.bills.find(x=>x.id===id);if(!b)return;
   document.getElementById('editBillId').value=id;
   document.getElementById('editName').value=b.name.replace(/ \(\d+\/\d+\)$/,'');
-  document.getElementById('editAmount').value=b.amount;
+  setCurVal(document.getElementById('editAmount'),b.amount);
   document.getElementById('editDay').value=b.day;
   document.getElementById('editMonth').value=b.month;
   // Update month label
@@ -2864,7 +2868,7 @@ function saveEditBill(){
   const id=document.getElementById('editBillId').value;
   const b=db.bills.find(x=>x.id===id);if(!b)return;
   const name=document.getElementById('editName').value.trim();
-  const amount=parseFloat(document.getElementById('editAmount').value);
+  const amount=parseCur(document.getElementById('editAmount'));
   const day=parseInt(document.getElementById('editDay').value);
   const month=document.getElementById('editMonth').value;
   const userId=document.getElementById('editUser').value;
@@ -3007,7 +3011,8 @@ function openPaySheet(){
   const td=today();const c=calc(b,td);
   // Pre-fill with original bill amount (user pays the face value)
   const suggestedVal=r2(b.amount);
-  document.getElementById('psVal').value=suggestedVal>0?suggestedVal:'';
+  const psValEl=document.getElementById('psVal');
+  if(suggestedVal>0)setCurVal(psValEl,suggestedVal);else{psValEl.value='';psValEl.dataset.cents='0';}
   document.getElementById('psDate').value=td;
   document.getElementById('psMethod').value=b.payMethod||'pix';
   document.getElementById('psResult').style.display='none';
@@ -3024,7 +3029,7 @@ function openPaySheet(){
 function closePaySheet(){document.getElementById('payOverlay').style.display='none';}
 function upPayCalc(){
   const b=db.bills.find(x=>x.id===curBillId);if(!b)return;
-  const pv=parseFloat(document.getElementById('psVal').value)||0;
+  const pv=parseCur(document.getElementById('psVal'));
   const pd=document.getElementById('psDate').value||today();
   if(!pv){document.getElementById('psResult').style.display='none';return;}
   const c=calc(b,pd);const nb=Math.max(0,r2(c.bal-pv));
@@ -3036,7 +3041,7 @@ function upPayCalc(){
 }
 function confirmPay(){
   const b=db.bills.find(x=>x.id===curBillId);if(!b)return;
-  const amount=parseFloat(document.getElementById('psVal').value);
+  const amount=parseCur(document.getElementById('psVal'));
   const date=document.getElementById('psDate').value;
   const method=document.getElementById('psMethod').value;
   if(!amount||amount<=0){toast('Digite o valor');return;}
@@ -3244,7 +3249,7 @@ function setCofreForm(f,el){
   document.getElementById('cofreFormPix').classList.toggle('on',f==='pix');
   document.getElementById('cofreFormDinheiro').classList.toggle('on',f==='dinheiro');
   const cur=getCofreFormVal(f);
-  cofreNumStr=cur>0?String(cur):'0';
+  cofreNumStr=cur>0?String(Math.round(cur*100)):'0';
   document.getElementById('cofreDisplay').textContent=fmtn(cur);
   updateCofreSaldos();
 }
@@ -3277,14 +3282,13 @@ function openCofreSheet(){
 }
 function closeCofreSheet(){document.getElementById('cofreOverlay').style.display='none';}
 function cofreNp(d){
-  if(cofreNumStr==='0')cofreNumStr=d;else cofreNumStr+=d;
-  document.getElementById('cofreDisplay').textContent=fmtn(parseFloat(cofreNumStr)||0);
+  if(cofreNumStr==='0')cofreNumStr=d;else if(cofreNumStr.length<10)cofreNumStr+=d;
+  document.getElementById('cofreDisplay').textContent=centsDisp(cofreNumStr);
 }
 function cofreNpDel(){
   cofreNumStr=cofreNumStr.length>1?cofreNumStr.slice(0,-1):'0';
-  document.getElementById('cofreDisplay').textContent=fmtn(parseFloat(cofreNumStr)||0);
+  document.getElementById('cofreDisplay').textContent=centsDisp(cofreNumStr);
 }
-function cofreNpDot(){if(!cofreNumStr.includes('.'))cofreNumStr+='.';  }
 function getCofreHistKey(){
   const mode=getCofreMode();
   return mode==='shared'?'cofre_hist':'cofre_hist_'+(curUser?.id||'adm');
@@ -3301,7 +3305,7 @@ function addCofreHist(entry){
 
 function saveCofreDeposit(type){
   type=type||'deposito';
-  const n=parseFloat(cofreNumStr)||0;
+  const n=(parseInt(cofreNumStr)||0)/100;
   if(!n){toast('Digite o valor');return;}
   const cur=getCofreFormVal(cofreForm);
   let newVal;
@@ -3531,7 +3535,7 @@ function editCofreHist(idx){
   const hist=getCofreHist();
   const h=hist[idx];if(!h)return;
   _editCofreIdx=idx;
-  _editCofreNumStr=String(h.amount);
+  _editCofreNumStr=String(Math.round((h.amount||0)*100));
   const isSaque=h.type==='saque';
   const uname=h.user||'?';
   const ico=h.form==='pix'?'💸':'💵';
@@ -3545,15 +3549,12 @@ function editCofreHist(idx){
 
 function editCofreNp(d){
   if(_editCofreNumStr==='0')_editCofreNumStr=d;
-  else _editCofreNumStr+=d;
-  document.getElementById('editCofreDisplay').textContent=fmtn(parseFloat(_editCofreNumStr)||0);
+  else if(_editCofreNumStr.length<10)_editCofreNumStr+=d;
+  document.getElementById('editCofreDisplay').textContent=centsDisp(_editCofreNumStr);
 }
 function editCofreNpDel(){
   _editCofreNumStr=_editCofreNumStr.length>1?_editCofreNumStr.slice(0,-1):'0';
-  document.getElementById('editCofreDisplay').textContent=fmtn(parseFloat(_editCofreNumStr)||0);
-}
-function editCofreNpDot(){
-  if(!_editCofreNumStr.includes('.')){ _editCofreNumStr+='.'; }
+  document.getElementById('editCofreDisplay').textContent=centsDisp(_editCofreNumStr);
 }
 function closeEditCofreSheet(){
   document.getElementById('editCofreOverlay').style.display='none';
@@ -3561,7 +3562,7 @@ function closeEditCofreSheet(){
 function saveEditCofreHist(){
   const hist=getCofreHist();
   const h=hist[_editCofreIdx];if(!h)return;
-  const newAmt=parseFloat(_editCofreNumStr)||0;
+  const newAmt=(parseInt(_editCofreNumStr)||0)/100;
   if(!newAmt||newAmt<=0){toast('Valor inválido');return;}
   const diff=r2(newAmt-h.amount);
   const adjusted=h.type==='saque'?-diff:diff;
