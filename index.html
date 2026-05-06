@@ -4085,18 +4085,12 @@ function renderCofreWidget(saldoPendente){
   const cofre=r2(pix+din),mode=getCofreMode();
   const diff=r2(cofre-saldoPendente),ok=diff>=0;
   const pct=saldoPendente>0?Math.min(100,Math.round(cofre/saldoPendente*100)):100;
-  const syncBadge=_cofreSynced
-    ?`<span style="font-size:.58rem;font-weight:800;color:#25d366;background:rgba(37,211,102,.12);border-radius:100px;padding:2px 7px">☁️ Sincronizado</span>`
-    :`<span onclick="isAdm()?showSupaFixModal():null" style="font-size:.58rem;font-weight:800;color:#e67e22;background:rgba(230,126,34,.12);border-radius:100px;padding:2px 7px;cursor:${isAdm()?'pointer':'default'}" title="${isAdm()?'Clique para ver como corrigir':''}">📱 Apenas local${isAdm()?' ⚙️':''}</span>`;
   return`<div style="background:${ok?'linear-gradient(135deg,rgba(59,79,212,.1),rgba(92,107,192,.06))':'linear-gradient(135deg,rgba(231,76,60,.08),rgba(230,126,34,.04))'};border:1.5px solid ${ok?'rgba(59,79,212,.25)':'rgba(231,76,60,.2)'};border-radius:16px;padding:14px;margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:7px">
         <span style="font-size:1.2rem">🏦</span>
         <div>
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
-            <span style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--ink3)">💰 Caixa · ${mode==='shared'?'Compartilhada':'Pessoal'}</span>
-            ${syncBadge}
-          </div>
+          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:2px">💰 Caixa · ${mode==='shared'?'Compartilhada':'Pessoal'}</div>
           <div style="font-size:1rem;font-weight:900;color:${ok?'var(--g2)':'var(--red)'}">${fmt(cofre)}</div>
         </div>
       </div>
