@@ -2660,7 +2660,7 @@ function resetAddForm(){
   if(btn)btn.style.background='#dde2ec';
   goAddStep(0);
 }
-function saveAdd(){
+async function saveAdd(){
   if(!hasPerm('canAdd')){toast('Sem permissão para adicionar');return;}
 
   const total=(parseInt(numStr)||0)/100;
