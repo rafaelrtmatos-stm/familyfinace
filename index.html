@@ -45,7 +45,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .screen{transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s ease}
 
 /* ── STATUS BAR ── */
-.sbar{height:42px;padding:10px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;font-size:.68rem;font-weight:800;position:relative;z-index:5;color:#fff}
+.sbar{display:none}
 
 /* ── GREEN HEADER ── */
 .gh{
@@ -431,6 +431,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       <input type="password" id="loginPass" placeholder="Senha" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);flex:1;outline:none" onkeydown="if(event.key==='Enter')doLoginBtn()"/>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="stayLoggedIn" style="width:16px;height:16px;accent-color:#3d2db5;cursor:pointer">
+      <span style="font-size:.8rem;font-weight:700;color:var(--ink2)">Permanecer logado</span>
+    </label>
     <div id="loginErr" style="font-size:.74rem;font-weight:700;color:var(--red);text-align:center;margin-bottom:10px;min-height:18px"></div>
     <button onclick="doLoginBtn()" style="width:100%;padding:13px;background:#3d2db5;color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.92rem;font-weight:900;cursor:pointer;letter-spacing:.02em">Entrar →</button>
   </div>
@@ -1471,9 +1475,12 @@ async function doLoginBtn(){
   const emailVal=document.getElementById('loginEmail').value.trim().toLowerCase();
   const passVal=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
+  const stay=document.getElementById('stayLoggedIn')?.checked||false;
   errEl.textContent='';
   if(!emailVal){errEl.textContent='Digite o e-mail.';document.getElementById('loginEmail').focus();return;}
   if(!passVal){errEl.textContent='Digite a senha.';document.getElementById('loginPass').focus();return;}
+
+  if(stay){localStorage.setItem('cpro4_stay','1');}else{localStorage.removeItem('cpro4_stay');}
 
   showLoader('Entrando...');
 
@@ -1590,6 +1597,7 @@ function hasPerm(key){return isAdm()||!!(getPerms(curUser)[key]);}
 
 async function logout(){
   curUser=null;selectedLoginUser=null;
+  localStorage.removeItem('cpro4_stay');
   try{await getSupa().auth.signOut();}catch{}
   document.getElementById('loginPass').value='';
   document.getElementById('loginErr').textContent='';
@@ -4338,10 +4346,11 @@ window.onload=async()=>{
   updPeriodLbl();
   renderAddCatGrid();
 
-  // Restore session on page refresh using Supabase getSession
+  // Restore session on page refresh only if user chose "Permanecer logado"
   const s=getSupa();
+  const stayPref=localStorage.getItem('cpro4_stay')==='1';
   const{data:{session}}=await s.auth.getSession();
-  if(session&&session.user){
+  if(stayPref&&session&&session.user){
     const email=session.user.email;
     const{data:profile}=await s.from('profiles').select('*').eq('id',session.user.id).single();
     const u={
