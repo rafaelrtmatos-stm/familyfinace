@@ -901,8 +901,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="inner-top">
       <button class="back-btn" onclick="back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="inner-title">💬 Mensagens</div>
-      <button onclick="loadChatMessages(true)" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;padding:6px;font-size:.78rem;font-weight:800">↻</button>
+      <button onclick="loadChatMessages(true);loadPresence();" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;padding:6px;font-size:.78rem;font-weight:800">↻</button>
     </div>
+    <div id="chatPresenceBar" style="display:none;font-size:.72rem;font-weight:600;text-align:center;padding:4px 0 6px;letter-spacing:.01em;"></div>
   </div>
   <div class="chat-body" id="chatBody">
     <div class="chat-empty">
@@ -1829,7 +1830,7 @@ function go(id){
   else if(id==='sc-admin')renderAdmin();
   else if(id==='sc-add'){populateUserSel();resetAddForm();}
   else if(id==='sc-settings'){renderSettings();showST('users',document.querySelector('.stab'));}
-  else if(id==='sc-chat'){loadChatMessages(false);markChatRead();}
+  else if(id==='sc-chat'){loadChatMessages(false);loadPresence();markChatRead();}
 }
 
 function back(){
@@ -1884,6 +1885,22 @@ function getHomeBills(){
       const end=piso(iso(new Date(y,m,b.day)));
       return ref>=start&&ref<=end;
     });
+    // Dedup recurring by templateId: prefer unpaid, then most recent month
+    {
+      const td2=today();
+      const byTid={};
+      bills.forEach(b=>{
+        if(!b.templateId||!b.recurring)return;
+        const prev=byTid[b.templateId];
+        if(!prev){byTid[b.templateId]=b;return;}
+        const prevPaid=calc(prev,td2).st==='paid';
+        const curPaid=calc(b,td2).st==='paid';
+        if(prevPaid&&!curPaid)byTid[b.templateId]=b;
+        else if(!prevPaid&&!curPaid&&b.month>prev.month)byTid[b.templateId]=b;
+        else if(prevPaid&&curPaid&&b.month>prev.month)byTid[b.templateId]=b;
+      });
+      bills=bills.filter(b=>!b.recurring||!b.templateId||byTid[b.templateId]===b);
+    }
   } else if(homePeriod==='semana'){
     // Bills due in the next 7 days or currently in cycle
     const next7=new Date(ref);next7.setDate(next7.getDate()+7);
@@ -1892,6 +1909,25 @@ function getHomeBills(){
       const due=piso(iso(new Date(y,m,b.day)));
       return due>=ref&&due<=next7;
     });
+    // For recurring/weekly bills: hide paid from home weekly view, dedup by templateId
+    {
+      const td2=today();
+      const byTid={};
+      bills.forEach(b=>{
+        if(!b.templateId)return;
+        const st=calc(b,td2).st;
+        if(st==='paid')return;
+        const prev=byTid[b.templateId];
+        if(!prev||(b.month<prev.month)||(b.month===prev.month&&b.day<prev.day))
+          byTid[b.templateId]=b;
+      });
+      bills=bills.filter(b=>{
+        if(!b.templateId)return true;
+        const st=calc(b,td2).st;
+        if(st==='paid')return false;
+        return byTid[b.templateId]===b;
+      });
+    }
     if(!bills.length)bills=db.bills.filter(b=>b.month===mk(CY,CM));
   } else if(homePeriod==='mes'){
     ensureRecurringForMonth(mk(CY,CM));
@@ -2698,23 +2734,27 @@ function ensureRecurringForMonth(monthKey){
       const{y,m}=ymk(monthKey);
       const dates=getDatesOfWeekday(y,m,template.weeklyDay);
       dates.forEach(d=>{
-        db.bills.push({
+        const nw={
           id:uid(),templateId:tid,
           name:template.name,amount:template.amount,day:d,
           month:monthKey,userId:template.userId,
           payMethod:template.payMethod,category:template.category,
           recurring:true,weeklyDay:template.weeklyDay,payments:[],shared:template.shared
-        });
+        };
+        db.bills.push(nw);
+        saveBillSupa(nw);
         added++;
       });
     } else {
-      db.bills.push({
+      const nb={
         id:uid(),templateId:tid,
         name:template.name,amount:template.amount,day:template.day,
         month:monthKey,userId:template.userId,
         payMethod:template.payMethod,category:template.category,
         recurring:true,payments:[]
-      });
+      };
+      db.bills.push(nb);
+      saveBillSupa(nb);
       added++;
     }
   });
@@ -2967,7 +3007,7 @@ function reopenBill(id){
   const b=db.bills.find(x=>x.id===id);if(!b)return;
   if(!confirm('Reabrir esta conta?\n\nTodos os pagamentos serão removidos.'))return;
   b.payments=[];
-  sdb();refreshDet(id);
+  sdb();saveBillSupa(b);refreshDet(id);
   toast('Conta reaberta como Pendente');
 }
 
@@ -3085,7 +3125,7 @@ function removePaymentByIdx(idx){
     (b.payments.length===1?'A conta voltará para Pendente.':'O saldo será recalculado.');
   if(!confirm(msg))return;
   b.payments.splice(idx,1);
-  sdb();
+  sdb();saveBillSupa(b);
   refreshDet(curBillId);
   toast(b.payments.length===0
     ?'✓ Removido — conta Pendente'
@@ -3123,7 +3163,7 @@ function delAllInstallments(tid){
 function delBill(id){
   if(!hasPerm('canDelete')){toast('Sem permissão');return;}
   if(!confirm('Excluir?'))return;
-  db.bills=db.bills.filter(x=>x.id!==id);sdb();back();renderBills();toast('Excluído');
+  db.bills=db.bills.filter(x=>x.id!==id);sdb();deleteBillSupa(id);back();renderBills();toast('Excluído');
 }
 
 function setEditCycle(c,el){
@@ -3239,10 +3279,12 @@ function saveEditBill(){
     siblings.forEach(s=>{
       const suffix=s.installment?` (${s.installment.index}/${s.installment.total})`:'';
       Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category,noDaily,recurring:newRecurring,cycle});
+      saveBillSupa(s);
     });
     toast(`✓ ${siblings.length} parcela${siblings.length!==1?'s':''} atualizadas`);
   } else {
     Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle,noDaily,recurring:newRecurring});
+    saveBillSupa(b);
     toast('✓ Conta atualizada');
   }
   sdb();closeEditSheet();
@@ -3334,20 +3376,20 @@ function delBill(id){
 function ensureNext(bill){
   if(!bill.recurring)return;
   const tid=bill.templateId||bill.id;
-  // Find the latest month already generated for this template
   const existing=db.bills.filter(b=>b.templateId===tid).map(b=>b.month).sort();
   const lastMonth=existing[existing.length-1]||bill.month;
   const{y,m}=ymk(lastMonth);
-  // Generate 12 more months from the last existing one
   const AHEAD=12;
   let added=0;
   for(let i=1;i<=AHEAD;i++){
     let ny=y,nm=m+i;while(nm>11){nm-=12;ny++;}
     const nk=mk(ny,nm);
     if(!db.bills.find(b=>b.templateId===tid&&b.month===nk)){
-      db.bills.push({id:uid(),templateId:tid,name:bill.name,amount:bill.amount,
+      const nb={id:uid(),templateId:tid,name:bill.name,amount:bill.amount,
         day:bill.day,month:nk,userId:bill.userId,payMethod:bill.payMethod,
-        category:bill.category,recurring:true,payments:[]});
+        category:bill.category,recurring:true,payments:[]};
+      db.bills.push(nb);
+      saveBillSupa(nb);
       added++;
     }
   }
@@ -3400,7 +3442,7 @@ function confirmPay(){
   if(!date){toast('Selecione a data');return;}
   if(!b.payments)b.payments=[];
   b.payments.push({id:uid(),amount,date,method});
-  sdb();
+  sdb();saveBillSupa(b);
   const c=calc(b,date);
   const fullyPaid=c.bal<=0;
   if(fullyPaid&&b.recurring)ensureNext(b);
@@ -4602,19 +4644,22 @@ function openRst(){if(!reqAdm())return;
   document.getElementById('rstYrLbl').textContent=`Todas as contas de ${CY}`;
   document.getElementById('rstOverlay').style.display='flex';}
 function closeRst(){document.getElementById('rstOverlay').style.display='none';}
-function doReset(){
+async function doReset(){
   if(!hasPerm('canReset')){toast('Sem permissão');return;}
   const opt=document.querySelector('input[name="rop"]:checked')?.value;
   if(!opt){toast('Selecione uma opção');return;}
   if(!confirm('Confirmar? Esta ação NÃO pode ser desfeita.'))return;
   const td=today();const key=mk(CY,CM);
-  if(opt==='month')db.bills=db.bills.filter(b=>b.month!==key);
-  else if(opt==='paid')db.bills=db.bills.filter(b=>calc(b,td).st!=='paid');
-  else if(opt==='pending')db.bills=db.bills.filter(b=>calc(b,td).st!=='pending');
-  else if(opt==='late')db.bills=db.bills.filter(b=>calc(b,td).st!=='late');
-  else if(opt==='year')db.bills=db.bills.filter(b=>!b.month.startsWith(String(CY)));
-  else if(opt==='all'){db.bills=[];db.holidays=[];}
-  sdb();closeRst();toast('✓ Zerado');back();
+  let toDelete=[];
+  if(opt==='month'){toDelete=db.bills.filter(b=>b.month===key);db.bills=db.bills.filter(b=>b.month!==key);}
+  else if(opt==='paid'){toDelete=db.bills.filter(b=>calc(b,td).st==='paid');db.bills=db.bills.filter(b=>calc(b,td).st!=='paid');}
+  else if(opt==='pending'){toDelete=db.bills.filter(b=>calc(b,td).st==='pending');db.bills=db.bills.filter(b=>calc(b,td).st!=='pending');}
+  else if(opt==='late'){toDelete=db.bills.filter(b=>calc(b,td).st==='late');db.bills=db.bills.filter(b=>calc(b,td).st!=='late');}
+  else if(opt==='year'){toDelete=db.bills.filter(b=>b.month.startsWith(String(CY)));db.bills=db.bills.filter(b=>!b.month.startsWith(String(CY)));}
+  else if(opt==='all'){toDelete=[...db.bills];db.bills=[];db.holidays=[];}
+  sdb();
+  try{if(toDelete.length){const s=getSupa();await s.from('bills').delete().in('id',toDelete.map(b=>b.id));}}catch(e){console.warn('doReset sync',e);}
+  closeRst();toast('✓ Zerado');back();
 }
 
 /* ══════════════════════════════════════════════════
@@ -4904,6 +4949,9 @@ let _chatMsgs=[];
 let _chatPollTimer=null;
 let _chatLastSeen=0;
 const CHAT_KEY='cpro4_chat';
+const PRESENCE_KEY='cpro4_presence';
+let _myPresenceTimer=null;
+let _otherPresence={ts:0,readTs:0,name:''};
 
 function fmtChatTime(ts){
   const d=new Date(ts);
@@ -4913,6 +4961,58 @@ function fmtChatTime(ts){
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 
+async function updateMyPresence(readTs){
+  if(!curUser)return;
+  try{
+    const s=getSupa();
+    const myId=curUser.id||curUser.login;
+    const{data}=await s.from('app_settings').select('id,value').eq('key',PRESENCE_KEY).single();
+    const presence=(data?.value&&typeof data.value==='object')?{...data.value}:{};
+    presence[myId]={ts:Date.now(),readTs:readTs||presence[myId]?.readTs||0,name:curUser.name};
+    if(data?.id){await s.from('app_settings').update({value:presence,updated_at:new Date().toISOString()}).eq('key',PRESENCE_KEY);}
+    else{await s.from('app_settings').insert({key:PRESENCE_KEY,value:presence});}
+  }catch(e){console.warn('presence update',e);}
+}
+
+async function loadPresence(){
+  if(!curUser)return;
+  try{
+    const s=getSupa();
+    const{data}=await s.from('app_settings').select('value').eq('key',PRESENCE_KEY).single();
+    if(data?.value&&typeof data.value==='object'){
+      const myId=curUser.id||curUser.login;
+      const others=Object.entries(data.value).filter(([id])=>id!==myId);
+      if(others.length>0){
+        const[otherId,otherData]=others[0];
+        _otherPresence={ts:otherData.ts||0,readTs:otherData.readTs||0,name:otherData.name||''};
+      }
+    }
+  }catch(e){console.warn('presence load',e);}
+  renderChatPresence();
+}
+
+function renderChatPresence(){
+  const el=document.getElementById('chatPresenceBar');
+  if(!el)return;
+  const now=Date.now();
+  const diff=now-_otherPresence.ts;
+  const name=_otherPresence.name||(db.users.find(u=>(u.id||u.login)!==(curUser?.id||curUser?.login))?.name||'');
+  if(!_otherPresence.ts){el.textContent='';el.style.display='none';return;}
+  el.style.display='block';
+  if(diff<60000){
+    el.innerHTML=`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#25d366;margin-right:5px;box-shadow:0 0 5px #25d36688"></span>${esc(name)} está online`;
+    el.style.color='#25d366';
+  } else {
+    const lastD=new Date(_otherPresence.ts);
+    const sameDay=lastD.toDateString()===new Date().toDateString();
+    const timeStr=sameDay
+      ?lastD.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+      :lastD.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+lastD.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    el.innerHTML=`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink3);margin-right:5px"></span>Visto por último: ${timeStr}`;
+    el.style.color='var(--ink3)';
+  }
+}
+
 async function loadChatMessages(showToast){
   try{
     const s=getSupa();
@@ -4920,7 +5020,6 @@ async function loadChatMessages(showToast){
     if(data?.value&&Array.isArray(data.value)){
       _chatMsgs=data.value;
     } else {
-      // Try localStorage fallback
       try{const c=localStorage.getItem(CHAT_KEY);if(c)_chatMsgs=JSON.parse(c);}catch{}
     }
   }catch{
@@ -4938,12 +5037,16 @@ function renderChatMsgs(){
     body.innerHTML=`<div class="chat-empty"><div style="font-size:2.5rem">💬</div><div style="font-size:.84rem;font-weight:700;color:var(--ink3)">Sem mensagens ainda</div><div style="font-size:.72rem;color:var(--ink3)">Diga olá para começar!</div></div>`;
     return;
   }
+  const myId=curUser?.id||curUser?.login;
   body.innerHTML=_chatMsgs.map(m=>{
-    const mine=m.from_id===curUser?.id||m.from_id===curUser?.login;
+    const mine=m.from_id===myId;
+    const otherReadTs=_otherPresence.readTs||0;
+    const isRead=mine&&otherReadTs>=m.ts;
+    const readTick=mine?`<span style="margin-left:4px;font-size:.65rem;color:${isRead?'#25d366':'rgba(255,255,255,.55)'}" title="${isRead?'Visualizado':'Enviado'}">${isRead?'✓✓':'✓'}</span>`:'';
     return`<div class="chat-bubble ${mine?'mine':'theirs'}">
       ${!mine?`<div class="chat-name">${esc(m.from_name||'?')}</div>`:''}
       <div class="chat-text">${esc(m.text)}</div>
-      <div class="chat-ts">${fmtChatTime(m.ts)}</div>
+      <div class="chat-ts">${fmtChatTime(m.ts)}${readTick}</div>
     </div>`;
   }).join('');
   body.scrollTop=body.scrollHeight;
@@ -4955,7 +5058,7 @@ async function saveChatMessages(){
     const s=getSupa();
     const{data}=await s.from('app_settings').select('id').eq('key',CHAT_KEY).single();
     if(data?.id){
-      await s.from('app_settings').update({value:_chatMsgs}).eq('key',CHAT_KEY);
+      await s.from('app_settings').update({value:_chatMsgs,updated_at:new Date().toISOString()}).eq('key',CHAT_KEY);
     } else {
       await s.from('app_settings').insert({key:CHAT_KEY,value:_chatMsgs});
     }
@@ -4973,33 +5076,43 @@ async function sendChatMsg(){
   renderChatMsgs();
   _chatLastSeen=Date.now();
   await saveChatMessages();
+  updateMyPresence(_chatLastSeen);
 }
 
 function markChatRead(){
-  _chatLastSeen=_chatMsgs.length?_chatMsgs[_chatMsgs.length-1].ts:Date.now();
+  const lastTs=_chatMsgs.length?_chatMsgs[_chatMsgs.length-1].ts:Date.now();
+  _chatLastSeen=lastTs;
   localStorage.setItem('cpro4_chat_seen',String(_chatLastSeen));
   const dot=document.getElementById('chatUnreadDot');
   if(dot)dot.style.display='none';
+  updateMyPresence(lastTs);
 }
 
 function checkChatUnread(){
   const seen=parseInt(localStorage.getItem('cpro4_chat_seen')||'0');
-  const hasNew=_chatMsgs.some(m=>m.ts>seen&&(m.from_id!==curUser?.id&&m.from_id!==curUser?.login));
+  const myId=curUser?.id||curUser?.login;
+  const hasNew=_chatMsgs.some(m=>m.ts>seen&&m.from_id!==myId);
   const dot=document.getElementById('chatUnreadDot');
   if(dot)dot.style.display=hasNew?'block':'none';
 }
 
 function startChatPoll(){
   stopChatPoll();
+  updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
   _chatPollTimer=setInterval(async()=>{
     if(!curUser)return;
-    await loadChatMessages(false);
+    await Promise.all([loadChatMessages(false),loadPresence()]);
     if(curSc==='sc-chat')markChatRead();
   },8000);
+  _myPresenceTimer=setInterval(()=>{
+    if(!curUser)return;
+    updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
+  },30000);
 }
 
 function stopChatPoll(){
   if(_chatPollTimer){clearInterval(_chatPollTimer);_chatPollTimer=null;}
+  if(_myPresenceTimer){clearInterval(_myPresenceTimer);_myPresenceTimer=null;}
 }
 
 </script>
