@@ -1560,9 +1560,10 @@ async function saveAdminSettingsToProfiles(){
       color:adminUser.color||'#3b4fd4',
       perms:newPerms
     },{onConflict:'id'});
-    if(error)console.warn('saveAdminSettings error',error);
-    else console.log('[settings] saved to admin profile ✓');
-  }catch(e){console.warn('saveAdminSettings',e);}
+    if(error){console.warn('saveAdminSettings error',error);return{ok:false,error};}
+    else{console.log('[settings] saved to admin profile ✓');return{ok:true};}
+  }catch(e){console.warn('saveAdminSettings',e);return{ok:false,error:e};}
+  return{ok:false};
 }
 
 async function syncToSupa(){
@@ -5027,15 +5028,29 @@ function renderPermToggles(){
     </div>`).join('');
 }
 
-function savePerms(){
+async function savePerms(){
   const uid2=document.getElementById('permUserSel')?.value;
   const u=db.users.find(x=>x.id===uid2);if(!u)return;
   const perms={};
   Object.keys(PERM_LABELS).forEach(k=>{perms[k]=!!(document.getElementById('pt_'+k)?.classList.contains('on'));});
   u.perms=perms;
-  // Save directly to admin profile (profiles table, no RLS issue)
-  saveAdminSettingsToProfiles();
-  toast('✓ Permissões salvas para '+u.name);
+  sdb();
+  // Also try updating the user's own profile row directly (best-effort — may be blocked by RLS)
+  try{
+    const s=getSupa();
+    if(s&&hasRealSession()&&isUUID(u.id)){
+      const{error:profErr}=await s.from('profiles').update({perms}).eq('id',u.id);
+      if(profErr)console.warn('savePerms direct profile update:',profErr.message);
+    }
+  }catch(e){console.warn('savePerms direct update error',e);}
+  // Primary save: into admin profile _perms key
+  const result=await saveAdminSettingsToProfiles();
+  if(!result?.ok){
+    toast('⚠️ Erro ao salvar permissões na nuvem. Verifique a conexão.');
+    console.error('savePerms failed',result?.error);
+  } else {
+    toast('✓ Permissões salvas para '+u.name);
+  }
 }
 
 /* ── COUPLE TAB ── */
