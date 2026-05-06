@@ -2828,14 +2828,15 @@ function renderBills(){
     const c=calc(b,td);
     tot+=b.amount;paid+=c.paid;bal+=c.bal;daily=r2(daily+c.daily);
   });
+  const cofreTotal=getCofreVal();
 
   document.getElementById('billsSumbar').innerHTML=`
     <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.7);margin-bottom:7px">${periodLabel()} · ${allBills.length} conta${allBills.length!==1?'s':''}</div>
     <div class="sum-grid">
       <div class="sum-cell"><div class="sum-lbl">Total Mês</div><div class="sum-val">${fmtn(tot)}</div></div>
       <div class="sum-cell"><div class="sum-lbl">Pago</div><div class="sum-val">${fmtn(paid)}</div></div>
-      <div class="sum-cell"><div class="sum-lbl">Saldo</div><div class="sum-val">${fmtn(bal)}</div></div>
-      <div class="sum-cell"><div class="sum-lbl">Diária/dia</div><div class="sum-val">${fmtn(daily)}</div></div>
+      <div class="sum-cell"><div class="sum-lbl">A Pagar</div><div class="sum-val">${fmtn(bal)}</div></div>
+      <div class="sum-cell"><div class="sum-lbl">Saldo 🐷</div><div class="sum-val">${fmtn(cofreTotal)}</div></div>
     </div>`;
 
   document.getElementById('billsList').innerHTML=bills.length?bills.map(b=>{
