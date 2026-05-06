@@ -1785,7 +1785,7 @@ function calc(b,ref){
     }
   }
   if(divisor<1)divisor=1;
-  const daily=r2(b.amount/divisor);
+  let daily=r2(b.amount/divisor);
 
   const paid=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
   const refDate=piso(ref);
@@ -1794,16 +1794,18 @@ function calc(b,ref){
   let daysElapsed,daysLeft,late,acc,accrued;
 
   if(b.noDaily){
-    // À vista: valor fixo, sem acumulação de penalidade diária
+    // À vista: valor fixo, sem multa extra, mas diária calculada sobre os dias restantes
     acc=0;
     if(refDate>piso(dISO)){
-      // Passou do vencimento — atrasada mas sem multa extra
+      // Passou do vencimento — diária = valor total (urgência máxima)
       late=wdb(dISO,ref); daysElapsed=wd; daysLeft=0;
+      daily=b.amount;
     } else {
-      // Ainda dentro do prazo — calcula daysLeft normalmente
+      // Dentro do prazo — diária = valor / dias úteis restantes até o vencimento
       late=0;
       daysElapsed=wdBefore(periodStart,ref);
       daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hset())?1:0);
+      daily=r2(b.amount/Math.max(1,daysLeft));
     }
     accrued=b.amount;
   } else if(refDate<=piso(dISO)){
@@ -2624,7 +2626,7 @@ function renderHome(){
   if(caixaVal<totalBal&&bills.length){
     let totalEmerDay=0;
     bills.forEach(b=>{
-      if(b.noDaily)return; // contas fixas não entram na diária de emergência
+      // contas à vista agora participam da diária (daily recalculado por dias restantes)
       const c=calc(b,td);
       if(c.bal<=0)return;
       const dLeft=Math.max(1,c.daysLeft||1);
@@ -3385,9 +3387,7 @@ function renderBills(){
           <div class="bc-name">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${b.noDaily?'<span class="rec-badge" style="background:rgba(127,140,141,.1);color:#7f8c8d"> 💳 fixo</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
           <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
           <div style="display:flex;gap:8px;margin-top:3px;align-items:center;flex-wrap:wrap">
-            ${b.noDaily
-              ?'<span style="font-size:.66rem;font-weight:800;color:#7f8c8d;background:rgba(127,140,141,.1);padding:2px 7px;border-radius:100px">sem diária</span>'
-              :`<span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia</span>`}
+            <span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia${b.noDaily&&c.daysLeft>0?` · ${c.daysLeft}d restante${c.daysLeft!==1?'s':''}`:''}</span>
             <span style="font-size:.66rem;font-weight:700;color:var(--ink3)">Mês: ${fmt(b.amount)}</span>
             ${prevSaldo>0?`<span style="font-size:.66rem;font-weight:800;color:var(--red);background:rgba(231,76,60,.1);padding:2px 7px;border-radius:100px">⚠️ Anterior: ${fmt(prevSaldo)}</span>`:''}
           </div>
@@ -3509,7 +3509,9 @@ function refreshDet(id){
     </div>
     <div class="calc-box">
       <div class="calc-row"><span class="calc-lbl">Original</span><span class="calc-val">${fmt(b.amount)}</span></div>
-      <div class="calc-row"><span class="calc-lbl">${c.daysElapsed} diárias × ${fmt(c.daily)}</span><span class="calc-val">${fmt(c.accrued)}</span></div>
+      ${b.noDaily
+        ?`<div class="calc-row"><span class="calc-lbl">Valor fixo (${c.daysLeft>0?c.daysLeft+' dia'+(c.daysLeft!==1?'s úteis restantes':'útil restante'):'vencida'} · ${fmt(c.daily)}/dia)</span><span class="calc-val">${fmt(c.accrued)}</span></div>`
+        :`<div class="calc-row"><span class="calc-lbl">${c.daysElapsed} diárias × ${fmt(c.daily)}</span><span class="calc-val">${fmt(c.accrued)}</span></div>`}
       ${c.acc>0?`<div class="calc-row"><span class="calc-lbl">Atraso (${c.late}d)</span><span class="calc-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
       ${c.paid>0?`<div class="calc-row"><span class="calc-lbl">Já pago</span><span class="calc-val" style="color:var(--teal)">− ${fmt(c.paid)}</span></div>`:''}
       <div class="calc-row"><span class="calc-lbl" style="font-weight:800">Saldo (este mês)</span><span class="calc-val" style="color:var(--orange);font-weight:900">${fmt(c.bal)}</span></div>
