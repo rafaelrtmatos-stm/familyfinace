@@ -428,7 +428,11 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .chat-send{width:42px;height:42px;border-radius:50%;background:var(--g2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
 .chat-send:active{transform:scale(.9)}
 .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:.45}
-.chat-unread{position:absolute;top:3px;right:8px;width:8px;height:8px;background:#e74c3c;border-radius:50%;display:none}
+.chat-unread{position:absolute;top:3px;right:8px;width:9px;height:9px;background:#e74c3c;border-radius:50%;display:none;animation:chatPulse 1.5s infinite}
+@keyframes chatPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,.6)}50%{transform:scale(1.35);box-shadow:0 0 0 4px rgba(231,76,60,0)}}
+.chat-mic{width:42px;height:42px;border-radius:50%;background:var(--ink3);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s,transform .15s}
+.chat-mic.recording{background:#e74c3c;animation:chatPulse 1s infinite}
+.chat-mic:active{transform:scale(.9)}
 
 /* ── LATE BILLS MODAL ── */
 .late-overlay{position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.55);display:none;align-items:flex-end}
@@ -936,6 +940,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
   </div>
   <div class="chat-input-row">
+    <button class="chat-mic" id="chatMicBtn" onclick="toggleChatAudio()" title="Gravar áudio">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
     <input class="chat-inp" id="chatInp" placeholder="Digite uma mensagem…" onkeydown="if(event.key==='Enter')sendChatMsg()"/>
     <button class="chat-send" onclick="sendChatMsg()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1414,7 +1421,7 @@ async function insertBillSupa(b){
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?(curUser?.id||null):b.userId, pay_method:b.payMethod||'pix',
+    user_id:isTodos?(curUser?.id||null):(b.userId||null), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
@@ -1434,7 +1441,7 @@ async function saveBillSupa(b){
   const row={
     id:b.id, template_id:b.templateId, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?(curUser?.id||null):b.userId, pay_method:b.payMethod||'pix',
+    user_id:isTodos?(curUser?.id||null):(b.userId||null), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
@@ -1760,7 +1767,7 @@ async function doLoginBtn(){
         id:data.user.id,
         name:profile?.name||hardcoded.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
         email,
-        role:profile?.role||hardcoded.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
+        role:email==='rafaelrtmatos@gmail.com'?'admin':(profile?.role||hardcoded.role||'user'),
         color:profile?.color||hardcoded.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
         perms:profile?.perms||hardcoded.perms||{}
       };
@@ -1843,6 +1850,7 @@ async function doLogin(u){
   const homeBtn=document.getElementById(BNAV_MAP['sc-home']);
   if(homeBtn)homeBtn.classList.add('active');
   toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}! ${u.role==='admin'?'👑':''}`);
+  await loadCofreFromSupa();
   startChatPoll();
 }
 
@@ -3628,12 +3636,17 @@ function confirmPay(){
   closePaySheet();
   // Refresh detail content without triggering go() navigation (stay on current screen)
   refreshDet(curBillId);
+  const payerName=curUser?.name||'?';
+  const emoji=fullyPaid?'✅':'💰';
   if(fullyPaid&&b.recurring){
     toast('✓ Pago! Próxima parcela criada.');
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado! Próxima parcela criada.`);
   } else if(fullyPaid){
     toast('✓ Conta quitada!');
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado!`);
   } else {
     toast(`Pagamento de ${fmt(amount)} registrado. Saldo: ${fmt(c.bal)}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}". Saldo restante: ${fmt(c.bal)}`);
   }
 }
 
@@ -3814,6 +3827,40 @@ function getCofreFormVal(form){
 }
 function getCofreVal(){return r2(getCofreFormVal('pix')+getCofreFormVal('dinheiro'));}
 
+async function saveCofreToSupa(){
+  try{
+    const s=getSupa();if(!s||!curUser)return;
+    const obj={};
+    ['pix','dinheiro'].forEach(f=>{
+      const k='cofre_'+f;
+      const v=localStorage.getItem(k);
+      if(v!=null)obj[k]=parseFloat(v)||0;
+    });
+    if(curUser.id){
+      ['pix','dinheiro'].forEach(f=>{
+        const k='cofre_'+curUser.id+'_'+f;
+        const v=localStorage.getItem(k);
+        if(v!=null)obj[k]=parseFloat(v)||0;
+      });
+    }
+    await s.from('app_settings').upsert({key:'cpro4_cofre',value:obj,updated_at:new Date().toISOString()},{onConflict:'key'});
+  }catch(e){console.warn('cofre save supa',e);}
+}
+
+async function loadCofreFromSupa(){
+  try{
+    const s=getSupa();if(!s||!curUser)return;
+    const{data}=await s.from('app_settings').select('value').eq('key','cpro4_cofre').maybeSingle();
+    if(data?.value&&typeof data.value==='object'){
+      Object.entries(data.value).forEach(([k,v])=>{
+        if(k.startsWith('cofre_')&&typeof v==='number'){
+          localStorage.setItem(k,String(v));
+        }
+      });
+    }
+  }catch(e){console.warn('cofre load supa',e);}
+}
+
 let cofreNumStr='0';
 let cofreForm='pix';
 
@@ -3892,6 +3939,7 @@ function saveCofreDeposit(type){
   const userId=selUser?.value||curUser?.id||'?';
   const userName=db.users.find(u=>u.id===userId)?.name||curUser?.name||'?';
   localStorage.setItem(getCofreFormKey(cofreForm),newVal.toString());
+  saveCofreToSupa();
   addCofreHist({
     id:Date.now().toString(36),
     type,form:cofreForm,amount:n,newBalance:newVal,
@@ -3912,6 +3960,7 @@ function openCofreZerar(){
   localStorage.removeItem(getCofreFormKey('pix'));
   localStorage.removeItem(getCofreFormKey('dinheiro'));
   localStorage.removeItem(getCofreHistKey());
+  saveCofreToSupa();
   closeCofreSheet();renderDash();toast('Cofre zerado');
 }
 function renderCofreWidget(saldoPendente){
@@ -4146,6 +4195,7 @@ function saveEditCofreHist(){
   hist[_editCofreIdx].amount=newAmt;
   hist[_editCofreIdx].newBalance=newBal;
   localStorage.setItem(getCofreHistKey(),JSON.stringify(hist));
+  saveCofreToSupa();
   toast(`✓ Valor atualizado: ${fmt(newAmt)}`);
   closeEditCofreSheet();
   renderCofreHistFull();
@@ -4161,6 +4211,7 @@ function deleteCofreHist(idx){
   localStorage.setItem(getCofreFormKey(h.form),Math.max(0,reversed).toString());
   hist.splice(idx,1);
   localStorage.setItem(getCofreHistKey(),JSON.stringify(hist));
+  saveCofreToSupa();
   toast('Registro excluído');
   renderCofreHistFull();renderDash();
 }
@@ -4285,6 +4336,7 @@ function saveUserEdit(){
     if(u)Object.assign(u,{name,login,password:pass,role,color});
   } else {
     db.users.push({id:uid(),name,login,password:pass,role,color,perms:{}});
+    sendSystemChatMsg(`👤 Novo usuário "${name}" foi adicionado ao sistema.`);
   }
   sdb();closeUserEdit();
   // Refresh settings if open, otherwise toast only
@@ -5219,10 +5271,23 @@ function renderChatMsgs(){
   }
   const myId=curUser?.id||curUser?.login;
   body.innerHTML=_chatMsgs.map(m=>{
+    if(m.isSystem){
+      return`<div style="text-align:center;margin:8px 4px"><span style="font-size:.7rem;font-weight:700;color:var(--ink3);background:rgba(0,0,0,.06);border-radius:100px;padding:4px 12px;display:inline-block">${esc(m.text)}</span></div>`;
+    }
     const mine=m.from_id===myId;
     const otherReadTs=_otherPresence.readTs||0;
     const isRead=mine&&otherReadTs>=m.ts;
     const readTick=mine?`<span style="margin-left:4px;font-size:.65rem;color:${isRead?'#25d366':'rgba(255,255,255,.55)'}" title="${isRead?'Visualizado':'Enviado'}">${isRead?'✓✓':'✓'}</span>`:'';
+    if(m.type==='audio'){
+      return`<div class="chat-bubble ${mine?'mine':'theirs'}">
+        ${!mine?`<div class="chat-name">${esc(m.from_name||'?')}</div>`:''}
+        <div class="chat-text" style="padding:8px 10px;background:${mine?'var(--g2)':'var(--white)'}">
+          <div style="font-size:.68rem;font-weight:700;margin-bottom:4px;color:${mine?'rgba(255,255,255,.75)':'var(--ink3)'}">🎙️ Áudio</div>
+          <audio controls src="${m.audioData}" style="max-width:200px;height:34px;display:block"></audio>
+        </div>
+        <div class="chat-ts">${fmtChatTime(m.ts)}${readTick}</div>
+      </div>`;
+    }
     return`<div class="chat-bubble ${mine?'mine':'theirs'}">
       ${!mine?`<div class="chat-name">${esc(m.from_name||'?')}</div>`:''}
       <div class="chat-text">${esc(m.text)}</div>
@@ -5270,6 +5335,65 @@ function checkChatUnread(){
   const hasNew=_chatMsgs.some(m=>m.ts>seen&&m.from_id!==myId);
   const dot=document.getElementById('chatUnreadDot');
   if(dot)dot.style.display=hasNew?'block':'none';
+}
+
+async function sendSystemChatMsg(text){
+  if(!curUser)return;
+  const msg={id:uid(),from_id:'system',from_name:'Sistema',text,ts:Date.now(),isSystem:true};
+  _chatMsgs.push(msg);
+  renderChatMsgs();
+  checkChatUnread();
+  await saveChatMessages();
+}
+
+let _mediaRecorder=null;
+let _audioChunks=[];
+let _isRecording=false;
+
+async function toggleChatAudio(){
+  if(_isRecording){stopChatAudio();}
+  else{await startChatAudio();}
+}
+
+async function startChatAudio(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    _audioChunks=[];
+    const mimeType=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'audio/ogg;codecs=opus';
+    _mediaRecorder=new MediaRecorder(stream,{mimeType});
+    _mediaRecorder.ondataavailable=e=>{if(e.data.size>0)_audioChunks.push(e.data);};
+    _mediaRecorder.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(_audioChunks,{type:_mediaRecorder.mimeType||'audio/webm'});
+      if(blob.size<500){toast('Áudio muito curto');return;}
+      const reader=new FileReader();
+      reader.onload=async()=>{
+        const audioData=reader.result;
+        if(!curUser)return;
+        const msg={id:uid(),from_id:curUser.id||curUser.login,from_name:curUser.name,type:'audio',audioData,ts:Date.now()};
+        _chatMsgs.push(msg);
+        renderChatMsgs();
+        _chatLastSeen=Date.now();
+        await saveChatMessages();
+        updateMyPresence(_chatLastSeen);
+      };
+      reader.readAsDataURL(blob);
+    };
+    _mediaRecorder.start();
+    _isRecording=true;
+    const btn=document.getElementById('chatMicBtn');
+    if(btn)btn.classList.add('recording');
+    toast('🎙️ Gravando… toque novamente para parar');
+  }catch(e){
+    toast('Microfone não disponível: '+e.message);
+  }
+}
+
+function stopChatAudio(){
+  if(_mediaRecorder&&_mediaRecorder.state!=='inactive')_mediaRecorder.stop();
+  _isRecording=false;
+  const btn=document.getElementById('chatMicBtn');
+  if(btn)btn.classList.remove('recording');
 }
 
 function startChatPoll(){

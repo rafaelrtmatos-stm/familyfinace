@@ -28,11 +28,13 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Uses Supabase for authentication (email/password) and data persistence
 - Falls back to `localStorage` (`cpro4_cache`) for offline/local state
 - Mobile-first UI with a 390×844 phone shell wrapper for desktop viewing
-- Hardcoded user profiles (Rafael/admin, Ingrid/user) with role-based permissions
+- Hardcoded user profiles (Rafael/admin, Ingrid/user) with role-based permissions; `rafaelrtmatos@gmail.com` is always forced to admin role at login regardless of Supabase profile value
 - Chat messages stored in `app_settings` table with key `cpro4_chat` as JSON array; polled every 8 s; presence (last-seen + readTs) in key `cpro4_presence` per user id; polled same interval
+- Chat supports text, audio (base64 WebM via MediaRecorder), and system messages (isSystem:true, centered display)
 - Themes (Default/Rose/Dark) apply CSS vars to `:root` at runtime; persisted in `localStorage` as `cpro4_theme`
 - Add form is a 3-step wizard (amount → category/type → details); step state in `addStep` var, controlled by `goAddStep()`
 - `selPM()` scoped to `.pm-row` parent to avoid cross-step chip deselection
+- Cofre (caixa) values synced to Supabase via key `cpro4_cofre` (object of localStorage keys → values); loaded on login, saved on every deposit/saque/edit/delete/zero
 
 ## Product
 
