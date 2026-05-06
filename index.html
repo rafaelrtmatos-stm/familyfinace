@@ -1563,7 +1563,7 @@ async function syncToSupa(){
     // Upsert bills
     if(db.bills.length){
       const rows=db.bills.map(b=>({
-        id:b.id, template_id:b.templateId, name:b.name,
+        id:b.id, template_id:b.templateId||null, name:b.name,
         amount:b.amount, day:b.day, month:b.month,
         user_id:(b.userId==='todos')?(curUser?.id||null):safeUID(b.userId),
         pay_method:b.payMethod||'pix',
@@ -1588,7 +1588,7 @@ async function insertBillSupa(b){
   const s=getSupa();
   const isTodos=b.userId==='todos';
   const row={
-    id:b.id, template_id:b.templateId, name:b.name,
+    id:b.id, template_id:b.templateId||null, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
     user_id:isTodos?(curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
@@ -1610,7 +1610,7 @@ async function saveBillSupa(b){
   const s=getSupa();
   const isTodos=b.userId==='todos';
   const row={
-    id:b.id, template_id:b.templateId, name:b.name,
+    id:b.id, template_id:b.templateId||null, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
     user_id:isTodos?(curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
