@@ -4115,6 +4115,8 @@ async function saveCofreToSupa(){
     if(!writeErr){
       console.log('[cofre] saved to profiles ✓');
       _cofreSynced=true;_cofreSyncTs=snap.ts;
+      // Update local ts so the guard in _applyCofreSnapshot stays accurate
+      localStorage.setItem('cpro4_cofre_ts',String(snap.ts));
     } else {
       console.warn('[cofre] profile write error',writeErr);
       _cofreSynced=false;
@@ -5773,7 +5775,7 @@ function startChatPoll(){
     if(!curUser)return;
     updateMyPresence(parseInt(localStorage.getItem('cpro4_chat_seen')||'0'));
   },30000);
-  // Poll cofre from Supabase every 30s so both devices stay in sync
+  // Poll cofre from Supabase every 8s so both devices stay in sync quickly
   _cofrePollTimer=setInterval(async()=>{
     if(!curUser)return;
     const prevPix=getCofreFormVal('pix');
@@ -5787,7 +5789,7 @@ function startChatPoll(){
       if(curSc==='sc-home')renderHome();
       toast('💰 Caixa atualizada');
     }
-  },30000);
+  },8000);
 }
 
 function stopChatPoll(){
