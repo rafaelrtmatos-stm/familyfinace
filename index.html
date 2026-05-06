@@ -1359,7 +1359,8 @@ async function _onProfilesChange(){
   }
 }
 
-function _onBillsChange(){
+function _onBillsChange(payload){
+  console.log('[bills-rt] evento recebido:',payload?.eventType,payload?.new?.id||payload?.old?.id||'');
   clearTimeout(_billsRtTimer);
   _billsRtTimer=setTimeout(async()=>{
     if(!curUser)return;
