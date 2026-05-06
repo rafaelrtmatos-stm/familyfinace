@@ -1391,7 +1391,6 @@ async function insertBillSupa(b){
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:b.shared||false,
-    no_daily:b.noDaily||false,
     updated_at:new Date().toISOString()
   };
   const{error}=await s.from('bills').insert(row);
@@ -1411,7 +1410,6 @@ async function saveBillSupa(b){
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:b.shared||false,
-    no_daily:b.noDaily||false,
     updated_at:new Date().toISOString()
   };
   const{error}=await s.from('bills').upsert(row,{onConflict:'id'});
