@@ -2527,8 +2527,18 @@ function renderHome(){
   // ── Right chart: column bar per user with percentage labels ──
   const ctx=document.getElementById('homeDonut')?.getContext('2d');
   if(ctx){
+    // Always use ALL month bills (not view-filtered) so every user appears in the chart
+    const allMonthBills=db.bills.filter(b=>b.month===mk(CY,CM));
+    const coupleSize=Math.max(1,(db.couple||[]).length||db.users.length||2);
+    // 'todos' bills split equally among couple members
+    const todosBals=allMonthBills.filter(b=>b.userId==='todos').reduce((s,b)=>s+calc(b,td).bal,0);
+    const todosPerUser=r2(todosBals/coupleSize);
     const uLabels=db.users.map(u=>u.name.split(' ')[0]);
-    const uBals=db.users.map(u=>r2(bills.filter(b=>b.userId===u.id).reduce((s,b)=>s+calc(b,td).bal,0)));
+    const uBals=db.users.map(u=>{
+      const own=r2(allMonthBills.filter(b=>b.userId===u.id).reduce((s,b)=>s+calc(b,td).bal,0));
+      const shared=(db.couple||[]).includes(u.id)?todosPerUser:0;
+      return r2(own+shared);
+    });
     const uColors=db.users.map(u=>u.color||'#3b4fd4');
     const totalU=r2(uBals.reduce((s,v)=>s+v,0));
     const pctPlugin={
