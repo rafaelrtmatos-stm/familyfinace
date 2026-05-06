@@ -3539,9 +3539,15 @@ function refreshDet(id){
   });
 
   const actionBtn=document.getElementById('detActionBtn');
-  actionBtn.textContent='Pagar';
-  actionBtn.setAttribute('onclick','openPaySheet()');
-  actionBtn.style.cssText='';
+  if(isPaid){
+    actionBtn.textContent='✓ Quitado';
+    actionBtn.removeAttribute('onclick');
+    actionBtn.style.cssText='opacity:.45;cursor:not-allowed;pointer-events:none;';
+  } else {
+    actionBtn.textContent='Pagar';
+    actionBtn.setAttribute('onclick','openPaySheet()');
+    actionBtn.style.cssText='';
+  }
 }
 
 function removePaymentByIdx(idx){
@@ -3832,6 +3838,7 @@ function openPaySheet(){
   if(!hasPerm('canMarkPaid')){toast('Sem permissão para registrar pagamento');return;}
   const b=db.bills.find(x=>x.id===curBillId);if(!b)return;
   const td=today();const c=calc(b,td);
+  if(c.st==='paid'){toast('Esta conta já está quitada. Use ✏️ Editar para corrigir se necessário.');return;}
   // Pre-fill with original bill amount (user pays the face value)
   const suggestedVal=r2(b.amount);
   const psValEl=document.getElementById('psVal');
@@ -4031,7 +4038,7 @@ function renderDash(){
       </div>
       <div style="display:flex;gap:7px;border-top:1px solid #f2f4f8;padding-top:9px">
         <button onclick="openDet('${b.id}')" style="flex:1;padding:8px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:9px;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--ink2);cursor:pointer">📋 Detalhes</button>
-        <button onclick="curBillId='${b.id}';openPaySheet()" style="flex:1;padding:8px;background:rgba(59,79,212,.1);border:1.5px solid rgba(59,79,212,.25);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--g2);cursor:pointer">💰 Pagar</button>
+        ${c.st!=='paid'?`<button onclick="curBillId='${b.id}';openPaySheet()" style="flex:1;padding:8px;background:rgba(59,79,212,.1);border:1.5px solid rgba(59,79,212,.25);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--g2);cursor:pointer">💰 Pagar</button>`:''}
         <button onclick="openEditSheet('${b.id}')" style="flex:1;padding:8px;background:rgba(52,152,219,.1);border:1.5px solid rgba(52,152,219,.25);border-radius:9px;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar</button>
       </div>
     </div>`;
