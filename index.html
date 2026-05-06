@@ -1373,27 +1373,24 @@ async function loadFromSupa(){
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
     if(hols)db.holidays=hols.map(h=>({id:String(h.id),date:h.date,name:h.name}));
-    // Load cats from settings + cofre sync
+    // Load cats + couple from settings
     const{data:sets}=await s.from('app_settings').select('*');
     if(sets){
       const catSetting=sets.find(s=>s.key==='cats');
       if(catSetting?.value)db.cats=catSetting.value;
       const coupleSetting=sets.find(s=>s.key==='couple');
       if(coupleSetting?.value)db.couple=coupleSetting.value;
-      // Sync cofre inline (same query, no extra round-trip)
-      const cofreSetting=sets.find(s=>s.key==='cpro4_cofre');
-      if(cofreSetting?.value&&typeof cofreSetting.value==='object'){
-        const remote=cofreSetting.value;
-        const remoteTs=remote.ts||0;
-        const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
-        if(remoteTs>localTs){
-          Object.entries(remote).forEach(([k,v])=>{
-            if(k.startsWith('cofre_')&&typeof v==='number')localStorage.setItem(k,String(v));
-          });
-          localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
-        }
-        _cofreSynced=true;
-        _cofreSyncTs=remoteTs||Date.now();
+    }
+    // Sync cofre from profiles (no extra round-trip — profiles already loaded above)
+    if(profiles){
+      let bestSnap=null,bestTs=0;
+      profiles.forEach(p=>{
+        const snap=p?.perms?._cofre;
+        if(snap&&typeof snap==='object'&&(snap.ts||0)>bestTs){bestTs=snap.ts||0;bestSnap=snap;}
+      });
+      if(bestSnap){
+        _applyCofreSnapshot(bestSnap);
+        _cofreSynced=true;_cofreSyncTs=bestTs;
       }
     }
     hideLoader();
@@ -3866,69 +3863,86 @@ function getCofreVal(){return r2(getCofreFormVal('pix')+getCofreFormVal('dinheir
 let _cofreSynced=false;
 let _cofreSyncTs=0;
 
+// Apply a remote cofre snapshot to localStorage if it's newer than current local
+function _applyCofreSnapshot(snap){
+  if(!snap||typeof snap!=='object')return false;
+  const remoteTs=snap.ts||0;
+  const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+  if(remoteTs<=localTs)return false;
+  if(typeof snap.pix==='number')localStorage.setItem('cofre_pix',String(snap.pix));
+  if(typeof snap.dinheiro==='number')localStorage.setItem('cofre_dinheiro',String(snap.dinheiro));
+  localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
+  return true;
+}
+
+// Build current cofre snapshot from localStorage
+function _buildCofreSnapshot(){
+  return{
+    ts:Date.now(),
+    pix:parseFloat(localStorage.getItem('cofre_pix')||'0')||0,
+    dinheiro:parseFloat(localStorage.getItem('cofre_dinheiro')||'0')||0
+  };
+}
+
 async function saveCofreToSupa(){
   try{
     const s=getSupa();if(!s||!curUser)return;
-    const obj={ts:Date.now()};
-    ['pix','dinheiro'].forEach(f=>{
-      const k='cofre_'+f;
-      const v=localStorage.getItem(k);
-      if(v!=null)obj[k]=parseFloat(v)||0;
-    });
-    if(curUser.id){
-      ['pix','dinheiro'].forEach(f=>{
-        const k='cofre_'+curUser.id+'_'+f;
-        const v=localStorage.getItem(k);
-        if(v!=null)obj[k]=parseFloat(v)||0;
-      });
+    const snap=_buildCofreSnapshot();
+    // Strategy 1: save in own profile row (perms._cofre) — works with default Supabase RLS
+    // Each user updates only their own row; loader picks the newest across all profiles
+    const{data:prof}=await s.from('profiles').select('perms').eq('id',curUser.id).single();
+    const existingPerms=prof?.perms||{};
+    const{error:profErr}=await s.from('profiles').update({
+      perms:{...existingPerms,_cofre:snap}
+    }).eq('id',curUser.id);
+    if(!profErr){
+      _cofreSynced=true;_cofreSyncTs=snap.ts;
+      renderDash();return;
     }
-    const{error}=await s.from('app_settings').upsert({key:'cpro4_cofre',value:obj,updated_at:new Date().toISOString()},{onConflict:'key'});
-    if(error){
-      _cofreSynced=false;
-      console.warn('cofre save supa',error);
-      renderDash();
-    } else {
-      _cofreSynced=true;
-      _cofreSyncTs=Date.now();
-      renderDash();
-    }
-  }catch(e){_cofreSynced=false;console.warn('cofre save supa',e);}
+    console.warn('cofre save profiles',profErr);
+    // Strategy 2: fallback to app_settings (requires RLS fix)
+    const{error:asErr}=await s.from('app_settings').upsert(
+      {key:'cpro4_cofre',value:snap,updated_at:new Date().toISOString()},
+      {onConflict:'key'}
+    );
+    if(!asErr){_cofreSynced=true;_cofreSyncTs=snap.ts;}
+    else{_cofreSynced=false;console.warn('cofre save app_settings',asErr);}
+    renderDash();
+  }catch(e){_cofreSynced=false;console.warn('cofre save',e);}
 }
 
 async function loadCofreFromSupa(){
   try{
     const s=getSupa();if(!s||!curUser)return;
-    const{data}=await s.from('app_settings').select('value').eq('key','cpro4_cofre').maybeSingle();
-    if(data?.value&&typeof data.value==='object'){
-      const remote=data.value;
-      const remoteTs=remote.ts||0;
-      const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
-      // Only overwrite local values if remote is NEWER than local
-      if(remoteTs>localTs){
-        Object.entries(remote).forEach(([k,v])=>{
-          if(k.startsWith('cofre_')&&typeof v==='number'){
-            localStorage.setItem(k,String(v));
-          }
-        });
-        localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
+    // Read cofre from all profiles, pick newest snapshot
+    const{data:profiles}=await s.from('profiles').select('perms');
+    let bestSnap=null,bestTs=0;
+    (profiles||[]).forEach(p=>{
+      const snap=p?.perms?._cofre;
+      if(snap&&typeof snap==='object'&&(snap.ts||0)>bestTs){
+        bestTs=snap.ts||0;bestSnap=snap;
       }
-      _cofreSynced=true;
-      _cofreSyncTs=remoteTs||Date.now();
+    });
+    if(bestSnap){
+      const updated=_applyCofreSnapshot(bestSnap);
+      _cofreSynced=true;_cofreSyncTs=bestTs;
+      if(updated)renderDash();
+      return;
+    }
+    // Fallback: try app_settings
+    const{data}=await s.from('app_settings').select('value').eq('key','cpro4_cofre').maybeSingle();
+    if(data?.value){
+      const updated=_applyCofreSnapshot(data.value);
+      _cofreSynced=true;_cofreSyncTs=data.value.ts||Date.now();
+      if(updated)renderDash();
     } else {
       _cofreSynced=false;
     }
-  }catch(e){_cofreSynced=false;console.warn('cofre load supa',e);}
+  }catch(e){_cofreSynced=false;console.warn('cofre load',e);}
 }
 
 async function syncCofreNow(){
-  const btn=document.getElementById('cofreSyncBtn');
-  if(btn){btn.textContent='⏳';btn.disabled=true;}
   await saveCofreToSupa();
-  if(btn){
-    btn.textContent=_cofreSynced?'☁️ Sincronizado':'⚠️ Sem acesso';
-    btn.disabled=false;
-    setTimeout(()=>{if(btn)btn.textContent='☁️ Sincronizar';},2500);
-  }
 }
 
 function showSupaFixModal(){
