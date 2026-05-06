@@ -456,12 +456,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 <body>
 <div class="phone">
 
-<!-- Logged-in user badge -->
-<div id="userBadge" style="display:none;position:absolute;top:10px;right:12px;z-index:9999;display:none;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:20px;padding:4px 10px 4px 4px;pointer-events:none">
-  <div id="userBadgeAvatar" style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:900;color:#fff;flex-shrink:0"></div>
-  <span id="userBadgeName" style="font-size:.65rem;font-weight:800;color:#fff;letter-spacing:.02em;white-space:nowrap"></span>
-</div>
-
 <!-- Pull-to-refresh indicator -->
 <div class="ptr-wrap" id="ptrWrap">
   <div class="ptr-spinner" id="ptrSpinner"></div>
@@ -2027,16 +2021,11 @@ function updateUIForUser(){
   if(dashAdm)dashAdm.style.display=(adm||p.canSettings)?'inline-flex':'none';
   const addUBtn=document.getElementById('addUserBtn');
   if(addUBtn)addUBtn.style.display=adm?'inline-flex':'none';
-  // User badge
-  const badge=document.getElementById('userBadge');
-  const badgeAvatar=document.getElementById('userBadgeAvatar');
-  const badgeName=document.getElementById('userBadgeName');
-  if(badge&&curUser){
+  // Show user name in top bar
+  const lbl=document.getElementById('ghUserLbl');
+  if(lbl&&curUser){
     const firstName=curUser.name?curUser.name.split(' ')[0]:'?';
-    const color=curUser.color||'#5c6bc0';
-    if(badgeAvatar){badgeAvatar.textContent=firstName.slice(0,1).toUpperCase();badgeAvatar.style.background=color;}
-    if(badgeName)badgeName.textContent=firstName+(adm?' 👑':'');
-    badge.style.display='flex';
+    lbl.textContent=firstName+(adm?' 👑':'');
   }
 }
 
@@ -2049,8 +2038,8 @@ async function logout(){
   stopBillsRealtime();
   stopProfilesRealtime();
   curUser=null;selectedLoginUser=null;
-  const badge=document.getElementById('userBadge');
-  if(badge)badge.style.display='none';
+  const lbl=document.getElementById('ghUserLbl');
+  if(lbl)lbl.textContent='— Contas Pro —';
   localStorage.removeItem('cpro4_stay');
   try{await getSupa().auth.signOut();}catch{}
   document.getElementById('loginPass').value='';
