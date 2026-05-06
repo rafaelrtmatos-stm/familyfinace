@@ -2696,11 +2696,16 @@ function renderAddCatGrid(){
 }
 function populateUserSel(){
   const s=document.getElementById('addUser');
+  // Ensure current user is always in the list even if profiles failed to load
+  let users=[...db.users];
+  if(curUser&&curUser.id&&!users.find(u=>u.id===curUser.id)){
+    users.push({id:curUser.id,name:curUser.name||'Eu',color:curUser.color||'#3b4fd4'});
+  }
   s.innerHTML='<option value="">— Sem responsável —</option>'+
     '<option value="todos">👥 Todos</option>'+
-    db.users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
-  // Pre-select current user if they have an id (not guest/adm without id)
-  if(curUser&&curUser.id&&db.users.find(u=>u.id===curUser.id)){
+    users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
+  // Always pre-select the current user
+  if(curUser&&curUser.id){
     s.value=curUser.id;
   }
 }
@@ -2875,7 +2880,7 @@ async function saveAdd(){
   if(!name)                 errors.push({id:'addName',    msg:'Digite o nome da conta'});
   if(addType!=='semanal'&&(!day||day<1||day>31))errors.push({id:'addDay',msg:'Digite o dia de vencimento (1-31)'});
   if(!startMonth)           errors.push({id:'addMonthLabel',msg:'Selecione o mês de início'});
-  if(userId===undefined||userId===null)errors.push({id:'addUser',msg:'Selecione o responsável'});
+  if(!userId)errors.push({id:'addUser',msg:'Selecione o responsável'});
 
   if(errors.length){
     const first=errors[0];
