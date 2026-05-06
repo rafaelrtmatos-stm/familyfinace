@@ -5183,7 +5183,7 @@ window.onload=async()=>{
       id:session.user.id,
       name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
       email,
-      role:profile?.role||(email==='rafaelrtmatos@gmail.com'?'admin':'user'),
+      role:email==='rafaelrtmatos@gmail.com'?'admin':(profile?.role||'user'),
       color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
       perms:profile?.perms||{}
     };
