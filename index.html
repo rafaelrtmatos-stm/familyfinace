@@ -1449,10 +1449,17 @@ function calc(b,ref){
   let daysElapsed,daysLeft,late,acc,accrued;
 
   if(b.noDaily){
-    // À vista / sem diária: valor fixo, sem acumulação de penalidade
-    daysElapsed=0;daysLeft=0;late=0;acc=0;
-    const pastDue=refDate>piso(dISO);
-    late=pastDue?wdb(dISO,ref):0;
+    // À vista: valor fixo, sem acumulação de penalidade diária
+    acc=0;
+    if(refDate>piso(dISO)){
+      // Passou do vencimento — atrasada mas sem multa extra
+      late=wdb(dISO,ref); daysElapsed=wd; daysLeft=0;
+    } else {
+      // Ainda dentro do prazo — calcula daysLeft normalmente
+      late=0;
+      daysElapsed=wdBefore(periodStart,ref);
+      daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hset())?1:0);
+    }
     accrued=b.amount;
   } else if(refDate<=piso(dISO)){
     // Before or on due: count workdays elapsed from period start up to today (not incl today)
@@ -1878,7 +1885,7 @@ function renderHome(){
 
   // ── Calc totals ──
   const catT={};
-  let totalDailies=0,totalDaily=0,totalBal=0,totalPaid=0,totalOrig=0;
+  let totalDailies=0,totalDaily=0,totalBal=0,totalPaid=0,totalOrig=0,totalLateFixed=0;
   bills.forEach(b=>{
     const c=calc(b,td);
     catT[b.category]=r2((catT[b.category]||0)+c.bal);
@@ -1887,6 +1894,7 @@ function renderHome(){
     totalBal    =r2(totalBal+c.bal);
     totalPaid   =r2(totalPaid+c.paid);
     totalOrig   =r2(totalOrig+b.amount);
+    if(b.noDaily&&c.st==='late')totalLateFixed=r2(totalLateFixed+c.bal);
   });
 
   // ── Header widget ──
@@ -2097,6 +2105,7 @@ function renderHome(){
   if(caixaVal<totalBal&&bills.length){
     let totalEmerDay=0;
     bills.forEach(b=>{
+      if(b.noDaily)return; // contas fixas não entram na diária de emergência
       const c=calc(b,td);
       if(c.bal<=0)return;
       const dLeft=Math.max(1,c.daysLeft||1);
@@ -2115,12 +2124,19 @@ function renderHome(){
       </div>`;
     }
   }
-  if(totalDailies>0){
+  if(totalDailies>0||totalLateFixed>0){
+    const lateFixedRow=totalLateFixed>0
+      ?`<div style="background:rgba(255,255,255,.7);border-radius:10px;padding:9px 10px;grid-column:1/-1"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:3px">🔴 Fixas atrasadas</div><div style="font-size:.88rem;font-weight:900;color:var(--red)">${fmt(totalLateFixed)}</div></div>`
+      :'';
+    const dailiesRow=totalDailies>0
+      ?`<div style="background:rgba(255,255,255,.7);border-radius:10px;padding:9px 10px"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:3px">Diárias acum.</div><div style="font-size:.88rem;font-weight:900;color:var(--red)">+ ${fmt(totalDailies)}</div></div>`
+      :'';
     dailyWidgetHTML+=`<div style="background:linear-gradient(135deg,rgba(231,76,60,.1),rgba(230,126,34,.06));border:1.5px solid rgba(231,76,60,.25);border-radius:14px;padding:12px 14px;margin-bottom:10px">
-      <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--red);margin-bottom:7px">⚠️ Para estar em dia</div>
+      <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--red);margin-bottom:7px">⚠️ Contas atrasadas</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:rgba(255,255,255,.7);border-radius:10px;padding:9px 10px"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">Contas</div><div style="font-size:.88rem;font-weight:900;color:var(--ink)">${fmt(totalOrig)}</div></div>
-        <div style="background:rgba(255,255,255,.7);border-radius:10px;padding:9px 10px"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:3px">Diárias acum.</div><div style="font-size:.88rem;font-weight:900;color:var(--red)">+ ${fmt(totalDailies)}</div></div>
+        ${lateFixedRow}
+        <div style="background:rgba(255,255,255,.7);border-radius:10px;padding:9px 10px"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">Total contas</div><div style="font-size:.88rem;font-weight:900;color:var(--ink)">${fmt(totalOrig)}</div></div>
+        ${dailiesRow}
         <div style="background:rgba(255,255,255,.7);border-radius:10px;padding:9px 10px"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">Já pago</div><div style="font-size:.88rem;font-weight:900;color:var(--teal)">- ${fmt(totalPaid)}</div></div>
         <div style="background:var(--red);border-radius:10px;padding:9px 10px"><div style="font-size:.55rem;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,.8);margin-bottom:3px">Total p/ quitar</div><div style="font-size:.88rem;font-weight:900;color:#fff">${fmt(totalBal)}</div></div>
       </div>
