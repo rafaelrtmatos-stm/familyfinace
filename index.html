@@ -1393,13 +1393,15 @@ async function syncToSupa(){
         payments:b.payments||[], shared:(b.userId==='todos')?true:(b.shared||false),
         updated_at:new Date().toISOString()
       }));
-      await s.from('bills').upsert(rows,{onConflict:'id'});
+      const{error:billsErr}=await s.from('bills').upsert(rows,{onConflict:'id'});
+      if(billsErr)console.warn('syncToSupa bills error',billsErr);
     }
     // Upsert settings (cats, couple)
-    await s.from('app_settings').upsert([
-      {key:'cats',value:db.cats,updated_at:new Date().toISOString()},
-      {key:'couple',value:db.couple,updated_at:new Date().toISOString()},
+    const{error:settingsErr}=await s.from('app_settings').upsert([
+      {key:'cats',value:db.cats,updated_at:new Date().toISOString(),user_id:curUser?.id},
+      {key:'couple',value:db.couple,updated_at:new Date().toISOString(),user_id:curUser?.id},
     ],{onConflict:'key'});
+    if(settingsErr)console.warn('syncToSupa settings error',settingsErr);
   }catch(e){
     console.error('syncToSupa error',e);
   }
@@ -3418,7 +3420,7 @@ function closeEditSheet(){
   document.getElementById('editBillOverlay').style.display='none';
 }
 
-function saveEditBill(){
+async function saveEditBill(){
   const id=document.getElementById('editBillId').value;
   const b=db.bills.find(x=>x.id===id);if(!b)return;
   const name=document.getElementById('editName').value.trim();
@@ -3441,15 +3443,15 @@ function saveEditBill(){
   if(_editAll){
     const tid=b.templateId||b.id;
     const siblings=db.bills.filter(x=>x.templateId===tid&&!x.payments?.length);
-    siblings.forEach(s=>{
+    await Promise.all(siblings.map(s=>{
       const suffix=s.installment?` (${s.installment.index}/${s.installment.total})`:'';
       Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category,noDaily,recurring:newRecurring,cycle});
-      saveBillSupa(s);
-    });
+      return saveBillSupa(s);
+    }));
     toast(`✓ ${siblings.length} parcela${siblings.length!==1?'s':''} atualizadas`);
   } else {
     Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle,noDaily,recurring:newRecurring});
-    saveBillSupa(b);
+    await saveBillSupa(b);
     toast('✓ Conta atualizada');
   }
   sdb();closeEditSheet();
@@ -5138,7 +5140,7 @@ async function updateMyPresence(readTs){
     const{data}=await s.from('app_settings').select('value').eq('key',PRESENCE_KEY).maybeSingle();
     const presence=(data?.value&&typeof data.value==='object')?{...data.value}:{};
     presence[myId]={ts:Date.now(),readTs:readTs||presence[myId]?.readTs||0,name:curUser.name};
-    const{error}=await s.from('app_settings').upsert({key:PRESENCE_KEY,value:presence,updated_at:new Date().toISOString()},{onConflict:'key'});
+    const{error}=await s.from('app_settings').upsert({key:PRESENCE_KEY,value:presence,updated_at:new Date().toISOString(),user_id:curUser.id},{onConflict:'key'});
     if(error)console.warn('presence upsert error',error);
   }catch(e){console.warn('presence update',e);}
 }
@@ -5226,7 +5228,7 @@ async function saveChatMessages(){
   try{localStorage.setItem(CHAT_KEY,JSON.stringify(_chatMsgs));}catch{}
   try{
     const s=getSupa();
-    const{error}=await s.from('app_settings').upsert({key:CHAT_KEY,value:_chatMsgs,updated_at:new Date().toISOString()},{onConflict:'key'});
+    const{error}=await s.from('app_settings').upsert({key:CHAT_KEY,value:_chatMsgs,updated_at:new Date().toISOString(),user_id:curUser?.id},{onConflict:'key'});
     if(error)console.warn('chat save error',error);
   }catch(e){console.warn('chat save',e);}
 }
