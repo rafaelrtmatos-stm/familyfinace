@@ -692,6 +692,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
       <div class="abl">Quando entra no sistema</div>
       <div class="qdates">
+        <button class="qd" data-opt="prev" onclick="applyQD('prev',this)">← Mês anterior</button>
         <button class="qd on" data-opt="current" onclick="applyQD('current',this)">Este mês</button>
         <button class="qd" data-opt="next" onclick="applyQD('next',this)">Mês que vem</button>
         <button class="qd" data-opt="plus2" onclick="applyQD('plus2',this)">+2 meses</button>
@@ -2319,7 +2320,8 @@ function onAddMonthChange(val){
 
 function applyQD(opt,el){
   const n=new Date();let y=n.getFullYear(),m=n.getMonth();
-  if(opt==='next'){m++;if(m>11){m=0;y++;}}
+  if(opt==='prev'){m--;if(m<0){m=11;y--;}}
+  else if(opt==='next'){m++;if(m>11){m=0;y++;}}
   else if(opt==='plus2'){m+=2;while(m>11){m-=12;y++;}}
   else if(opt==='plus6'){m+=6;while(m>11){m-=12;y++;}}
   else if(opt==='plus12'){y++;}
