@@ -1296,24 +1296,15 @@ let _syncTimer=null;
 
 function uid(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
 
-// sdb: save memory state + schedule Supabase sync
+// sdb: schedule Supabase sync (localStorage removed — Supabase is source of truth)
 function sdb(){
-  // Always persist to localStorage as fallback
-  try{localStorage.setItem('cpro4_cache',JSON.stringify(db));}catch{}
-  // Debounced Supabase sync
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(()=>syncToSupa(),400);
 }
 
-// ldb: load from Supabase (called async on startup)
+// ldb: initialize empty db (data is always loaded fresh from Supabase after login)
 async function ldb(){
-  // First load from cache for instant render
-  try{
-    const cached=localStorage.getItem('cpro4_cache');
-    if(cached){db=JSON.parse(cached);}
-  }catch{}
-  ['bills','holidays','users','couple','categories','cats'].forEach(k=>{if(!db[k])db[k]=[];});
-  if(!db.nid)db.nid=1;
+  db={bills:[],holidays:[],users:[],nid:1,couple:[],categories:[],cats:[]};
 }
 
 // Load all data from Supabase after login
@@ -1354,8 +1345,6 @@ async function loadFromSupa(){
       const coupleSetting=sets.find(s=>s.key==='couple');
       if(coupleSetting?.value)db.couple=coupleSetting.value;
     }
-    // Cache locally
-    try{localStorage.setItem('cpro4_cache',JSON.stringify(db));}catch{}
     hideLoader();
   }catch(e){
     console.error('loadFromSupa error',e);
@@ -1392,20 +1381,44 @@ async function syncToSupa(){
   }
 }
 
-// Save a single bill to Supabase immediately
+// Insert a new bill into Supabase (used when adding new entries)
+async function insertBillSupa(b){
+  const s=getSupa();
+  const row={
+    id:b.id, template_id:b.templateId, name:b.name,
+    amount:b.amount, day:b.day, month:b.month,
+    user_id:b.userId, pay_method:b.payMethod||'pix',
+    category:b.category||'outro', cycle:b.cycle||'day',
+    recurring:b.recurring||false, installment:b.installment||null,
+    payments:b.payments||[], shared:b.shared||false,
+    no_daily:b.noDaily||false,
+    updated_at:new Date().toISOString()
+  };
+  const{error}=await s.from('bills').insert(row);
+  if(error){
+    console.log('insertBillSupa error:',error);
+    alert('Erro ao salvar no Supabase: '+error.message+'\n\nVerifique se a tabela "bills" existe no banco de dados.');
+  }
+}
+
+// Save (upsert) a single bill to Supabase — used for edits/updates
 async function saveBillSupa(b){
   const s=getSupa();
-  try{
-    await s.from('bills').upsert({
-      id:b.id, template_id:b.templateId, name:b.name,
-      amount:b.amount, day:b.day, month:b.month,
-      user_id:b.userId, pay_method:b.payMethod||'pix',
-      category:b.category||'outro', cycle:b.cycle||'day',
-      recurring:b.recurring||false, installment:b.installment||null,
-      payments:b.payments||[], shared:b.shared||false,
-      updated_at:new Date().toISOString()
-    },{onConflict:'id'});
-  }catch(e){console.error('saveBillSupa',e);}
+  const row={
+    id:b.id, template_id:b.templateId, name:b.name,
+    amount:b.amount, day:b.day, month:b.month,
+    user_id:b.userId, pay_method:b.payMethod||'pix',
+    category:b.category||'outro', cycle:b.cycle||'day',
+    recurring:b.recurring||false, installment:b.installment||null,
+    payments:b.payments||[], shared:b.shared||false,
+    no_daily:b.noDaily||false,
+    updated_at:new Date().toISOString()
+  };
+  const{error}=await s.from('bills').upsert(row,{onConflict:'id'});
+  if(error){
+    console.log('saveBillSupa error:',error);
+    alert('Erro ao atualizar no Supabase: '+error.message);
+  }
 }
 
 // Delete a bill from Supabase
@@ -2693,7 +2706,7 @@ function saveAdd(){
       userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
       recurring:false,noDaily:true,installment:null,payments:[],shared:addShared};
     db.bills.push(bill);
-    sdb();saveBillSupa(bill);
+    await insertBillSupa(bill);
     toast(`✓ Conta adicionada — ${fmt(total)}`);
 
   } else if(addType==='parcelada'){
@@ -2717,7 +2730,7 @@ function saveAdd(){
       };
       db.bills.push(bill);newBills.push(bill);
     }
-    sdb();newBills.forEach(b=>saveBillSupa(b));
+    for(const b of newBills)await insertBillSupa(b);
     toast(`✓ ${n} parcelas de ${fmt(parcel)} criadas`);
 
   } else if(addType==='recorrente'){
@@ -2729,7 +2742,7 @@ function saveAdd(){
       recurring:true,payments:[],shared:addShared
     };
     db.bills.push(bill);
-    sdb();saveBillSupa(bill);
+    await insertBillSupa(bill);
     preFillFutureMonths();
     toast(`✓ Recorrente criada — aparece em todos os meses`);
 
@@ -2761,7 +2774,7 @@ function saveAdd(){
         db.bills.push(bill);newBills.push(bill);
         curD.setDate(curD.getDate()+7);
       }
-      sdb();newBills.forEach(b=>saveBillSupa(b));
+      for(const b of newBills)await insertBillSupa(b);
       toast(`✓ ${n} semanas de ${fmt(parcel)} criadas`);
 
     } else {
@@ -2776,7 +2789,7 @@ function saveAdd(){
         };
         db.bills.push(bill);newBills.push(bill);
       });
-      sdb();newBills.forEach(b=>saveBillSupa(b));
+      for(const b of newBills)await insertBillSupa(b);
       preFillFutureMonths();
       toast(`✓ Toda ${WD_NAMES[addWeekday]} — ${dates.length} contas criadas`);
     }
