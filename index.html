@@ -528,8 +528,8 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
           <div id="homeCaixaSub" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.55);margin-top:2px"></div>
         </div>
         <div style="text-align:center">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">⚠️ Falta</div>
-          <div style="font-size:1.2rem;font-weight:900;letter-spacing:-.02em" id="homeFaltaVal" style="color:rgba(255,160,100,.95)">—</div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px" id="homeFaltaLbl">Saldo</div>
+          <div style="font-size:1.2rem;font-weight:900;letter-spacing:-.02em;color:rgba(150,255,200,.95)" id="homeFaltaVal">—</div>
           <div id="homeFaltaSub" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.55);margin-top:2px"></div>
         </div>
       </div>
@@ -2071,15 +2071,17 @@ function renderHome(){
     const diff=r2(caixaVal-totalBal);
     caixaSubEl.textContent=diff>=0?`✓ Sobra ${fmt(diff)}`:`Falta ${fmt(Math.abs(diff))}`;
   }
-  // Falta para cobrir
+  // Saldo vs Débito
   const faltaEl=document.getElementById('homeFaltaVal');
   const faltaSubEl=document.getElementById('homeFaltaSub');
-  const faltaVal=Math.max(0,r2(totalBal-caixaVal));
+  const faltaLblEl=document.getElementById('homeFaltaLbl');
+  const diff=r2(caixaVal-totalBal);
   if(faltaEl){
-    faltaEl.textContent=faltaVal>0?fmt(faltaVal):'✓ 0';
-    faltaEl.style.color=faltaVal>0?'rgba(255,160,100,.95)':'rgba(150,255,200,.95)';
+    faltaEl.textContent=fmt(Math.abs(diff));
+    faltaEl.style.color=diff>=0?'rgba(150,255,200,.95)':'rgba(255,100,100,.95)';
   }
-  if(faltaSubEl)faltaSubEl.textContent=faltaVal>0?'para cobrir tudo':'Caixa OK';
+  if(faltaLblEl)faltaLblEl.textContent=diff>=0?'Saldo':'Débito';
+  if(faltaSubEl)faltaSubEl.textContent=diff>=0?'Cofre OK':'para cobrir tudo';
 
   // ── Chart 1: Daily donut ──
   const catDaily={};
