@@ -1436,7 +1436,8 @@ async function loadFromSupa(){
           userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
           cycle:b.cycle||'day', recurring:b.recurring||false,
           installment:b.installment||null, payments:b.payments||[],
-          shared:b.shared||false
+          shared:b.shared||false,
+          _ownerId:b.user_id
         };
         // Merge: keep local payments if local has MORE entries (unsaved payments survive reload)
         const local=localBills.find(l=>l.id===b.id);
@@ -1572,7 +1573,7 @@ async function syncToSupa(){
       const rows=db.bills.map(b=>({
         id:b.id, template_id:b.templateId||null, name:b.name,
         amount:b.amount, day:b.day, month:b.month,
-        user_id:(b.userId==='todos')?(curUser?.id||null):safeUID(b.userId),
+        user_id:(b.userId==='todos')?(b._ownerId||curUser?.id||null):safeUID(b.userId),
         pay_method:b.payMethod||'pix',
         category:b.category||'outro', cycle:b.cycle||'day',
         recurring:b.recurring||false, installment:b.installment||null,
@@ -1597,7 +1598,7 @@ async function insertBillSupa(b){
   const row={
     id:b.id, template_id:b.templateId||null, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?(curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
+    user_id:isTodos?(b._ownerId||curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
@@ -1611,24 +1612,29 @@ async function insertBillSupa(b){
   }
 }
 
-// Save (upsert) a single bill to Supabase — used for edits/updates
+// Save (update) a single bill to Supabase — used for edits/updates
 async function saveBillSupa(b){
   if(!hasRealSession()){console.warn('saveBillSupa: no real session, skipping');return;}
   const s=getSupa();
   const isTodos=b.userId==='todos';
   const row={
-    id:b.id, template_id:b.templateId||null, name:b.name,
+    template_id:b.templateId||null, name:b.name,
     amount:b.amount, day:b.day, month:b.month,
-    user_id:isTodos?(curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
+    user_id:isTodos?(b._ownerId||curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
     updated_at:new Date().toISOString()
   };
-  const{error}=await s.from('bills').upsert(row,{onConflict:'id'});
+  const{error}=await s.from('bills').update(row).eq('id',b.id);
   if(error){
     console.log('saveBillSupa error:',error);
-    alert('Erro ao atualizar no Supabase: '+error.message);
+    // If RLS blocks it, try insert as fallback (bill may not exist in Supabase yet)
+    if(error.code==='42501'||error.code==='PGRST116'){
+      await insertBillSupa(b);
+    } else {
+      alert('Erro ao atualizar no Supabase: '+error.message);
+    }
   }
 }
 
