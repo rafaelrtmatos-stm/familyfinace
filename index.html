@@ -1473,11 +1473,27 @@ async function doLoginBtn(){
 
   showLoader('Entrando...');
 
-  // Try Supabase first
-  let supaError=null;
+  // 1) Check hardcoded local credentials first (instant, no network)
+  const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
+  if(hardcoded){
+    hideLoader();
+    await doLogin({...hardcoded});
+    return;
+  }
+
+  // 2) Check local db users (may have custom passwords saved)
+  const localU=db.users.find(u=>(u.email||'').toLowerCase()===emailVal);
+  if(localU && localU.password && localU.password===passVal){
+    hideLoader();
+    await doLogin({...localU});
+    return;
+  }
+
+  // 3) Try Supabase with 8s timeout
   try{
-    const{data,error}=await getSupa().auth.signInWithPassword({email:emailVal,password:passVal});
-    supaError=error;
+    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),8000));
+    const authCall=getSupa().auth.signInWithPassword({email:emailVal,password:passVal});
+    const{data,error}=await Promise.race([authCall,timeout]);
     if(!error && data?.user){
       const email=data.user.email;
       const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
@@ -1493,38 +1509,17 @@ async function doLoginBtn(){
       await doLogin(u);
       return;
     }
-  }catch(e){
-    supaError=e;
-    console.warn('Supabase auth exception:',e);
-  }
-
-  // Fallback: check local stored users then hardcoded credentials
-  const localU=db.users.find(u=>(u.email||'').toLowerCase()===emailVal);
-  if(localU && localU.password && localU.password===passVal){
     hideLoader();
-    await doLogin(localU);
-    return;
-  }
-  const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
-  if(hardcoded){
-    hideLoader();
-    await doLogin({...hardcoded});
-    return;
-  }
-
-  hideLoader();
-  // Show informative error
-  const msg=supaError?.message||'';
-  if(msg.includes('Email not confirmed')||msg.includes('email')){
-    errEl.textContent='E-mail não confirmado. Verifique sua caixa de entrada.';
-  } else if(msg.includes('Invalid login')||msg.includes('Invalid credentials')){
-    errEl.textContent='E-mail ou senha incorretos no Supabase.';
-  } else if(msg.includes('network')||msg.includes('fetch')||msg.toLowerCase().includes('failed')){
-    errEl.textContent='Sem conexão com o servidor. Verifique a internet.';
-  } else {
     errEl.textContent='E-mail ou senha incorretos.';
+  }catch(e){
+    hideLoader();
+    if(e.message==='timeout'){
+      errEl.textContent='Servidor demorou demais. Verifique a internet.';
+    }else{
+      errEl.textContent='Erro de conexão. Verifique a internet.';
+    }
+    console.error('Login error:',e);
   }
-  console.error('Login failed. Supabase error:',supaError);
   document.getElementById('loginPass').value='';
   document.getElementById('loginPass').focus();
 }
