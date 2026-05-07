@@ -515,7 +515,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="0" y1="1" x2="20" y2="1"/><line x1="0" y1="7" x2="20" y2="7"/><line x1="0" y1="13" x2="20" y2="13"/></svg>
       </button>
       <div id="ghUserLbl" style="font-size:.72rem;font-weight:800;color:rgba(255,255,255,.85);letter-spacing:.04em;text-align:center;flex:1">— Contas Pro —</div>
-      <div id="rtDot" title="Conectando..." onclick="toast(document.getElementById('rtDotInner').dataset.online==='1'?'✅ Online e sincronizado!':'📡 Reconectando ao vivo em até 30s...')" style="display:none;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer;flex-direction:column;gap:1px"><span id="rtDotInner" data-online="0" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#aaa;box-shadow:0 0 0 3px rgba(170,170,170,.3)"></span><span id="rtDotLbl" style="font-size:.42rem;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.02em">•••</span></div>
+      <div id="rtDot" title="Diagnóstico Realtime" onclick="go('sc-diag')" style="display:none;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer;flex-direction:column;gap:1px"><span id="rtDotInner" data-online="0" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#aaa;box-shadow:0 0 0 3px rgba(170,170,170,.3)"></span><span id="rtDotLbl" style="font-size:.42rem;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.02em">•••</span></div>
       <button class="gh-menu" id="syncBtn" onclick="syncData()" title="Sincronizar dados">
         <svg id="syncIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
       </button>
@@ -900,6 +900,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
     </div>
   </div>
+  <div style="padding:0 14px 8px">
+    <button onclick="go('sc-diag')" style="width:100%;padding:11px;background:linear-gradient(135deg,#1a1060,#3d2db5);color:#fff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+      <span id="diagBtnDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#aaa"></span>
+      📡 Diagnóstico de Sincronização
+    </button>
+  </div>
   <div class="users-scroll" id="usersList"></div>
 </div>
 
@@ -1020,6 +1026,30 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="stab" onclick="showST('export',this)">Exportação</button>
   </div>
   <div style="flex:1;overflow-y:auto;padding:14px" id="settingsContent"></div>
+</div>
+
+<!-- ══ DIAGNOSTICS SCREEN ══ -->
+<div class="screen off" id="sc-diag">
+  <div class="sbar" style="background:#1a1060"></div>
+  <div class="inner-gh" style="background:linear-gradient(135deg,#1a1060 0%,#3d2db5 100%)">
+    <div class="inner-top">
+      <button class="back-btn" onclick="back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="inner-title">📡 Diagnóstico Realtime</div>
+      <button onclick="renderDiag()" style="background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:.75rem;font-weight:800;padding:6px 10px;cursor:pointer">↺ Atualizar</button>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
+    <div id="diagContent"></div>
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-top:4px">Console de Eventos</div>
+    <div id="diagLogBox" style="background:#0f0f1a;border-radius:14px;padding:12px;font-family:monospace;font-size:.68rem;min-height:160px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+      <div style="color:#555;font-size:.65rem">Aguardando eventos...</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="diagForceSync()" style="flex:1;padding:12px;background:var(--g2);color:#fff;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer">⚡ Forçar Sync</button>
+      <button onclick="diagTestChannel()" style="flex:1;padding:12px;background:#27ae60;color:#fff;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer">📡 Testar Canal</button>
+      <button onclick="_diagLogs=[];renderDiagLogs()" style="flex:1;padding:12px;background:#e74c3c;color:#fff;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer">🗑️ Limpar Logs</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══ USER EDIT SHEET ══ -->
@@ -1268,6 +1298,24 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 ══════════════════════════════════════════════════ */
 'use strict';
 /* ══════════════════════════════════════════════════
+   DIAGNOSTICS — LOG CAPTURE
+══════════════════════════════════════════════════ */
+const _diagLogs=[];
+const _diagOrigLog=console.log.bind(console);
+const _diagOrigWarn=console.warn.bind(console);
+const _diagOrigErr=console.error.bind(console);
+function _diagCapture(level,args){
+  const ts=new Date().toLocaleTimeString('pt-BR',{hour12:false});
+  const msg=args.map(a=>{try{return typeof a==='object'?JSON.stringify(a):String(a);}catch{return String(a);}}).join(' ');
+  _diagLogs.unshift({ts,level,msg});
+  if(_diagLogs.length>150)_diagLogs.pop();
+  try{if(typeof curSc!=='undefined'&&curSc==='sc-diag')renderDiagLogs();}catch{}
+}
+console.log=(...args)=>{_diagOrigLog(...args);_diagCapture('log',args);};
+console.warn=(...args)=>{_diagOrigWarn(...args);_diagCapture('warn',args);};
+console.error=(...args)=>{_diagOrigErr(...args);_diagCapture('err',args);};
+
+/* ══════════════════════════════════════════════════
    SUPABASE CONFIG
 ══════════════════════════════════════════════════ */
 const SUPA_URL='';
@@ -1318,6 +1366,9 @@ function _setRtStatus(ch,ok){
     }
   }
   if(lbl)lbl.textContent=allOk?'ON':'...';
+  const diagBtnDot=document.getElementById('diagBtnDot');
+  if(diagBtnDot){diagBtnDot.style.background=allOk?'#4ade80':'#ff5c5c';}
+  if(curSc==='sc-diag')renderDiag();
   if(!allOk&&!_rtDisconnectToastShown){
     _rtDisconnectToastShown=true;
     toast('📡 Conexão ao vivo perdida. Reconectando em 30s...');
@@ -1511,6 +1562,109 @@ async function _onBillsChange(payload){
       else if(curSc==='sc-dashboard')renderDash();
     }catch(e){console.error('[bills-rt] erro ao aplicar mudança:',e);}
   },200);
+}
+
+/* ══════════════════════════════════════════════════
+   DIAGNOSTICS — RENDER
+══════════════════════════════════════════════════ */
+function renderDiag(){
+  const isOnline=_rtStatus.bills&&_rtStatus.profiles&&_rtStatus.settings;
+  const mode=curUser&&curUser.id!=='adm'?'☁️ Online (Supabase)':'⚠️ Offline (sem nuvem)';
+  const modeColor=curUser&&curUser.id!=='adm'?'#27ae60':'#e67e22';
+  const urlShow=SUPA_URL?SUPA_URL.replace('https://','').slice(0,28)+'…':'❌ Não configurada';
+  const lastSync=_lastSyncTime?_lastSyncTime.toLocaleTimeString('pt-BR',{hour12:false}):'—';
+
+  function chCard(name,label,ok){
+    const color=ok?'#4ade80':'#ff5c5c';
+    const bg=ok?'rgba(74,222,128,.1)':'rgba(255,92,92,.1)';
+    const border=ok?'rgba(74,222,128,.3)':'rgba(255,92,92,.3)';
+    const status=ok?'✅ SUBSCRIBED':'❌ Desconectado';
+    return`<div style="background:${bg};border:1.5px solid ${border};border-radius:12px;padding:11px 13px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--ink3);letter-spacing:.06em">${label}</div>
+        <div style="font-size:.78rem;font-weight:900;color:${color};margin-top:2px">${status}</div>
+      </div>
+      <div style="width:12px;height:12px;border-radius:50%;background:${color};box-shadow:0 0 0 4px ${border}"></div>
+    </div>`;
+  }
+
+  document.getElementById('diagContent').innerHTML=`
+    <div style="background:var(--white);border-radius:14px;padding:13px;box-shadow:var(--sh);margin-bottom:4px">
+      <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--ink3);letter-spacing:.06em;margin-bottom:8px">Conexão Geral</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.78rem;font-weight:700;color:var(--ink2)">Modo</span>
+        <span style="font-size:.78rem;font-weight:900;color:${modeColor}">${mode}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.78rem;font-weight:700;color:var(--ink2)">Supabase URL</span>
+        <span style="font-size:.68rem;font-weight:800;color:var(--ink3)">${urlShow}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:.78rem;font-weight:700;color:var(--ink2)">Último Sync</span>
+        <span style="font-size:.78rem;font-weight:900;color:#3b4fd4">${lastSync}</span>
+      </div>
+    </div>
+    <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--ink3);letter-spacing:.06em;margin-top:6px;margin-bottom:6px">Canais Realtime</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${chCard('bills','📋 Canal: bills (contas)',_rtStatus.bills)}
+      ${chCard('profiles','👤 Canal: profiles (usuários)',_rtStatus.profiles)}
+      ${chCard('settings','⚙️ Canal: app_settings',_rtStatus.settings)}
+    </div>
+    <div style="background:rgba(59,79,212,.08);border:1.5px solid rgba(59,79,212,.2);border-radius:12px;padding:11px 13px;margin-top:6px">
+      <div style="font-size:.68rem;font-weight:800;color:#3b4fd4;margin-bottom:4px">Canal configurado como:</div>
+      <div style="font-family:monospace;font-size:.66rem;color:var(--ink2);line-height:1.5">channel('custom-all-channel')<br>.on('postgres_changes',{event:'*',<br>  schema:'public',table:'bills'}, handler)</div>
+    </div>`;
+
+  renderDiagLogs();
+}
+
+function renderDiagLogs(){
+  const box=document.getElementById('diagLogBox');
+  if(!box)return;
+  if(!_diagLogs.length){box.innerHTML='<div style="color:#555;font-size:.65rem">Nenhum evento ainda...</div>';return;}
+  const colorMap={log:'#9fa8da',warn:'#ffcc02',err:'#ff5c5c'};
+  box.innerHTML=_diagLogs.slice(0,80).map(l=>{
+    const c=colorMap[l.level]||'#9fa8da';
+    const prefix=l.level==='err'?'[ERR]':l.level==='warn'?'[WRN]':'[LOG]';
+    const isRealtime=l.msg.includes('Mudança detectada')||l.msg.includes('bills-rt')||l.msg.includes('SUBSCRIBED');
+    const highlight=isRealtime?'background:rgba(74,222,128,.08);border-radius:4px;padding:1px 3px;':'';
+    return`<div style="${highlight}margin-bottom:2px"><span style="color:#555">${l.ts} </span><span style="color:${c};font-weight:700">${prefix} </span><span style="color:#c5c8e8;word-break:break-all">${l.msg.slice(0,200)}</span></div>`;
+  }).join('');
+}
+
+async function diagForceSync(){
+  if(!curUser){toast('⚠️ Faça login primeiro');return;}
+  toast('🔄 Forçando sincronização...');
+  console.log('[diag] Forçando sync manual...');
+  try{
+    await loadFromSupa();
+    _updateSyncTime();
+    preFillFutureMonths();
+    updateCaixa();
+    renderHome();
+    console.log('[diag] Sync manual concluído ✓');
+    toast('✅ Sincronizado!');
+    renderDiag();
+  }catch(e){
+    console.error('[diag] Erro no sync manual:',e);
+    toast('❌ Erro ao sincronizar');
+  }
+}
+
+async function diagTestChannel(){
+  if(!curUser){toast('⚠️ Faça login primeiro');return;}
+  console.log('[diag] Testando canal Realtime...');
+  toast('📡 Testando canal...');
+  try{
+    const{data,error}=await getSupa().from('bills').select('id').limit(1);
+    if(error)throw error;
+    console.log('[diag] Conexão Supabase OK — bills acessível, total rows verificado ✓');
+    toast('✅ Supabase acessível! Canal deve funcionar.');
+  }catch(e){
+    console.error('[diag] Erro ao testar canal:',e.message||e);
+    toast('❌ Supabase inacessível: '+( e.message||'erro desconhecido'));
+  }
+  renderDiag();
 }
 
 /* ══════════════════════════════════════════════════
@@ -2263,6 +2417,7 @@ function go(id){
   else if(id==='sc-admin')renderAdmin();
   else if(id==='sc-add'){resetAddForm();populateUserSel();}
   else if(id==='sc-settings'){renderSettings();showST('users',document.querySelector('.stab'));}
+  else if(id==='sc-diag')renderDiag();
 }
 
 function back(){
