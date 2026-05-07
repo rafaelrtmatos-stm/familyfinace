@@ -1680,7 +1680,7 @@ async function syncToSupa(){
         pay_method:b.payMethod||'pix',
         category:b.category||'outro', cycle:b.cycle||'day',
         recurring:b.recurring||false, installment:b.installment||null,
-        payments:b.payments||[], shared:(b.userId==='todos')?true:(b.shared||false),
+        payments:b.payments||[], shared:(b.userId==='todos'),
         updated_at:new Date().toISOString()
       }));
       // Validate user_id before upsert
@@ -1712,7 +1712,7 @@ async function insertBillSupa(b){
     user_id:isTodos?(b._ownerId||curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
-    payments:b.payments||[], shared:isTodos?true:(b.shared||false),
+    payments:b.payments||[], shared:isTodos,
     updated_at:new Date().toISOString()
   };
   if(!row.user_id){
@@ -1740,7 +1740,7 @@ async function saveBillSupa(b){
     user_id:isTodos?(b._ownerId||curUser?.id||null):safeUID(b.userId), pay_method:b.payMethod||'pix',
     category:b.category||'outro', cycle:b.cycle||'day',
     recurring:b.recurring||false, installment:b.installment||null,
-    payments:b.payments||[], shared:isTodos?true:(b.shared||false),
+    payments:b.payments||[], shared:isTodos,
     updated_at:new Date().toISOString()
   };
   const{error}=await s.from('bills').update(row).eq('id',b.id);
@@ -3867,17 +3867,18 @@ async function saveEditBill(){
   if(!amount||amount<=0){toast('Valor inválido');return;}
   if(!day||day<1||day>31){toast('Dia inválido');return;}
   if(!month){toast('Selecione o mês');return;}
+  const newShared=userId==='todos';
   if(_editAll){
     const tid=b.templateId||b.id;
     const siblings=db.bills.filter(x=>x.templateId===tid&&!x.payments?.length);
     await Promise.all(siblings.map(s=>{
       const suffix=s.installment?` (${s.installment.index}/${s.installment.total})`:'';
-      Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category,noDaily,recurring:newRecurring,cycle});
+      Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category,noDaily,recurring:newRecurring,cycle,shared:newShared});
       return saveBillSupa(s);
     }));
     toast(`✓ ${siblings.length} parcela${siblings.length!==1?'s':''} atualizadas`);
   } else {
-    Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle,noDaily,recurring:newRecurring});
+    Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle,noDaily,recurring:newRecurring,shared:newShared});
     await saveBillSupa(b);
     toast('✓ Conta atualizada');
   }
