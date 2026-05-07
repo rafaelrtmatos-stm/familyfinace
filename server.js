@@ -39,8 +39,8 @@ const server = http.createServer((req, res) => {
       const supaUrl  = process.env.SUPABASE_URL;
       const supaKey  = process.env.SUPABASE_ANON_KEY;
       let html = data.toString('utf8');
-      if (supaUrl) html = html.replace(/const SUPA_URL='[^']*'/, `const SUPA_URL='${supaUrl}'`);
-      if (supaKey) html = html.replace(/const SUPA_KEY='[^']*'/, `const SUPA_KEY='${supaKey}'`);
+      if (supaUrl) html = html.replace('__SUPABASE_URL__', supaUrl);
+      if (supaKey) html = html.replace('__SUPABASE_ANON_KEY__', supaKey);
       content = Buffer.from(html, 'utf8');
     }
 
