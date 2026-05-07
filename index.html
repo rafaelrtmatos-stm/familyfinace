@@ -775,13 +775,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip" id="cycleFortnight" onclick="setCycle('fortnight',this)">📅 Quinzenal</button>
         <button class="pm-chip" id="cycleMonth" onclick="setCycle('month',this)">📅 Mensal</button>
       </div>
-      <div id="shareToggleRow" style="display:none;align-items:center;gap:10px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:11px 14px;margin-bottom:12px">
-        <span style="font-size:.84rem;font-weight:700;color:var(--ink);flex:1">👤 Compartilhar com Ingrid</span>
-        <button id="shareToggleBtn" onclick="toggleShareBill(this)"
-          style="width:44px;height:26px;border-radius:100px;border:none;cursor:pointer;background:#dde2ec;position:relative;transition:background .2s">
-          <span id="shareToggleDot" style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)"></span>
-        </button>
-      </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 16px 14px;background:var(--white);border-top:1px solid #eef0f5;flex-shrink:0">
       <button onclick="goAddStep(1)" style="flex:1;padding:13px;border-radius:var(--rs);border:1.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:900;cursor:pointer;color:var(--ink3)">← Voltar</button>
@@ -1039,13 +1032,8 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 <div class="user-overlay" id="userEditOverlay" onclick="if(event.target===this)closeUserEdit()" style="display:none">
   <div class="user-sheet">
     <div class="ps-handle"></div>
-    <div class="us-title" id="userEditTitle">Novo Usuário</div>
-    <div class="us-field"><div class="us-label">Nome completo</div><input type="text" class="us-inp" id="ueFullName" placeholder="Ex: Rafael Silva"/></div>
-    <div class="us-field"><div class="us-label">E-mail</div><input type="email" class="us-inp" id="ueLogin" placeholder="Ex: rafael@email.com" autocapitalize="off" inputmode="email"/></div>
-    <div class="us-field"><div class="us-label" id="uePassLabel">Senha</div><input type="password" class="us-inp" id="uePass" placeholder="Mínimo 4 caracteres"/></div>
-    <div class="us-field"><div class="us-label">Tipo</div>
-      <select class="us-inp" id="ueRole"><option value="admin">👑 Administrador</option><option value="user" selected>👤 Usuário comum</option></select>
-    </div>
+    <div class="us-title" id="userEditTitle">Editar Usuário</div>
+    <div class="us-field"><div class="us-label">Nome</div><input type="text" class="us-inp" id="ueFullName" placeholder="Ex: Rafael…"/></div>
     <div class="us-field"><div class="us-label">Cor</div><div class="color-row" id="ueColors"></div></div>
     <input type="hidden" id="ueColor" value="#3b4fd4"/>
     <input type="hidden" id="ueId"/>
@@ -2254,7 +2242,7 @@ function go(id){
   else if(id==='sc-charts')renderCharts();
   else if(id==='sc-users')renderUsers();
   else if(id==='sc-admin')renderAdmin();
-  else if(id==='sc-add'){populateUserSel();resetAddForm();}
+  else if(id==='sc-add'){resetAddForm();populateUserSel();}
   else if(id==='sc-settings'){renderSettings();showST('users',document.querySelector('.stab'));}
 }
 
@@ -3110,13 +3098,7 @@ function resetAddForm(){
   setType('avista');
   setCycle('day',document.getElementById('cycleDay'));
   const np=document.getElementById('addParcelas');if(np)np.value=2;
-  // Share toggle — only show for admin
-  const shareRow=document.getElementById('shareToggleRow');
-  if(shareRow)shareRow.style.display=isAdm()?'flex':'none';
-  const dot=document.getElementById('shareToggleDot');
-  const btn=document.getElementById('shareToggleBtn');
-  if(dot)dot.style.left='3px';
-  if(btn)btn.style.background='#dde2ec';
+  addShared=false;
   goAddStep(0);
 }
 async function saveAdd(){
@@ -4837,11 +4819,9 @@ function renderUsers(){
         </div>
         <div class="u-bal">${fmt(bal)}</div>
       </div>
-      ${isAdmUser?'<div style="display:flex;border-top:1px solid #f2f4f8">'+
-        '<button onclick="openUserEdit(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar</button>'+
-        (u.role!=='admin'?'<button onclick="openUserPerms(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--g2);cursor:pointer">🔐 Permissões</button>':'<div style="flex:1;border-right:1px solid #f2f4f8"></div>')+
-        (u.id!==curUser?.id&&u.login!=='adm'?'<button onclick="deleteUserDB(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--red);cursor:pointer">🗑</button>':'<div style="flex:1"></div>')+
-        '</div>':''}
+      <div style="display:flex;border-top:1px solid #f2f4f8">
+        <button onclick="openUserEdit('${u.id}')" style="flex:1;padding:9px;background:none;border:none;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar nome e cor</button>
+      </div>
     </div>`;
   }).join('')||`<div style="text-align:center;padding:36px;color:var(--ink3);font-size:.84rem;font-weight:700">Nenhum usuário</div>`;
 }
@@ -4864,25 +4844,12 @@ let _ueColor='#3b4fd4';
 function openUserEdit(editId){
   if(!reqAdm())return;
   document.getElementById('ueId').value=editId||'';
-  document.getElementById('userEditTitle').textContent=editId?'Editar Usuário':'Novo Usuário';
-  const passLabel=document.getElementById('uePassLabel');
-  const passInp=document.getElementById('uePass');
   if(editId){
     const u=db.users.find(x=>x.id===editId);
-    document.getElementById('ueFullName').value=u.name;
-    document.getElementById('ueLogin').value=u.email||u.login||'';
-    passInp.value='';
-    passInp.placeholder='Deixe em branco para manter';
-    if(passLabel)passLabel.textContent='Senha (opcional)';
-    document.getElementById('ueRole').value=u.role||'user';
-    _ueColor=u.color||UCOLORS[0];
+    document.getElementById('ueFullName').value=u?u.name:'';
+    _ueColor=(u&&u.color)||UCOLORS[0];
   } else {
     document.getElementById('ueFullName').value='';
-    document.getElementById('ueLogin').value='';
-    passInp.value='';
-    passInp.placeholder='Mínimo 4 caracteres';
-    if(passLabel)passLabel.textContent='Senha';
-    document.getElementById('ueRole').value='user';
     _ueColor=UCOLORS[0];
   }
   document.getElementById('ueColor').value=_ueColor;
@@ -4900,64 +4867,25 @@ function pickUEC(c){
 }
 async function saveUserEdit(){
   const name=document.getElementById('ueFullName').value.trim();
-  const email=document.getElementById('ueLogin').value.trim().toLowerCase();
-  const pass=document.getElementById('uePass').value;
-  const role=document.getElementById('ueRole').value;
   const color=document.getElementById('ueColor').value||_ueColor;
   const editId=document.getElementById('ueId').value;
-  if(!name){toast('Digite o nome completo');return;}
-  if(!email||!email.includes('@')){toast('Digite um e-mail válido');return;}
-  // Password required only when creating; optional on edit (blank = keep existing)
-  if(!editId&&(!pass||pass.length<4)){toast('Senha precisa ter ao menos 4 caracteres');return;}
-  if(editId&&pass&&pass.length<4){toast('Senha precisa ter ao menos 4 caracteres');return;}
-  // check email unique
-  const dup=db.users.find(u=>(u.email||u.login)===email&&u.id!==editId);
-  if(dup){toast('E-mail já cadastrado');return;}
+  if(!name){toast('Digite o nome');return;}
+  if(!editId)return;
 
   if(editId){
-    // Editing existing user — update locally first
     const u=db.users.find(x=>x.id===editId);
-    if(u)Object.assign(u,{name,email,login:email,role,color,...(pass?{password:pass}:{})});
-    // Try to update the profile row directly (works for own row; fails silently if RLS blocks it)
+    if(u)Object.assign(u,{name,color});
     try{
-      const{error:upErr}=await getSupa().from('profiles').update({name,email,role,color}).eq('id',editId);
+      const{error:upErr}=await getSupa().from('profiles').update({name,color}).eq('id',editId);
       if(upErr)console.warn('profile direct update blocked (RLS):',upErr.message);
     }catch(e){console.warn('profile update error',e);}
-    // Always save via admin perms._userdata so changes persist even when RLS blocks direct update
     await saveAdminSettingsToProfiles();
     closeUserEdit();
+    renderUsers();
     const ct=document.getElementById('settingsContent');
     if(ct&&curSc==='sc-settings')renderSTUsers(ct);
     toast('Usuário atualizado ✓');
   } else {
-    // Creating new user — register in Supabase Auth first
-    showLoader('Criando usuário...');
-    try{
-      // Use a separate client so we don't lose the admin's current session
-      const tmp=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-      const{data:signData,error:signErr}=await tmp.auth.signUp({email,password:pass});
-      if(signErr){hideLoader();toast('Erro ao criar login: '+signErr.message);return;}
-      const newId=signData?.user?.id;
-      if(!newId){hideLoader();toast('Erro: usuário não foi criado no auth');return;}
-      // Upsert profile in Supabase
-      const perms={viewMine:true,viewCouple:true,viewDailies:true,viewBalance:true,
-        canAdd:true,canEdit:true,canDelete:role==='admin',canMarkPaid:true,
-        canExport:false,canReset:false,canWhatsapp:true};
-      await getSupa().from('profiles').upsert({id:newId,name,email,role,color,perms},{onConflict:'id'});
-      // Add to local db
-      db.users.push({id:newId,name,email,login:email,password:pass,role,color,perms});
-      sendSystemChatMsg(`👤 Novo usuário "${name}" foi adicionado ao sistema.`);
-      sdb();
-      hideLoader();closeUserEdit();
-      populateUserSel();
-      const ct=document.getElementById('settingsContent');
-      if(ct&&curSc==='sc-settings')renderSTUsers(ct);
-      toast(`Usuário "${name}" criado ✓ — pode fazer login com o e-mail cadastrado`);
-    }catch(e){
-      hideLoader();
-      console.error('saveUserEdit error',e);
-      toast('Erro ao criar usuário: '+(e.message||'erro desconhecido'));
-    }
   }
 }
 function deleteUserDB(id){
@@ -5145,15 +5073,6 @@ function renderSTUsers(ct){
     const bal=bills.reduce((s,b)=>s+calc(b,today_).bal,0);
     const isMe=u.id===curUser?.id;
     const meBadge=isMe?'<span style="background:rgba(59,79,212,.12);color:var(--g2);padding:2px 7px;border-radius:100px;font-size:.58rem;font-weight:800">Você</span>':'';
-    const permBtn=u.role!=='admin'
-      ?'<button onclick="openUserPerms(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--g2);cursor:pointer">🔐 Permissões</button>'
-      :'<div style="flex:1;border-right:1px solid #f2f4f8"></div>';
-    const mergeBtn=(!isMe&&u.role!=='admin')
-      ?'<button onclick="openMergeDialog(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--ink3);cursor:pointer">🔀 Mesclar</button>'
-      :'<div style="flex:1;border-right:1px solid #f2f4f8"></div>';
-    const delBtn=(!isMe&&u.login!=='adm')
-      ?'<button onclick="deleteUserDB(\''+u.id+'\')" style="flex:1;padding:9px;background:none;border:none;font-family:\'Nunito\',sans-serif;font-size:.74rem;font-weight:800;color:var(--red);cursor:pointer">🗑 Excluir</button>'
-      :'<div style="flex:1"></div>';
     return`<div class="umgr-card" style="flex-direction:column;align-items:stretch;gap:0;padding:0;overflow:hidden;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 14px">
         <div class="umgr-av" style="background:${u.color}">${u.name.slice(0,1)}</div>
@@ -5161,20 +5080,16 @@ function renderSTUsers(ct){
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <div class="umgr-name">${esc(u.name)}</div>${meBadge}
           </div>
-          <div class="umgr-meta">${u.role==='admin'?'👑 Admin':'👤 Usuário'} · ${u.email||u.login||'—'} · ${bills.length} conta${bills.length!==1?'s':''} · <span style="color:var(--red);font-weight:800">${fmt(bal)}</span></div>
+          <div class="umgr-meta">${u.role==='admin'?'👑 Admin':'👤 Usuário'} · ${bills.length} conta${bills.length!==1?'s':''} · <span style="color:var(--red);font-weight:800">${fmt(bal)}</span></div>
         </div>
       </div>
       <div style="display:flex;border-top:1px solid #f2f4f8">
-        <button onclick="openUserEdit('${u.id}')" style="flex:1;padding:9px;background:none;border:none;border-right:1px solid #f2f4f8;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--ink2);cursor:pointer">✏️ Editar</button>
-        ${permBtn}${mergeBtn}${delBtn}
+        <button onclick="openUserEdit('${u.id}')" style="flex:1;padding:9px;background:none;border:none;font-family:'Nunito',sans-serif;font-size:.74rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar nome e cor</button>
       </div>
     </div>`;
   }).join('');
   ct.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:.84rem;font-weight:800;color:var(--ink)">Usuários (${db.users.length})</div>
-      <button onclick="openUserEdit()" style="padding:8px 14px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;cursor:pointer">+ Novo Usuário</button>
-    </div>
+    <div style="font-size:.84rem;font-weight:800;color:var(--ink);margin-bottom:14px">Usuários (${db.users.length})</div>
     ${rows}`;
 }
 
