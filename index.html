@@ -2241,46 +2241,66 @@ async function doLoginBtn(){
 
   async function _supaLogin(){
     const s=getSupa();
-    // 1. Try sign in
+    // 1. Try sign in with known credentials
+    console.log('[login] tentando signInWithPassword...');
     const{data,error}=await s.auth.signInWithPassword({email:SUPA_EMAIL,password:SUPA_PASS});
-    if(!error&&data?.user)return{data,error:null};
-    // 2. If credentials not found, auto-create the user (first-time setup)
-    const isInvalidCreds=error?.message?.toLowerCase().includes('invalid')||error?.status===400;
+    if(!error&&data?.user&&data?.session){console.log('[login] signInWithPassword OK');return{data,error:null};}
+    console.warn('[login] signInWithPassword falhou:',error?.message||'sem sessão');
+    // 2. Auto-create if user doesn't exist (first-time setup)
+    const isInvalidCreds=error?.message?.toLowerCase().includes('invalid')||
+      error?.message?.toLowerCase().includes('not found')||error?.status===400;
     if(isInvalidCreds){
-      const{data:sd,error:se}=await s.auth.signUp({email:SUPA_EMAIL,password:SUPA_PASS});
-      if(!se&&sd?.user)return{data:sd,error:null};
+      console.log('[login] usuário não encontrado, tentando signUp...');
+      const{data:sd,error:se}=await s.auth.signUp({email:SUPA_EMAIL,password:SUPA_PASS,
+        options:{emailRedirectTo:null}});
+      if(!se&&sd?.user&&sd?.session){console.log('[login] signUp OK com sessão');return{data:sd,error:null};}
+      if(!se&&sd?.user&&!sd?.session){
+        console.warn('[login] signUp criou usuário mas requer confirmação de email — tente desabilitar "Confirm email" no painel Supabase');
+      }else{
+        console.warn('[login] signUp falhou:',se?.message||'erro desconhecido');
+      }
     }
+    // 3. Try anonymous sign-in as fallback (requires anonymous provider enabled in Supabase)
+    console.log('[login] tentando signInAnonymously...');
+    const{data:anonData,error:anonErr}=await s.auth.signInAnonymously();
+    if(!anonErr&&anonData?.user&&anonData?.session){
+      console.log('[login] signInAnonymously OK — sessão anônima ativa');
+      return{data:anonData,error:null};
+    }
+    console.warn('[login] signInAnonymously falhou:',anonErr?.message||'não habilitado');
     return{data:null,error:error||new Error('auth failed')};
   }
 
   try{
-    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),10000));
+    // Increased timeout: 25 seconds to account for slow mobile networks
+    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout_25s')),25000));
     const{data,error}=await Promise.race([_supaLogin(),timeout]);
-    if(!error&&data?.user){
+    if(!error&&data?.user&&data?.session){
       const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
       const u={
         id:data.user.id,
-        name:profile?.name||'Rafael',
-        email:SUPA_EMAIL,
+        name:profile?.name||(data.user.is_anonymous?'Rafael':'Rafael'),
+        email:data.user.is_anonymous?SUPA_EMAIL:(data.user.email||SUPA_EMAIL),
         role:'admin',
         color:profile?.color||'#27ae60',
         perms:{}
       };
-      if(!profile){
+      if(!profile&&!data.user.is_anonymous){
         await getSupa().from('profiles').upsert({
           id:u.id,name:u.name,email:u.email,role:u.role,color:u.color,perms:u.perms
-        },{onConflict:'id'});
+        },{onConflict:'id'}).then(r=>{if(r.error)console.warn('[login] upsert profile erro:',r.error.message);});
       }
       hideLoader();
       await doLogin(u);
       return;
     }
     hideLoader();
+    console.warn('[login] sem sessão válida — modo offline. error:',error?.message);
     toast('⚠️ Modo offline — dados não serão salvos na nuvem');
     await doLogin(offlineUser);
   }catch(e){
     hideLoader();
-    console.warn('Login error (going offline):', e);
+    console.warn('Login error (going offline):', e?.message||e);
     toast('⚠️ Modo offline — dados não serão salvos na nuvem');
     await doLogin(offlineUser);
   }
@@ -5880,7 +5900,8 @@ window.onload=async()=>{
   // Restore session on page refresh only if user chose "Permanecer logado"
   const s=getSupa();
   const stayPref=localStorage.getItem('cpro4_stay')==='1';
-  const{data:{session}}=await s.auth.getSession();
+  let session=null;
+  try{const r=await s.auth.getSession();session=r?.data?.session||null;}catch(e){console.warn('[init] getSession erro:',e?.message);}
   if(stayPref&&session&&session.user){
     const{data:profile}=await s.from('profiles').select('*').eq('id',session.user.id).single();
     const u={
