@@ -35,7 +35,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Cofre (caixa) values synced to Supabase via key `cpro4_cofre`; loaded on login, saved on every deposit/saque/edit/delete/zero
 - Realtime sync: `bills` → `startBillsRealtime()` (INSERT/UPDATE/DELETE); `profiles` → `startProfilesRealtime()`; `app_settings` → `startAppSettingsRealtime()`. All start on login, stop on logout. Require `REPLICA IDENTITY FULL` and RLS `FOR ALL TO authenticated USING (true)`.
 - 15-second polling fallback (`startBillsPoll`) detects remote `updated_at` changes and reloads if ahead of local
-- Bottom nav: Início / Contas / [+FAB] / Gráficos / Usuários (chat removed)
+- Bottom nav: Início / Contas / [+FAB azul] / Gráficos (botão Usuários e FAB laranja removidos)
 
 ## Product
 
@@ -45,7 +45,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Period filtering (monthly/weekly/daily views)
 - WhatsApp export integration
 - View filter in home header: Rafa / Todas / Guigui (same filter applies to Contas and Dashboard screens)
-- Home header shows 3 balance cards: Saldo Total / 👤 Rafa / 👤 Guigui (per-user shows only bills directly assigned to that user; shared "todos" bills appear only in Saldo Total)
+- Home header shows 3 balance cards: Contas (total) / 💰 Rafa / 💰 Guigui — Rafa and Guigui cards show each person's net cofre/caixa balance (sum of deposits minus saques from history per userId)
 - Add bill form uses toggle buttons (Rafa / Guigui / Todos) instead of a dropdown to select responsável
 - PWA support: `manifest.json` meta tags, `apple-touch-icon.png`, session persistence ("Permanecer logado")
 - Pull-to-refresh: swipe down from top reloads data from Supabase

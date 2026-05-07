@@ -533,14 +533,14 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
           <div id="homeDailyRow" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.65);margin-top:2px"></div>
         </div>
         <div style="text-align:center;border-left:1px solid rgba(255,255,255,.15);border-right:1px solid rgba(255,255,255,.15)">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">👤 Rafa</div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">💰 Rafa</div>
           <div style="font-size:1.2rem;font-weight:900;color:rgba(150,255,200,.95);letter-spacing:-.02em" id="homeRafaBal">R$ 0,00</div>
-          <div style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px" id="homeRafaSub"></div>
+          <div style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px" id="homeRafaSub">no caixa</div>
         </div>
         <div style="text-align:center">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">👤 Guigui</div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">💰 Guigui</div>
           <div style="font-size:1.2rem;font-weight:900;letter-spacing:-.02em;color:rgba(255,200,120,.95)" id="homeGuiguiBal">R$ 0,00</div>
-          <div style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px" id="homeGuiguiSub"></div>
+          <div style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px" id="homeGuiguiSub">no caixa</div>
         </div>
       </div>
       <!-- 3-column stats row -->
@@ -603,7 +603,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <div style="font-size:.72rem;font-weight:900;color:var(--ink);margin-top:2px" id="donutVal">0</div>
         <div style="font-size:.52rem;font-weight:700;color:var(--ink3)">total</div>
       </div>
-      <button class="fab" onclick="go('sc-add')" style="position:absolute;bottom:-18px;right:16px">+</button>
     </div>
     <!-- Daily summary widgets -->
     <div id="homeWidgets" style="padding:0 2px 10px;margin-top:14px"></div>
@@ -626,10 +625,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="bni" id="bni-charts" onclick="go('sc-charts')">
       <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <div class="bni-lbl">Gráficos</div>
-    </button>
-    <button class="bni" id="bni-users" onclick="go('sc-users')">
-      <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-      <div class="bni-lbl">Usuários</div>
     </button>
   </div>
 </div>
@@ -2214,7 +2209,7 @@ async function logout(){
 ══════════════════════════════════════════════════ */
 let curSc='sc-home';
 const navStack=[];  // navigation history stack
-const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts','sc-users':'bni-users'};
+const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts'};
 
 function go(id){
   if(id===curSc)return;
@@ -2448,28 +2443,26 @@ function updateCaixa(){
     const lblMap={rafael:'Contas · Rafa',ingrid:'Contas · Guigui',all:'Contas'};
     totalLblEl.textContent=lblMap[dashView]||'Contas';
   }
-  // Per-user balances — only bills directly assigned to each user (not todos/shared split)
-  const savedDashView=dashView;
-  dashView='all';
-  const allPeriodBills=getHomeBills();
-  dashView=savedDashView;
+  // Per-user cofre balance from caixa history
   const rafaUser=db.users.find(x=>x.role==='admin');
   const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
-  let rafaBal=0,guiguiBal=0,rafaOrig=0,guiguiOrig=0;
-  allPeriodBills.forEach(b=>{
-    if(b.userId==='todos')return; // compartilhadas aparecem no Saldo Total, não nos cartões individuais
-    const c=calc(b,td);
-    if(rafaUser&&b.userId===rafaUser.id){rafaBal=r2(rafaBal+c.bal);rafaOrig=r2(rafaOrig+b.amount);}
-    if(guiguiUser&&b.userId===guiguiUser.id){guiguiBal=r2(guiguiBal+c.bal);guiguiOrig=r2(guiguiOrig+b.amount);}
-  });
+  const cofreHistAll=getCofreHist();
+  function calcCofreUserBal(userId){
+    return r2(cofreHistAll.reduce((s,h)=>{
+      if(h.userId!==userId)return s;
+      return h.type==='saque'?r2(s-h.amount):r2(s+h.amount);
+    },0));
+  }
+  const rafaCofre=rafaUser?calcCofreUserBal(rafaUser.id):0;
+  const guiguiCofre=guiguiUser?calcCofreUserBal(guiguiUser.id):0;
   const rafaEl2=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
   const rafaSubEl=document.getElementById('homeRafaSub');
   const guiguiSubEl=document.getElementById('homeGuiguiSub');
-  if(rafaEl2)rafaEl2.textContent=fmt(rafaBal);
-  if(guiguiEl)guiguiEl.textContent=fmt(guiguiBal);
-  if(rafaSubEl)rafaSubEl.textContent=rafaOrig>0?`de ${fmt(rafaOrig)}`:'';
-  if(guiguiSubEl)guiguiSubEl.textContent=guiguiOrig>0?`de ${fmt(guiguiOrig)}`:'';
+  if(rafaEl2)rafaEl2.textContent=fmt(rafaCofre);
+  if(guiguiEl)guiguiEl.textContent=fmt(guiguiCofre);
+  if(rafaSubEl)rafaSubEl.textContent=rafaCofre>0?'no caixa':'sem depósitos';
+  if(guiguiSubEl)guiguiSubEl.textContent=guiguiCofre>0?'no caixa':'sem depósitos';
 }
 
 function openLateBillsModal(){
