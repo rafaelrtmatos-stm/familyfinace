@@ -1347,6 +1347,7 @@ function _updateSyncTime(){
 }
 let _rtDisconnectToastShown=false;
 let _presenceErrLogged=false;
+let _authListenerRegistered=false;
 
 function _setRtStatus(ch,ok){
   _rtStatus[ch]=ok;
@@ -1446,15 +1447,16 @@ async function _billsPollTick(){
         else if(curSc==='sc-dashboard')renderDash();
       }
     }
-    // — Poll cofre: sempre carrega e atualiza os cards Rafa/Guigui —
+    // — Poll cofre: só recarrega e atualiza se o timestamp mudou —
     const prevCofreTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+    const prevHistLen=getCofreHist().length;
     await loadCofreFromSupa();
     const newCofreTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
-    // Sempre atualiza os cards (mesmo sem mudança de timestamp, garante exibição correta)
-    calculateTotals();
-    updateCaixa();
-    if(newCofreTs>prevCofreTs){
+    const newHistLen=getCofreHist().length;
+    if(newCofreTs>prevCofreTs||newHistLen!==prevHistLen){
       console.log('[cofre-poll] mudança detectada, recalculando...');
+      calculateTotals();
+      updateCaixa();
       _scheduleRenderHome();
       if(curSc==='sc-dashboard')renderDash();
     }
@@ -1556,15 +1558,18 @@ async function _onProfilesChange(){
   if(!curUser)return;
   const prevPix=getCofreFormVal('pix');
   const prevDin=getCofreFormVal('dinheiro');
+  const prevHistLen=getCofreHist().length;
   await loadCofreFromSupa();
   const newPix=getCofreFormVal('pix');
   const newDin=getCofreFormVal('dinheiro');
+  const newHistLen=getCofreHist().length;
   // Sempre recalcula e atualiza os cards Rafa/Guigui diretamente no DOM
   calculateTotals();
   updateCaixa();
-  if(newPix!==prevPix||newDin!==prevDin){
+  // Sempre agenda re-render (histórico de depósitos pode ter mudado sem alterar saldo total)
+  _scheduleRenderHome();
+  if(newPix!==prevPix||newDin!==prevDin||newHistLen!==prevHistLen){
     renderDash();
-    _scheduleRenderHome();
     toast('💰 Caixa atualizada');
   }
 }
@@ -2455,26 +2460,15 @@ async function doLogin(u){
   if(homeBtn)homeBtn.classList.add('active');
   toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}!`);
   await loadCofreFromSupa();
+  // Atualiza os cards imediatamente após carregar o histórico do cofre
+  calculateTotals();
+  updateCaixa();
   startBillsRealtime();
   startProfilesRealtime();
   startAppSettingsRealtime();
   startBillsPoll();
-  // Mantém sessão ativa e detecta token expirado
-  getSupa().auth.onAuthStateChange(async(event,session)=>{
-    if(event==='TOKEN_REFRESHED'){
-      console.log('[auth] token renovado automaticamente — sessão ativa');
-    } else if(event==='SIGNED_OUT'||event==='TOKEN_REFRESH_FAILED'){
-      console.warn('[auth] sessão expirada/encerrada — evento:',event);
-      if(curUser&&curUser.id!=='adm'){
-        // Verifica se há sessão válida ainda
-        const{data:{session:active}}=await getSupa().auth.getSession().catch(()=>({data:{session:null}}));
-        if(!active){
-          await _forceAuthLogout();
-        }
-      }
-    }
-  });
 }
+// Auth listener registrado uma única vez no window.onload — não duplicar aqui
 
 function updateUIForUser(){
   const p=getPerms(curUser);
@@ -2502,7 +2496,7 @@ function _scheduleRenderHome(){
   clearTimeout(_renderHomeTimer);
   _renderHomeTimer=setTimeout(()=>{
     if(!curUser||curSc!=='sc-home')return;
-    const key=`${dashView}|${CM}|${CY}|${getCofreVal()}|${db.bills.length}`;
+    const key=`${dashView}|${CM}|${CY}|${getCofreVal()}|${db.bills.length}|${getCofreHist().length}`;
     if(key===_lastRenderHomeKey)return;
     _lastRenderHomeKey=key;
     renderHome();
@@ -6128,13 +6122,18 @@ window.onload=async()=>{
     document.querySelectorAll('.screen:not(#loginScreen)').forEach(sc=>sc.classList.add('off'));
   }
 
-  // Keep session in sync — detecta token expirado e força logout limpo
+  // Auth listener único — detecta token expirado e força logout limpo
   s.auth.onAuthStateChange(async(event,_session)=>{
-    if((event==='SIGNED_OUT'||event==='TOKEN_REFRESH_FAILED')&&curUser&&curUser.id!=='adm'){
-      const{data:{session:active}}=await getSupa().auth.getSession().catch(()=>({data:{session:null}}));
-      if(!active){
-        console.warn('[auth] refresh_token inválido — forçando logout limpo');
-        await _forceAuthLogout();
+    if(event==='TOKEN_REFRESHED'){
+      console.log('[auth] token renovado automaticamente — sessão ativa');
+    } else if(event==='SIGNED_OUT'||event==='TOKEN_REFRESH_FAILED'){
+      console.warn('[auth] sessão expirada/encerrada — evento:',event);
+      if(curUser&&curUser.id!=='adm'){
+        const{data:{session:active}}=await getSupa().auth.getSession().catch(()=>({data:{session:null}}));
+        if(!active){
+          console.warn('[auth] refresh_token inválido — forçando logout limpo');
+          await _forceAuthLogout();
+        }
       }
     }
   });
