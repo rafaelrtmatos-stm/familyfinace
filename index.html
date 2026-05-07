@@ -4605,10 +4605,15 @@ let _cofreSyncTs=0;
 
 // Apply a remote cofre snapshot — always writes to the shared keys (cofre_pix / cofre_dinheiro)
 // AND to the current mode-specific keys so the UI reflects the change immediately
-function _mergeCofreHist(remoteHist){
-  // Combina histórico remoto + local sem duplicatas (por id), ordena do mais recente
+function _mergeCofreHist(remoteHist, clearedAt=0){
+  // Combina histórico remoto + local sem duplicatas, descartando entradas anteriores ao último zero
+  function _entryTs(h){return h.id?parseInt(h.id,36)||0:0;}
+  function _isAfterClear(h){return!clearedAt||_entryTs(h)>clearedAt||!h.id;}
   const localHist=getCofreHist();
-  const combined=[...(Array.isArray(remoteHist)?remoteHist:[]),...localHist];
+  const combined=[
+    ...(Array.isArray(remoteHist)?remoteHist:[]).filter(_isAfterClear),
+    ...localHist.filter(_isAfterClear)
+  ];
   const seen=new Set();
   const merged=combined.filter(h=>{
     const key=h.id||(h.date+h.time+h.amount+h.userId);
@@ -4639,8 +4644,12 @@ function _applyCofreSnapshot(snap){
     const modeKey=getCofreFormKey('dinheiro');
     if(modeKey!=='cofre_dinheiro')localStorage.setItem(modeKey,String(snap.dinheiro));
   }
-  // Merge do histórico (não substitui — combina com o histórico local)
-  const merged=_mergeCofreHist(snap.hist||[]);
+  // Merge do histórico (combina com histórico local, respeitando clearedAt)
+  const localClearedAt=parseInt(localStorage.getItem('cpro4_cofre_cleared_at')||'0');
+  const remoteClearedAt=snap.clearedAt||0;
+  const clearedAt=Math.max(localClearedAt,remoteClearedAt);
+  if(clearedAt>localClearedAt)localStorage.setItem('cpro4_cofre_cleared_at',String(clearedAt));
+  const merged=_mergeCofreHist(snap.hist||[],clearedAt);
   localStorage.setItem(getCofreHistKey(),JSON.stringify(merged));
   localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
   return true;
@@ -4652,7 +4661,8 @@ function _buildCofreSnapshot(){
     ts:Date.now(),
     pix:getCofreFormVal('pix'),
     dinheiro:getCofreFormVal('dinheiro'),
-    hist:getCofreHist()
+    hist:getCofreHist(),
+    clearedAt:parseInt(localStorage.getItem('cpro4_cofre_cleared_at')||'0')
   };
 }
 
@@ -4694,11 +4704,23 @@ async function loadCofreFromSupa(){
     if(!snaps.length){console.log('[cofre] no snapshot found in profiles');_cofreSynced=false;return;}
     // Usa o saldo do snapshot mais recente (saldo real)
     const bestSnap=snaps.reduce((a,b)=>((b.ts||0)>(a.ts||0)?b:a));
-    // Combina histórico de TODOS os profiles (Supabase) + histórico LOCAL (nunca descarta entradas locais)
+    // Determina o timestamp do último zero (max de todos os profiles + localStorage local)
+    const localClearedAt=parseInt(localStorage.getItem('cpro4_cofre_cleared_at')||'0');
+    const remoteClearedAt=snaps.reduce((mx,s)=>Math.max(mx,s.clearedAt||0),0);
+    const clearedAt=Math.max(localClearedAt,remoteClearedAt);
+    if(clearedAt>localClearedAt)localStorage.setItem('cpro4_cofre_cleared_at',String(clearedAt));
+    // Combina histórico de TODOS os profiles (Supabase) + histórico LOCAL, descartando entradas anteriores ao zero
     let allRemoteHist=[];
     snaps.forEach(snap=>{if(Array.isArray(snap.hist))allRemoteHist=[...allRemoteHist,...snap.hist];});
-    // _mergeCofreHist já une remoto + local e remove duplicatas
-    const mergedHist=_mergeCofreHist(allRemoteHist);
+    // _mergeCofreHist une remoto + local, filtra por clearedAt e remove duplicatas
+    let mergedHist=_mergeCofreHist(allRemoteHist,clearedAt);
+    // Segurança extra: se houve zero explícito (clearedAt>0) e o remoto está limpo,
+    // não preserve entradas locais desatualizadas — o zero é autoridade
+    if(clearedAt>0 && allRemoteHist.length===0 &&
+       (bestSnap.pix||0)===0 && (bestSnap.dinheiro||0)===0 && mergedHist.length>0){
+      console.log('[cofre] zero detectado no remoto — limpando hist local desatualizado');
+      mergedHist=[];
+    }
     console.log('[cofre] loaded from profiles, ts=',bestSnap.ts,'pix=',bestSnap.pix,'din=',bestSnap.dinheiro,'hist=',mergedHist.length,'entries (remote=',allRemoteHist.length,')');
     const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
     // Sempre persiste o hist merged (garante que entradas locais nunca se percam)
@@ -4895,11 +4917,17 @@ function saveCofreDeposit(type){
 function openCofreZerar(){
   if(!isAdm()){toast('Apenas o admin pode zerar o cofre');return;}
   if(!confirm('Zerar todo o cofre (Pix + Dinheiro)?'))return;
+  const clearedAt=Date.now();
+  localStorage.setItem('cpro4_cofre_cleared_at',String(clearedAt));
   localStorage.removeItem(getCofreFormKey('pix'));
   localStorage.removeItem(getCofreFormKey('dinheiro'));
   localStorage.removeItem(getCofreHistKey());
+  // Atualiza cards imediatamente (hist vazio agora)
+  calculateTotals();
+  updateCaixa();
+  _lastRenderHomeKey='';
   saveCofreToSupa();
-  closeCofreSheet();renderDash();toast('Cofre zerado');
+  closeCofreSheet();renderDash();if(curSc==='sc-home')renderHome();toast('Cofre zerado');
 }
 function renderCofreWidget(saldoPendente){
   const pix=getCofreFormVal('pix'),din=getCofreFormVal('dinheiro');
