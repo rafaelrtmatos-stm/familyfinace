@@ -2373,13 +2373,19 @@ async function doLoginBtn(){
       return;
     }
     hideLoader();
-    console.warn('[login] sem sessão válida — modo offline. error:',error?.message);
-    toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+    const reason=error?.message||'sem resposta do servidor';
+    console.warn('[login] sem sessão válida — modo offline. Motivo:',reason);
+    const errEl=document.getElementById('loginErr');
+    if(errEl)errEl.innerHTML='<span style="color:#e67e22">⚠️ Offline: '+reason+'</span>';
+    toast('⚠️ Modo offline — '+reason);
     await doLogin(offlineUser);
   }catch(e){
     hideLoader();
-    console.warn('Login error (going offline):', e?.message||e);
-    toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+    const reason=e?.message||'erro de rede';
+    console.warn('[login] erro inesperado (going offline):',reason);
+    const errEl=document.getElementById('loginErr');
+    if(errEl)errEl.innerHTML='<span style="color:#e67e22">⚠️ Offline: '+reason+'</span>';
+    toast('⚠️ Modo offline — '+reason);
     await doLogin(offlineUser);
   }
 }
