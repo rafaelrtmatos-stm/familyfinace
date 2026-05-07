@@ -525,22 +525,22 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
     <!-- Balance widget -->
     <div style="position:relative;z-index:2">
-      <!-- Main saldo + caixa + falta — 3 columns -->
+      <!-- Saldo Total / Rafa / Guigui — 3 columns -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">
         <div style="text-align:center">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">Total</div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">Saldo Total</div>
           <div style="font-size:1.2rem;font-weight:900;color:#fff;letter-spacing:-.02em" id="homeTotal">R$ 0,00</div>
           <div id="homeDailyRow" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.65);margin-top:2px"></div>
         </div>
         <div style="text-align:center;border-left:1px solid rgba(255,255,255,.15);border-right:1px solid rgba(255,255,255,.15)">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">💰 Caixa</div>
-          <div style="font-size:1.2rem;font-weight:900;color:rgba(150,255,200,.95);letter-spacing:-.02em" id="homeCaixaVal">R$ 0,00</div>
-          <div id="homeCaixaSub" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.55);margin-top:2px"></div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">👤 Rafa</div>
+          <div style="font-size:1.2rem;font-weight:900;color:rgba(150,255,200,.95);letter-spacing:-.02em" id="homeRafaBal">R$ 0,00</div>
+          <div style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px" id="homeRafaSub"></div>
         </div>
         <div style="text-align:center">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px" id="homeFaltaLbl">Saldo</div>
-          <div style="font-size:1.2rem;font-weight:900;letter-spacing:-.02em;color:rgba(150,255,200,.95)" id="homeFaltaVal">—</div>
-          <div id="homeFaltaSub" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.55);margin-top:2px"></div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">👤 Guigui</div>
+          <div style="font-size:1.2rem;font-weight:900;letter-spacing:-.02em;color:rgba(255,200,120,.95)" id="homeGuiguiBal">R$ 0,00</div>
+          <div style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px" id="homeGuiguiSub"></div>
         </div>
       </div>
       <!-- 3-column stats row -->
@@ -561,9 +561,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
     <!-- View filter tabs in header -->
     <div class="gh-tabs" id="homeViewTabs" style="margin-top:10px;position:relative;z-index:2">
-      <button class="ghtab" id="ghtab-rafael" onclick="setHomeView('rafael',this)">👤 Rafael</button>
+      <button class="ghtab" id="ghtab-rafael" onclick="setHomeView('rafael',this)">👤 Rafa</button>
       <button class="ghtab active" id="ghtab-all" onclick="setHomeView('all',this)">🌐 Todas</button>
-      <button class="ghtab" id="ghtab-ingrid" onclick="setHomeView('ingrid',this)">👤 Ingrid</button>
+      <button class="ghtab" id="ghtab-ingrid" onclick="setHomeView('ingrid',this)">👤 Guigui</button>
     </div>
     <div id="lastSyncBar" style="display:none;text-align:center;font-size:.55rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:5px;letter-spacing:.03em"></div>
 
@@ -670,10 +670,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
   <div id="addStep1" style="display:none;flex-direction:column;flex:1;min-height:0">
     <div class="add-body" style="flex:1;overflow-y:auto;padding:14px 16px">
       <div class="abl">Responsável</div>
-      <div class="af-val" style="margin-bottom:14px">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        <select id="addUser" onchange="addUserId=this.value" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.86rem;font-weight:800;color:var(--ink);flex:1;outline:none;cursor:pointer;-webkit-appearance:auto;appearance:auto;min-width:0"></select>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="pm-chip" id="addUserRafa" onclick="setAddUser('rafa',this)" style="flex:1;padding:11px 0;font-size:.88rem">👤 Rafa</button>
+        <button class="pm-chip" id="addUserGuigui" onclick="setAddUser('guigui',this)" style="flex:1;padding:11px 0;font-size:.88rem">👤 Guigui</button>
+        <button class="pm-chip" id="addUserTodos" onclick="setAddUser('todos',this)" style="flex:1;padding:11px 0;font-size:.88rem">👥 Todos</button>
       </div>
+      <input type="hidden" id="addUser" value=""/>
       <div class="abl">Categoria</div>
       <div class="cat-grid" id="addCatGrid"></div>
       <div class="abl">Tipo de conta</div>
@@ -2441,6 +2443,27 @@ function updateCaixa(){
   }
   if(faltaLblEl)faltaLblEl.textContent=diff>=0?'Saldo':'Débito';
   if(faltaSubEl)faltaSubEl.textContent=diff>=0?'Cofre OK':'para cobrir tudo';
+  // Per-user balances — always from all bills for the current period (ignores dashView filter)
+  const savedDashView=dashView;
+  dashView='all';
+  const allPeriodBills=getHomeBills();
+  dashView=savedDashView;
+  const rafaUser=db.users.find(x=>x.role==='admin'||x.name==='Rafael');
+  const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  let rafaBal=0,guiguiBal=0,rafaOrig=0,guiguiOrig=0;
+  allPeriodBills.forEach(b=>{
+    const c=calc(b,td);
+    if(rafaUser&&(b.userId===rafaUser.id||b.userId==='todos')){rafaBal=r2(rafaBal+c.bal);rafaOrig=r2(rafaOrig+b.amount);}
+    if(guiguiUser&&(b.userId===guiguiUser.id||b.userId==='todos')){guiguiBal=r2(guiguiBal+c.bal);guiguiOrig=r2(guiguiOrig+b.amount);}
+  });
+  const rafaEl2=document.getElementById('homeRafaBal');
+  const guiguiEl=document.getElementById('homeGuiguiBal');
+  const rafaSubEl=document.getElementById('homeRafaSub');
+  const guiguiSubEl=document.getElementById('homeGuiguiSub');
+  if(rafaEl2)rafaEl2.textContent=fmt(rafaBal);
+  if(guiguiEl)guiguiEl.textContent=fmt(guiguiBal);
+  if(rafaSubEl)rafaSubEl.textContent=rafaOrig>0?`de ${fmt(rafaOrig)}`:'';
+  if(guiguiSubEl)guiguiSubEl.textContent=guiguiOrig>0?`de ${fmt(guiguiOrig)}`:'';
 }
 
 function openLateBillsModal(){
@@ -2891,22 +2914,29 @@ function renderAddCatGrid(){
       <div class="cg-lbl" style="color:${c.id===selCat?'var(--g2)':''}">${c.lbl}</div>
     </div>`).join('');
 }
+function setAddUser(role,el){
+  if(role==='todos'){
+    addUserId='todos';
+  } else if(role==='rafa'){
+    const u=db.users.find(x=>x.role==='admin'||x.name==='Rafael');
+    addUserId=u?u.id:'';
+  } else if(role==='guigui'){
+    const u=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+    addUserId=u?u.id:'';
+  }
+  const hidden=document.getElementById('addUser');
+  if(hidden)hidden.value=addUserId;
+  document.querySelectorAll('#addUserRafa,#addUserGuigui,#addUserTodos').forEach(b=>b.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+}
+
 function populateUserSel(){
-  const s=document.getElementById('addUser');
-  // Only include users with valid Supabase UUIDs
-  let users=db.users.filter(u=>isUUID(u.id));
-  // Ensure current user is always in the list even if profiles failed to load
-  if(curUser&&isUUID(curUser.id)&&!users.find(u=>u.id===curUser.id)){
-    users.push({id:curUser.id,name:curUser.name||'Eu',color:curUser.color||'#3b4fd4'});
+  // Pre-select based on current user role
+  if(curUser&&curUser.role==='admin'){
+    setAddUser('rafa',document.getElementById('addUserRafa'));
+  } else {
+    setAddUser('guigui',document.getElementById('addUserGuigui'));
   }
-  s.innerHTML='<option value="">— Sem responsável —</option>'+
-    '<option value="todos">👥 Todos</option>'+
-    users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
-  // Always pre-select the current user
-  if(curUser&&isUUID(curUser.id)){
-    s.value=curUser.id;
-  }
-  addUserId=s.value;
 }
 let addType='avista';
 let addCycle='day';
@@ -3452,9 +3482,9 @@ function renderBills(){
   const vfEl=document.getElementById('billsVfbar');
   if(vfEl&&!vfEl.hasChildNodes()){
     const p=getPerms(curUser);
-    let vh=`<button class="vf ${billsView==='rafael'?'on':''}" onclick="setBillsView('rafael',this)">👤 Rafael</button>`;
+    let vh=`<button class="vf ${billsView==='rafael'?'on':''}" onclick="setBillsView('rafael',this)">👤 Rafa</button>`;
     vh+=`<button class="vf ${billsView==='all'?'on':''}" onclick="setBillsView('all',this)">🌐 Todas</button>`;
-    vh+=`<button class="vf ${billsView==='ingrid'?'on':''}" onclick="setBillsView('ingrid',this)">👤 Ingrid</button>`;
+    vh+=`<button class="vf ${billsView==='ingrid'?'on':''}" onclick="setBillsView('ingrid',this)">👤 Guigui</button>`;
     vfEl.innerHTML=vh;
   }
   updateBillsMonLabel();

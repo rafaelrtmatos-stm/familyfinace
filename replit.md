@@ -44,7 +44,9 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Recurring bills management with "Todos" shared-responsible option
 - Period filtering (monthly/weekly/daily views)
 - WhatsApp export integration
-- View filter in home header: Rafael / Todas / Ingrid (same filter applies to Contas and Dashboard screens)
+- View filter in home header: Rafa / Todas / Guigui (same filter applies to Contas and Dashboard screens)
+- Home header shows 3 balance cards: Saldo Total / 👤 Rafa / 👤 Guigui (per-user includes shared "todos" bills)
+- Add bill form uses toggle buttons (Rafa / Guigui / Todos) instead of a dropdown to select responsável
 - PWA support: `manifest.json` meta tags, `apple-touch-icon.png`, session persistence ("Permanecer logado")
 - Pull-to-refresh: swipe down from top reloads data from Supabase
 - Three visual themes: Padrão (blue/green), Rosa, Dark — picker in Usuários screen
