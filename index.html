@@ -1907,7 +1907,6 @@ async function saveAdminSettingsToProfiles(){
     const{error}=await s.from('profiles').upsert({
       id:adminUser.id,
       name:adminUser.name||'',
-      email:adminUser.email||'',
       role:'admin',
       color:adminUser.color||'#3b4fd4',
       perms:newPerms
@@ -2367,7 +2366,7 @@ async function doLoginBtn(){
       };
       if(!profile&&!data.user.is_anonymous){
         await getSupa().from('profiles').upsert({
-          id:u.id,name:u.name,email:u.email,role:u.role,color:u.color,perms:u.perms
+          id:u.id,name:u.name,role:u.role,color:u.color,perms:u.perms
         },{onConflict:'id'}).then(r=>{if(r.error)console.warn('[login] upsert profile erro:',r.error.message);});
       }
       hideLoader();
@@ -4610,7 +4609,6 @@ async function saveCofreToSupa(){
     const{error:writeErr}=await s.from('profiles').upsert({
       id:curUser.id,
       name:curUser.name||'',
-      email:curUser.email||'',
       role:curUser.role||'user',
       color:curUser.color||'#3b4fd4',
       perms:{...existingPerms,_cofre:snap}
