@@ -2790,12 +2790,14 @@ function calculateTotals(){
   const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
   const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>x.name==='Ingrid')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
   const hist=getCofreHist();
-  // Soma total de depósitos por usuário (conforme histórico salvo nos profiles)
-  function sumDeposits(userId){
-    return r2(hist.filter(h=>h.userId===userId&&h.type==='deposito').reduce((s,h)=>r2(s+h.amount),0));
+  // Saldo líquido por usuário: depósitos − saques (exclusões já removem a entrada do hist)
+  function netBalance(userId){
+    return r2(hist.filter(h=>h.userId===userId).reduce((s,h)=>{
+      return h.type==='saque'?r2(s-h.amount):r2(s+h.amount);
+    },0));
   }
-  const rafaTotal=rafaUser?sumDeposits(rafaUser.id):0;
-  const guiguiTotal=guiguiUser?sumDeposits(guiguiUser.id):0;
+  const rafaTotal=rafaUser?netBalance(rafaUser.id):0;
+  const guiguiTotal=guiguiUser?netBalance(guiguiUser.id):0;
   // Atualiza os cards Rafa / Guigui diretamente no DOM (sem re-render completo)
   const rafaEl=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
@@ -2803,8 +2805,8 @@ function calculateTotals(){
   const guiguiSubEl=document.getElementById('homeGuiguiSub');
   if(rafaEl)rafaEl.textContent=fmt(rafaTotal);
   if(guiguiEl)guiguiEl.textContent=fmt(guiguiTotal);
-  if(rafaSubEl)rafaSubEl.textContent='Depositado';
-  if(guiguiSubEl)guiguiSubEl.textContent='Depositado';
+  if(rafaSubEl)rafaSubEl.textContent='No cofre';
+  if(guiguiSubEl)guiguiSubEl.textContent='No cofre';
   // NÃO sobrescreve homeCaixaVal — updateCaixa() usa getCofreVal() que é o saldo real
   console.log('[calculateTotals] Rafa:',fmt(rafaTotal),'Guigui:',fmt(guiguiTotal),'Cofre:',fmt(getCofreVal()));
 }
