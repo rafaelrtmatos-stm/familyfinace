@@ -2377,7 +2377,7 @@ function getHomeBills(){
   // Apply user filter ('todos' bills always appear for every user)
   if(dashView==='rafael'||dashView==='ingrid'){
     const u=db.users.find(x=>dashView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
-    if(u)bills=bills.filter(b=>b.userId===u.id||b.userId==='todos');
+    if(u)bills=bills.filter(b=>b.userId===u.id);
   }
   return bills;
 }
@@ -2394,7 +2394,7 @@ function getLateBillsPrevMonths(){
   });
   if(dashView==='rafael'||dashView==='ingrid'){
     const u=db.users.find(x=>dashView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
-    if(u)bills=bills.filter(b=>b.userId===u.id||b.userId==='todos');
+    if(u)bills=bills.filter(b=>b.userId===u.id);
   }
   return bills;
 }
@@ -3543,7 +3543,7 @@ function renderBills(){
   let allBills=getBillsForView('all');
   if(billsView==='rafael'||billsView==='ingrid'){
     const u=db.users.find(x=>billsView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
-    if(u)allBills=allBills.filter(b=>b.userId===u.id||b.userId==='todos');
+    if(u)allBills=allBills.filter(b=>b.userId===u.id);
   }
 
   // Apply status filter
@@ -4158,7 +4158,7 @@ function getBillsForDash(view){
   let bills=db.bills.filter(b=>b.month===mk(dashCY,dashCM));
   if(view==='rafael'||view==='ingrid'){
     const u=db.users.find(x=>view==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
-    if(u)bills=bills.filter(b=>b.userId===u.id||b.userId==='todos');
+    if(u)bills=bills.filter(b=>b.userId===u.id);
   }
   return bills;
 }
@@ -4560,10 +4560,6 @@ function renderCofreWidget(saldoPendente){
         <div style="font-size:.88rem;font-weight:900;color:${ok?'var(--g2)':'var(--red)'}">R$ ${Math.abs(diff).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
       </div>
     </div>
-    ${isAdm()?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center">
-      <div style="font-size:.62rem;font-weight:700;color:var(--ink3);flex:1">⚙️ Modo: ${mode==='shared'?'Compartilhado':'Pessoal'}</div>
-      <button onclick="setCofreMode(getCofreMode()==='shared'?'personal':'shared')" style="padding:5px 10px;background:rgba(52,152,219,.1);border:1.5px solid rgba(52,152,219,.2);border-radius:100px;font-family:'Nunito',sans-serif;font-size:.64rem;font-weight:800;color:var(--blue);cursor:pointer">Alterar</button>
-    </div>`:''}
     <!-- Histórico -->
     ${(()=>{
       const hist=getCofreHist();
