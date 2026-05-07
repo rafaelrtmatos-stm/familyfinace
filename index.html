@@ -565,6 +565,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="ghtab active" id="ghtab-all" onclick="setHomeView('all',this)">🌐 Todas</button>
       <button class="ghtab" id="ghtab-ingrid" onclick="setHomeView('ingrid',this)">👤 Ingrid</button>
     </div>
+    <div id="lastSyncBar" style="display:none;text-align:center;font-size:.55rem;font-weight:700;color:rgba(255,255,255,.45);margin-top:5px;letter-spacing:.03em"></div>
 
   </div>
   <div class="pbar">
@@ -1285,6 +1286,18 @@ let _profilesChannel=null;
 let _profilesReconnTimer=null;
 // Realtime status tracking — true = SUBSCRIBED
 let _rtStatus={bills:false,profiles:false,settings:false};
+// Last sync timestamp
+let _lastSyncTime=null;
+function _updateSyncTime(){
+  _lastSyncTime=new Date();
+  const el=document.getElementById('lastSyncBar');
+  if(!el)return;
+  const h=String(_lastSyncTime.getHours()).padStart(2,'0');
+  const m=String(_lastSyncTime.getMinutes()).padStart(2,'0');
+  const s=String(_lastSyncTime.getSeconds()).padStart(2,'0');
+  el.textContent='✓ Sincronizado às '+h+':'+m+':'+s;
+  el.style.display='block';
+}
 let _rtDisconnectToastShown=false;
 let _presenceErrLogged=false;
 
@@ -1476,6 +1489,7 @@ function _onBillsChange(payload){
   _billsRtTimer=setTimeout(async()=>{
     if(!curUser)return;
     await loadFromSupa();
+    _updateSyncTime();
     preFillFutureMonths();
     updateCaixa();
     renderHome();
@@ -1593,6 +1607,7 @@ async function loadFromSupa(){
       });
       if(bestSnap){_applyCofreSnapshot(bestSnap);_cofreSynced=true;_cofreSyncTs=bestTs;}
     }
+    _updateSyncTime();
     hideLoader();
     updateCaixa();
   }catch(e){
