@@ -1134,10 +1134,11 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <!-- Saldos atuais -->
     <div id="cofreSaldos" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
     <!-- Quem está movimentando -->
-    <div style="font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:7px">Quem está movimentando</div>
-    <select id="cofreUserId" class="us-inp" style="margin-bottom:12px">
-      ${db.users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}
-    </select>
+    <div style="font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:8px">Quem está movimentando</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <button id="cofreUserBtnRafa" class="cofre-user-btn" onclick="setCofreUser(this)" style="padding:18px 8px;border-radius:14px;border:2.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:900;color:var(--ink3);cursor:pointer">💙 Rafa</button>
+      <button id="cofreUserBtnGuigui" class="cofre-user-btn" onclick="setCofreUser(this)" style="padding:18px 8px;border-radius:14px;border:2.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:900;color:var(--ink3);cursor:pointer">🧡 Guigui</button>
+    </div>
     <!-- Forma -->
     <div style="font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:8px">Forma</div>
     <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -2443,26 +2444,23 @@ function updateCaixa(){
     const lblMap={rafael:'Contas · Rafa',ingrid:'Contas · Guigui',all:'Contas'};
     totalLblEl.textContent=lblMap[dashView]||'Contas';
   }
-  // Per-user bill totals for current month
+  // Per-user total deposits from cofre history
   const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
   const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
-  const curMonth=mk(CY,CM);
-  const allMonthBills=db.bills.filter(b=>b.month===curMonth);
-  function calcUserBillTotal(userId){
-    return r2(allMonthBills.filter(b=>b.userId===userId).reduce((s,b)=>{
-      return r2(s+calc(b,td).bal);
-    },0));
+  const cofreHistAll=getCofreHist();
+  function calcUserDeposits(userId){
+    return r2(cofreHistAll.filter(h=>h.userId===userId&&h.type==='deposito').reduce((s,h)=>r2(s+h.amount),0));
   }
-  const rafaTotal=rafaUser?calcUserBillTotal(rafaUser.id):0;
-  const guiguiTotal=guiguiUser?calcUserBillTotal(guiguiUser.id):0;
+  const rafaTotal=rafaUser?calcUserDeposits(rafaUser.id):0;
+  const guiguiTotal=guiguiUser?calcUserDeposits(guiguiUser.id):0;
   const rafaEl2=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
   const rafaSubEl=document.getElementById('homeRafaSub');
   const guiguiSubEl=document.getElementById('homeGuiguiSub');
   if(rafaEl2)rafaEl2.textContent=fmt(rafaTotal);
   if(guiguiEl)guiguiEl.textContent=fmt(guiguiTotal);
-  if(rafaSubEl)rafaSubEl.textContent=rafaTotal>0?'a pagar':'sem contas';
-  if(guiguiSubEl)guiguiSubEl.textContent=guiguiTotal>0?'a pagar':'sem contas';
+  if(rafaSubEl)rafaSubEl.textContent='Total Depositado';
+  if(guiguiSubEl)guiguiSubEl.textContent='Total Depositado';
 }
 
 function openLateBillsModal(){
@@ -4386,6 +4384,19 @@ CREATE POLICY IF NOT EXISTS "auth_delete_bills"
 
 let cofreNumStr='0';
 let cofreForm='pix';
+let cofreSelectedUserId='';
+
+function setCofreUser(btn){
+  cofreSelectedUserId=btn.dataset.userid||'';
+  document.querySelectorAll('.cofre-user-btn').forEach(b=>{
+    b.style.borderColor='#dde2ec';
+    b.style.background='#f7f9fc';
+    b.style.color='var(--ink3)';
+  });
+  btn.style.borderColor='var(--g2)';
+  btn.style.background='rgba(59,79,212,.08)';
+  btn.style.color='var(--g2)';
+}
 
 function setCofreForm(f,el){
   cofreForm=f;
@@ -4414,12 +4425,17 @@ function openCofreSheet(){
   document.getElementById('cofreDisplay').textContent='0,00';
   document.getElementById('cofreFormPix').classList.add('on');
   document.getElementById('cofreFormDinheiro').classList.remove('on');
-  // Populate user selector
-  const sel=document.getElementById('cofreUserId');
-  if(sel){
-    sel.innerHTML=db.users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
-    sel.value=curUser?.id||db.users[0]?.id||'';
-  }
+  // Set up user toggle buttons
+  const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
+  const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  const btnRafa=document.getElementById('cofreUserBtnRafa');
+  const btnGuigui=document.getElementById('cofreUserBtnGuigui');
+  if(btnRafa&&rafaUser){btnRafa.dataset.userid=rafaUser.id;btnRafa.textContent='💙 '+(rafaUser.name);}
+  if(btnGuigui&&guiguiUser){btnGuigui.dataset.userid=guiguiUser.id;btnGuigui.textContent='🧡 '+(guiguiUser.name);}
+  // Default: select current user, fallback to Rafa
+  const isGuigui=curUser?.id===guiguiUser?.id;
+  const defaultBtn=isGuigui?btnGuigui:btnRafa;
+  if(defaultBtn)setCofreUser(defaultBtn);
   updateCofreSaldos();
   document.getElementById('cofreOverlay').style.display='flex';
 }
@@ -4458,8 +4474,8 @@ function saveCofreDeposit(type){
   } else {
     newVal=r2(cur+n);
   }
-  const selUser=document.getElementById('cofreUserId');
-  const userId=selUser?.value||curUser?.id||'?';
+  if(!cofreSelectedUserId){toast('Selecione Rafa ou Guigui');return;}
+  const userId=cofreSelectedUserId;
   const userName=db.users.find(u=>u.id===userId)?.name||curUser?.name||'?';
   localStorage.setItem(getCofreFormKey(cofreForm),newVal.toString());
   saveCofreToSupa();
@@ -4480,6 +4496,7 @@ function saveCofreDeposit(type){
   document.getElementById('cofreDisplay').textContent='0,00';
   updateCofreSaldos();
   renderDash();
+  if(curSc==='sc-home')renderHome();
 }
 function openCofreZerar(){
   if(!isAdm()){toast('Apenas o admin pode zerar o cofre');return;}
