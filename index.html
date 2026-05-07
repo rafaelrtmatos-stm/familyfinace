@@ -2362,35 +2362,64 @@ async function doLoginBtn(){
   const offlineUser={id:'adm',name:'Rafael',email:SUPA_EMAIL,role:'admin',color:'#27ae60',perms:{}};
 
   async function _supaLogin(){
-    const s=getSupa();
-    if(!s){return{data:null,error:new Error('Sem conexão com o servidor. Recarregue a página e tente novamente.')};}
-    // 1. Try sign in with known credentials
-    console.log('[login] tentando signInWithPassword...');
-    const{data,error}=await s.auth.signInWithPassword({email:SUPA_EMAIL,password:SUPA_PASS});
-    if(!error&&data?.user&&data?.session){console.log('[login] signInWithPassword OK');return{data,error:null};}
-    console.warn('[login] signInWithPassword falhou:',error?.message||'sem sessão');
-    // 2. Auto-create if user doesn't exist (first-time setup)
-    const isInvalidCreds=error?.message?.toLowerCase().includes('invalid')||
-      error?.message?.toLowerCase().includes('not found')||error?.status===400;
-    if(isInvalidCreds){
-      console.log('[login] usuário não encontrado, tentando signUp...');
-      const{data:sd,error:se}=await s.auth.signUp({email:SUPA_EMAIL,password:SUPA_PASS,
-        options:{emailRedirectTo:null}});
-      if(!se&&sd?.user&&sd?.session){console.log('[login] signUp OK com sessão');return{data:sd,error:null};}
-      if(!se&&sd?.user&&!sd?.session){
-        console.warn('[login] signUp criou usuário mas requer confirmação de email — tente desabilitar "Confirm email" no painel Supabase');
-      }else{
-        console.warn('[login] signUp falhou:',se?.message||'erro desconhecido');
+    // Step 1: try server-side proxy (bypasses any browser CORS / network block)
+    console.log('[login] tentando via proxy do servidor...');
+    try{
+      const proxyRes=await fetch('/api/login',{
+        method:'POST',cache:'no-store',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:SUPA_EMAIL,password:SUPA_PASS})
+      });
+      const proxyData=await proxyRes.json();
+      if(proxyData?.access_token&&proxyData?.user){
+        console.log('[login] proxy OK — injetando sessão no cliente Supabase...');
+        const s=getSupa();
+        if(s){
+          await s.auth.setSession({access_token:proxyData.access_token,refresh_token:proxyData.refresh_token});
+        }
+        return{data:{user:proxyData.user,session:proxyData},error:null};
       }
+      // proxy returned error (e.g. wrong creds or user not found)
+      const proxyErr=proxyData?.error_description||proxyData?.message||proxyData?.error||null;
+      const isInvalidCreds=proxyRes.status===400||proxyRes.status===422;
+      if(isInvalidCreds){
+        // Step 2: try signUp via proxy (first-time setup)
+        console.log('[login] usuário não encontrado, tentando signUp via proxy...');
+        const signupRes=await fetch('/api/signup',{
+          method:'POST',cache:'no-store',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({email:SUPA_EMAIL,password:SUPA_PASS})
+        });
+        const signupData=await signupRes.json();
+        if(signupData?.access_token&&signupData?.user){
+          console.log('[login] signUp proxy OK');
+          const s=getSupa();
+          if(s)await s.auth.setSession({access_token:signupData.access_token,refresh_token:signupData.refresh_token});
+          return{data:{user:signupData.user,session:signupData},error:null};
+        }
+        if(signupData?.user&&!signupData?.access_token){
+          console.warn('[login] signUp requer confirmação de email — desabilite "Confirm email" no Supabase');
+        }
+      }
+      if(proxyErr)console.warn('[login] proxy erro:',proxyErr);
+    }catch(proxyFetchErr){
+      console.warn('[login] proxy indisponível, tentando SDK direto:',proxyFetchErr.message);
     }
-    // 3. Try anonymous sign-in as fallback (requires anonymous provider enabled in Supabase)
-    console.log('[login] tentando signInAnonymously...');
+
+    // Step 3: fallback — direct SDK (works when proxy fails but browser can reach Supabase)
+    const s=getSupa();
+    if(!s){return{data:null,error:new Error('Servidor indisponível. Recarregue a página.')};}
+    console.log('[login] tentando signInWithPassword via SDK...');
+    const{data,error}=await s.auth.signInWithPassword({email:SUPA_EMAIL,password:SUPA_PASS});
+    if(!error&&data?.user&&data?.session){console.log('[login] SDK OK');return{data,error:null};}
+    console.warn('[login] SDK falhou:',error?.message||'sem sessão');
+    const isInv=error?.message?.toLowerCase().includes('invalid')||error?.message?.toLowerCase().includes('not found')||error?.status===400;
+    if(isInv){
+      const{data:sd,error:se}=await s.auth.signUp({email:SUPA_EMAIL,password:SUPA_PASS,options:{emailRedirectTo:null}});
+      if(!se&&sd?.user&&sd?.session){return{data:sd,error:null};}
+    }
     const{data:anonData,error:anonErr}=await s.auth.signInAnonymously();
-    if(!anonErr&&anonData?.user&&anonData?.session){
-      console.log('[login] signInAnonymously OK — sessão anônima ativa');
-      return{data:anonData,error:null};
-    }
-    console.warn('[login] signInAnonymously falhou:',anonErr?.message||'não habilitado');
+    if(!anonErr&&anonData?.user&&anonData?.session){return{data:anonData,error:null};}
     return{data:null,error:error||new Error('auth failed')};
   }
 
