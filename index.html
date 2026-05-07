@@ -2755,29 +2755,27 @@ function updateCaixa(){
 function calculateTotals(){
   if(!curUser)return;
   const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
-  const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>x.name==='Ingrid')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
   const hist=getCofreHist();
-  function sumDeposits(userId){
-    return r2(hist.filter(h=>h.userId===userId&&h.type==='deposito').reduce((s,h)=>r2(s+h.amount),0));
+  // Saldo líquido por usuário: depósitos − saques
+  function netBalance(userId){
+    const dep=r2(hist.filter(h=>h.userId===userId&&h.type==='deposito').reduce((s,h)=>r2(s+h.amount),0));
+    const saq=r2(hist.filter(h=>h.userId===userId&&h.type==='saque').reduce((s,h)=>r2(s+h.amount),0));
+    return r2(dep-saq);
   }
-  const rafaTotal=rafaUser?sumDeposits(rafaUser.id):0;
-  const guiguiTotal=guiguiUser?sumDeposits(guiguiUser.id):0;
-  const caixaTotal=r2(rafaTotal+guiguiTotal);
+  const rafaTotal=rafaUser?netBalance(rafaUser.id):0;
+  const guiguiTotal=guiguiUser?netBalance(guiguiUser.id):0;
   // Atualiza cards Rafa / Guigui
   const rafaEl=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
   const rafaSubEl=document.getElementById('homeRafaSub');
   const guiguiSubEl=document.getElementById('homeGuiguiSub');
-  if(rafaEl)rafaEl.textContent=fmt(rafaTotal);
-  if(guiguiEl)guiguiEl.textContent=fmt(guiguiTotal);
-  if(rafaSubEl)rafaSubEl.textContent='Total Depositado';
-  if(guiguiSubEl)guiguiSubEl.textContent='Total Depositado';
-  // Atualiza Caixa Total = soma de todos os depósitos
-  const caixaEl=document.getElementById('homeCaixaVal');
-  if(caixaEl)caixaEl.textContent=fmt(caixaTotal);
-  const caixaSubEl=document.getElementById('homeCaixaSub');
-  if(caixaSubEl)caixaSubEl.textContent='Rafa + Guigui';
-  console.log('[calculateTotals] Rafa:',fmt(rafaTotal),'Guigui:',fmt(guiguiTotal),'Caixa:',fmt(caixaTotal));
+  if(rafaEl)rafaEl.textContent=fmt(Math.max(0,rafaTotal));
+  if(guiguiEl)guiguiEl.textContent=fmt(Math.max(0,guiguiTotal));
+  if(rafaSubEl)rafaSubEl.textContent='No Cofre';
+  if(guiguiSubEl)guiguiSubEl.textContent='No Cofre';
+  // NÃO sobrescreve homeCaixaVal — updateCaixa() já usa getCofreVal() que é o saldo real
+  console.log('[calculateTotals] Rafa:',fmt(rafaTotal),'Guigui:',fmt(guiguiTotal),'Cofre:',fmt(getCofreVal()));
 }
 
 function openLateBillsModal(){
@@ -4576,15 +4574,32 @@ let _cofreSyncTs=0;
 
 // Apply a remote cofre snapshot — always writes to the shared keys (cofre_pix / cofre_dinheiro)
 // AND to the current mode-specific keys so the UI reflects the change immediately
+function _mergeCofreHist(remoteHist){
+  // Combina histórico remoto + local sem duplicatas (por id), ordena do mais recente
+  const localHist=getCofreHist();
+  const combined=[...(Array.isArray(remoteHist)?remoteHist:[]),...localHist];
+  const seen=new Set();
+  const merged=combined.filter(h=>{
+    const key=h.id||(h.date+h.time+h.amount+h.userId);
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
+  merged.sort((a,b)=>{
+    const ka=(a.date||'')+(a.time||'')+(a.id||'');
+    const kb=(b.date||'')+(b.time||'')+(b.id||'');
+    return kb>ka?1:-1;
+  });
+  if(merged.length>200)merged.splice(200);
+  return merged;
+}
 function _applyCofreSnapshot(snap){
   if(!snap||typeof snap!=='object')return false;
   const remoteTs=snap.ts||0;
   const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
   if(remoteTs<=localTs)return false;
-  // Write to canonical shared keys
+  // Escreve saldos nas chaves canônicas
   if(typeof snap.pix==='number'){
     localStorage.setItem('cofre_pix',String(snap.pix));
-    // Also write to current mode-specific key so getCofreFormVal reads correctly
     const modeKey=getCofreFormKey('pix');
     if(modeKey!=='cofre_pix')localStorage.setItem(modeKey,String(snap.pix));
   }
@@ -4593,9 +4608,9 @@ function _applyCofreSnapshot(snap){
     const modeKey=getCofreFormKey('dinheiro');
     if(modeKey!=='cofre_dinheiro')localStorage.setItem(modeKey,String(snap.dinheiro));
   }
-  if(Array.isArray(snap.hist)){
-    localStorage.setItem(getCofreHistKey(),JSON.stringify(snap.hist));
-  }
+  // Merge do histórico (não substitui — combina com o histórico local)
+  const merged=_mergeCofreHist(snap.hist||[]);
+  localStorage.setItem(getCofreHistKey(),JSON.stringify(merged));
   localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
   return true;
 }
@@ -4644,21 +4659,43 @@ async function loadCofreFromSupa(){
   try{
     const s=getSupa();if(!s||!curUser)return;
     const{data:profiles}=await s.from('profiles').select('perms');
-    let bestSnap=null,bestTs=0;
-    (profiles||[]).forEach(p=>{
-      const snap=p?.perms?._cofre;
-      if(snap&&typeof snap==='object'&&(snap.ts||0)>bestTs){
-        bestTs=snap.ts||0;bestSnap=snap;
-      }
+    const snaps=(profiles||[]).map(p=>p?.perms?._cofre).filter(snap=>snap&&typeof snap==='object'&&snap.ts);
+    if(!snaps.length){console.log('[cofre] no snapshot found in profiles');_cofreSynced=false;return;}
+    // Usa o saldo do snapshot mais recente (saldo real)
+    const bestSnap=snaps.reduce((a,b)=>((b.ts||0)>(a.ts||0)?b:a));
+    // Combina histórico de TODOS os profiles (cada dispositivo salva no próprio profile)
+    let allHist=[];
+    snaps.forEach(snap=>{if(Array.isArray(snap.hist))allHist=[...allHist,...snap.hist];});
+    // Remove duplicatas e ordena
+    const seen=new Set();
+    const mergedHist=allHist.filter(h=>{
+      const key=h.id||(h.date+h.time+String(h.amount)+h.userId);
+      if(seen.has(key))return false;seen.add(key);return true;
     });
-    if(bestSnap){
-      console.log('[cofre] loaded from profiles, ts=',bestTs,'pix=',bestSnap.pix,'din=',bestSnap.dinheiro);
-      const updated=_applyCofreSnapshot(bestSnap);
-      _cofreSynced=true;_cofreSyncTs=bestTs;
-      if(updated)renderDash();
+    mergedHist.sort((a,b)=>{
+      const ka=(a.date||'')+(a.time||'')+(a.id||'');
+      const kb=(b.date||'')+(b.time||'')+(b.id||'');
+      return kb>ka?1:-1;
+    });
+    if(mergedHist.length>200)mergedHist.splice(200);
+    const mergedSnap={...bestSnap,hist:mergedHist};
+    console.log('[cofre] loaded from profiles, ts=',bestSnap.ts,'pix=',bestSnap.pix,'din=',bestSnap.dinheiro,'hist=',mergedHist.length,'entries');
+    const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+    // Sempre aplica se tiver histórico novo (mesmo que saldo não mudou)
+    if((bestSnap.ts||0)>localTs||mergedHist.length>getCofreHist().length){
+      if(typeof bestSnap.pix==='number'){
+        localStorage.setItem('cofre_pix',String(bestSnap.pix));
+        const mk2=getCofreFormKey('pix');if(mk2!=='cofre_pix')localStorage.setItem(mk2,String(bestSnap.pix));
+      }
+      if(typeof bestSnap.dinheiro==='number'){
+        localStorage.setItem('cofre_dinheiro',String(bestSnap.dinheiro));
+        const mk2=getCofreFormKey('dinheiro');if(mk2!=='cofre_dinheiro')localStorage.setItem(mk2,String(bestSnap.dinheiro));
+      }
+      localStorage.setItem(getCofreHistKey(),JSON.stringify(mergedHist));
+      localStorage.setItem('cpro4_cofre_ts',String(bestSnap.ts||Date.now()));
+      _cofreSynced=true;_cofreSyncTs=bestSnap.ts||0;
     } else {
-      console.log('[cofre] no snapshot found in profiles');
-      _cofreSynced=false;
+      _cofreSynced=true;_cofreSyncTs=bestSnap.ts||0;
     }
   }catch(e){_cofreSynced=false;console.warn('[cofre] load error',e);}
 }
