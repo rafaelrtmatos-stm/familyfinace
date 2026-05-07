@@ -1385,10 +1385,13 @@ function _setRtStatus(ch,ok){
 function getSupa(){
   if(_supa)return _supa;
   if(!SUPA_URL||!SUPA_KEY){
-    console.error('[Supabase] ❌ Credenciais ainda não carregadas. Chame initSupaConfig() antes.');
-    throw new Error('Supabase não configurado: credenciais não carregadas ainda.');
+    console.warn('[Supabase] credenciais ainda não disponíveis — aguardando /api/config...');
   }
-  _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+  try{
+    _supa=window.supabase.createClient(SUPA_URL||'https://placeholder.supabase.co',SUPA_KEY||'placeholder');
+  }catch(e){
+    console.error('[Supabase] falha ao criar client:',e.message);
+  }
   return _supa;
 }
 
