@@ -41,4 +41,3 @@ publicDir = "."
 [userenv]
 
 [userenv.shared]
-VITE_SUPABASE_URL = "https://mvojhrkuuveiozbgigny.supabase.co"

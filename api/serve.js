@@ -14,10 +14,12 @@ module.exports = (req, res) => {
   const supaUrl = process.env.SUPABASE_URL      || '';
   const supaKey = process.env.SUPABASE_ANON_KEY || '';
 
-  html = html.replace(/const SUPA_URL='[^']*'/, `const SUPA_URL='${supaUrl}'`);
-  html = html.replace(/const SUPA_KEY='[^']*'/, `const SUPA_KEY='${supaKey}'`);
+  // Match both `let` and `const` declarations with empty or existing values
+  if (supaUrl) html = html.replace(/let SUPA_URL='[^']*'/, `let SUPA_URL='${supaUrl}'`);
+  if (supaKey) html = html.replace(/let SUPA_KEY='[^']*'/, `let SUPA_KEY='${supaKey}'`);
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
   res.end(html);
 };
