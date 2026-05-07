@@ -34,19 +34,13 @@ const server = http.createServer((req, res) => {
 
     let content = data;
 
-    // Inject env vars only into index.html
+    // Inject env vars only into index.html (only if env vars are set)
     if (pathname === '/index.html') {
-      const supaUrl  = process.env.SUPABASE_URL      || '';
-      const supaKey  = process.env.SUPABASE_ANON_KEY || '';
+      const supaUrl  = process.env.SUPABASE_URL;
+      const supaKey  = process.env.SUPABASE_ANON_KEY;
       let html = data.toString('utf8');
-      html = html.replace(
-        /const SUPA_URL='[^']*'/,
-        `const SUPA_URL='${supaUrl}'`
-      );
-      html = html.replace(
-        /const SUPA_KEY='[^']*'/,
-        `const SUPA_KEY='${supaKey}'`
-      );
+      if (supaUrl) html = html.replace(/const SUPA_URL='[^']*'/, `const SUPA_URL='${supaUrl}'`);
+      if (supaKey) html = html.replace(/const SUPA_KEY='[^']*'/, `const SUPA_KEY='${supaKey}'`);
       content = Buffer.from(html, 'utf8');
     }
 

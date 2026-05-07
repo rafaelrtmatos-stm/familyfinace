@@ -489,7 +489,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <input type="password" id="loginPass" placeholder="Senha" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);flex:1;outline:none" onkeydown="if(event.key==='Enter')doLoginBtn()"/>
     </div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;user-select:none">
-      <input type="checkbox" id="stayLoggedIn" style="width:16px;height:16px;accent-color:#3d2db5;cursor:pointer">
+      <input type="checkbox" id="stayLoggedIn" checked style="width:16px;height:16px;accent-color:#3d2db5;cursor:pointer">
       <span style="font-size:.8rem;font-weight:700;color:var(--ink2)">Permanecer logado</span>
     </label>
     <div id="loginErr" style="font-size:.74rem;font-weight:700;color:var(--red);text-align:center;margin-bottom:10px;min-height:18px"></div>
@@ -1320,8 +1320,8 @@ console.error=(...args)=>{_diagOrigErr(...args);_diagCapture('err',args);};
 /* ══════════════════════════════════════════════════
    SUPABASE CONFIG
 ══════════════════════════════════════════════════ */
-const SUPA_URL='';
-const SUPA_KEY='';
+const SUPA_URL='https://mvojhrkuuveiozbgigny.supabase.co';
+const SUPA_KEY='sb_publishable_QYn7gHfDWOHlogX--h6ImQ_6FYqDbm7';
 let _supa=null;
 let _billsChannel=null;
 let _billsRtTimer=null;
@@ -1402,7 +1402,7 @@ function startBillsRealtime(){
         console.error('[bills-rt] canal perdido:',status,err||'');
         _setRtStatus('bills',false);
         clearTimeout(_billsReconnTimer);
-        _billsReconnTimer=setTimeout(()=>{if(!curUser)return;stopBillsRealtime();startBillsRealtime();},30000);
+        _billsReconnTimer=setTimeout(()=>{if(!curUser)return;stopBillsRealtime();startBillsRealtime();},5000);
       }
     });
 }
@@ -1461,7 +1461,7 @@ function startProfilesRealtime(){
         console.error('[profiles-rt] canal perdido:',status,err||'');
         _setRtStatus('profiles',false);
         clearTimeout(_profilesReconnTimer);
-        _profilesReconnTimer=setTimeout(()=>{if(!curUser)return;stopProfilesRealtime();startProfilesRealtime();},30000);
+        _profilesReconnTimer=setTimeout(()=>{if(!curUser)return;stopProfilesRealtime();startProfilesRealtime();},5000);
       }
     });
 }
@@ -1490,7 +1490,7 @@ function startAppSettingsRealtime(){
         console.error('[settings-rt] canal perdido:',status,err||'');
         _setRtStatus('settings',false);
         clearTimeout(_appSettingsReconnTimer);
-        _appSettingsReconnTimer=setTimeout(()=>{if(!curUser)return;stopAppSettingsRealtime();startAppSettingsRealtime();},30000);
+        _appSettingsReconnTimer=setTimeout(()=>{if(!curUser)return;stopAppSettingsRealtime();startAppSettingsRealtime();},5000);
       }
     });
 }
