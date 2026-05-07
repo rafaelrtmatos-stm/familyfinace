@@ -1538,6 +1538,8 @@ async function _onProfilesChange(){
   await loadCofreFromSupa();
   const newPix=getCofreFormVal('pix');
   const newDin=getCofreFormVal('dinheiro');
+  // Recalcula depósitos e atualiza cards IMEDIATAMENTE — sempre, mesmo sem mudança de pix/din
+  calculateTotals();
   if(newPix!==prevPix||newDin!==prevDin){
     updateCaixa();
     renderDash();
@@ -2735,38 +2737,34 @@ function updateCaixa(){
 }
 
 /* ══════════════════════════════════════════════════
-   CALCULATE TOTALS — saldo por usuário no mês atual
+   CALCULATE TOTALS — depósitos por usuário (Caixa)
 ══════════════════════════════════════════════════ */
-function calculateTotals(billsOverride){
+function calculateTotals(){
   if(!curUser)return;
-  const td=today();
-  const curMonth=mk(CY,CM);
-  const allMonthBills=billsOverride||db.bills.filter(b=>b.month===curMonth);
   const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
   const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
-  const validUsers=db.users.filter(u=>isUUID(u.id));
-  const numUsers=Math.max(1,validUsers.length);
-  let rafaBal=0,guiguiBal=0;
-  allMonthBills.forEach(b=>{
-    const c=calc(b,td);
-    if(rafaUser&&b.userId===rafaUser.id){
-      rafaBal=r2(rafaBal+c.bal);
-    } else if(guiguiUser&&b.userId===guiguiUser.id){
-      guiguiBal=r2(guiguiBal+c.bal);
-    } else if(b.userId==='todos'){
-      if(rafaUser&&isUUID(rafaUser.id)) rafaBal=r2(rafaBal+r2(c.bal/numUsers));
-      if(guiguiUser&&isUUID(guiguiUser.id)) guiguiBal=r2(guiguiBal+r2(c.bal/numUsers));
-    }
-  });
+  const hist=getCofreHist();
+  function sumDeposits(userId){
+    return r2(hist.filter(h=>h.userId===userId&&h.type==='deposito').reduce((s,h)=>r2(s+h.amount),0));
+  }
+  const rafaTotal=rafaUser?sumDeposits(rafaUser.id):0;
+  const guiguiTotal=guiguiUser?sumDeposits(guiguiUser.id):0;
+  const caixaTotal=r2(rafaTotal+guiguiTotal);
+  // Atualiza cards Rafa / Guigui
   const rafaEl=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
   const rafaSubEl=document.getElementById('homeRafaSub');
   const guiguiSubEl=document.getElementById('homeGuiguiSub');
-  if(rafaEl)rafaEl.textContent=fmt(rafaBal);
-  if(guiguiEl)guiguiEl.textContent=fmt(guiguiBal);
-  if(rafaSubEl)rafaSubEl.textContent='Saldo do Mês';
-  if(guiguiSubEl)guiguiSubEl.textContent='Saldo do Mês';
-  console.log('[calculateTotals] Rafa:',fmt(rafaBal),'Guigui:',fmt(guiguiBal));
+  if(rafaEl)rafaEl.textContent=fmt(rafaTotal);
+  if(guiguiEl)guiguiEl.textContent=fmt(guiguiTotal);
+  if(rafaSubEl)rafaSubEl.textContent='Total Depositado';
+  if(guiguiSubEl)guiguiSubEl.textContent='Total Depositado';
+  // Atualiza Caixa Total = soma de todos os depósitos
+  const caixaEl=document.getElementById('homeCaixaVal');
+  if(caixaEl)caixaEl.textContent=fmt(caixaTotal);
+  const caixaSubEl=document.getElementById('homeCaixaSub');
+  if(caixaSubEl)caixaSubEl.textContent='Rafa + Guigui';
+  console.log('[calculateTotals] Rafa:',fmt(rafaTotal),'Guigui:',fmt(guiguiTotal),'Caixa:',fmt(caixaTotal));
 }
 
 function openLateBillsModal(){
