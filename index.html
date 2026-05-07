@@ -501,7 +501,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 </div>
 
 <!-- ══ HOME SCREEN ══ -->
-<div class="screen" id="sc-home">
+<div class="screen off" id="sc-home">
   <div class="sbar" style="background:var(--g2)">
     <span style="font-size:.78rem">9:41</span>
     <div style="display:flex;gap:5px;align-items:center">
@@ -2097,15 +2097,9 @@ async function doLoginBtn(){
     await doLogin(offlineUser);
   }catch(e){
     hideLoader();
-    if(e.message==='timeout'){
-      toast('⚠️ Modo offline — dados não serão salvos na nuvem');
-      await doLogin(offlineUser);
-    }else{
-      errEl.textContent='Erro de conexão. Verifique a internet.';
-      console.error('Login error:',e);
-      document.getElementById('loginPass').value='';
-      document.getElementById('loginPass').focus();
-    }
+    console.warn('Login error (going offline):', e);
+    toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+    await doLogin(offlineUser);
   }
 }
 
