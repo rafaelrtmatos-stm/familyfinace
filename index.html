@@ -1390,8 +1390,10 @@ function getSupa(){
 function startBillsRealtime(){
   if(_billsChannel)return;
   _billsChannel=getSupa()
-    .channel('custom-all-channel')
-    .on('postgres_changes',{event:'*',schema:'public',table:'bills'},_onBillsChange)
+    .channel('public:bills')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bills'},_onBillsChange)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bills'},_onBillsChange)
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'bills'},_onBillsChange)
     .subscribe((status,err)=>{
       console.log('[bills-rt] status:', status, err||'');
       if(status==='SUBSCRIBED'){
@@ -1545,25 +1547,21 @@ async function _onProfilesChange(){
 }
 
 async function _onBillsChange(payload){
-  console.log('Mudança detectada no Realtime!', payload);
+  console.log('[bills-rt] Mudança recebida:', payload?.eventType, payload);
   if(!curUser)return;
   clearTimeout(_billsRtTimer);
-  // Atualiza os cards imediatamente com os dados em memória enquanto busca do servidor
-  renderHome();
-  // Busca dados atualizados do Supabase e re-renderiza tudo
-  _billsRtTimer=setTimeout(async()=>{
-    try{
-      await loadFromSupa();
-      _updateSyncTime();
-      preFillFutureMonths();
-      updateCaixa();
-      // Atualiza os 3 cards: Saldo Total, Rafa, Guigui
-      renderHome();
-      if(curSc==='sc-bills')renderBills();
-      else if(curSc==='sc-charts')renderCharts();
-      else if(curSc==='sc-dashboard')renderDash();
-    }catch(e){console.error('[bills-rt] erro ao aplicar mudança:',e);}
-  },200);
+  // Busca dados atualizados do Supabase e re-renderiza tudo IMEDIATAMENTE
+  try{
+    await loadFromSupa();
+    _updateSyncTime();
+    preFillFutureMonths();
+    updateCaixa();
+    // Atualiza os 3 cards: Saldo Total, Rafa, Guigui
+    renderHome();
+    if(curSc==='sc-bills')renderBills();
+    else if(curSc==='sc-charts')renderCharts();
+    else if(curSc==='sc-dashboard')renderDash();
+  }catch(e){console.error('[bills-rt] erro ao aplicar mudança:',e);}
 }
 
 /* ══════════════════════════════════════════════════
@@ -2374,19 +2372,15 @@ async function doLoginBtn(){
     }
     hideLoader();
     const reason=error?.message||'sem resposta do servidor';
-    console.warn('[login] sem sessão válida — modo offline. Motivo:',reason);
-    const errEl=document.getElementById('loginErr');
-    if(errEl)errEl.innerHTML='<span style="color:#e67e22">⚠️ Offline: '+reason+'</span>';
-    toast('⚠️ Modo offline — '+reason);
-    await doLogin(offlineUser);
+    console.warn('[login] falha na autenticação. Motivo:',reason);
+    const errEl2=document.getElementById('loginErr');
+    if(errEl2)errEl2.innerHTML='<span style="color:#e74c3c">❌ Falha ao conectar: '+reason+'. Verifique sua conexão e tente novamente.</span>';
   }catch(e){
     hideLoader();
     const reason=e?.message||'erro de rede';
-    console.warn('[login] erro inesperado (going offline):',reason);
-    const errEl=document.getElementById('loginErr');
-    if(errEl)errEl.innerHTML='<span style="color:#e67e22">⚠️ Offline: '+reason+'</span>';
-    toast('⚠️ Modo offline — '+reason);
-    await doLogin(offlineUser);
+    console.warn('[login] erro inesperado:',reason);
+    const errEl2=document.getElementById('loginErr');
+    if(errEl2)errEl2.innerHTML='<span style="color:#e74c3c">❌ Erro de conexão: '+reason+'. Verifique sua rede e tente novamente.</span>';
   }
 }
 
@@ -2444,6 +2438,14 @@ async function doLogin(u){
   startProfilesRealtime();
   startAppSettingsRealtime();
   startBillsPoll();
+  // Mantém sessão ativa: renova token automaticamente quando expira
+  getSupa().auth.onAuthStateChange((event,session)=>{
+    if(event==='TOKEN_REFRESHED'){
+      console.log('[auth] token renovado automaticamente — sessão ativa');
+    } else if(event==='SIGNED_OUT'){
+      console.warn('[auth] sessão encerrada remotamente');
+    }
+  });
 }
 
 function updateUIForUser(){
