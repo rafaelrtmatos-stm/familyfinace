@@ -528,7 +528,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <!-- Saldo Total / Rafa / Guigui — 3 columns -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">
         <div style="text-align:center">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px" id="homeTotalLbl">Saldo Total</div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px" id="homeTotalLbl">Contas</div>
           <div style="font-size:1.2rem;font-weight:900;color:#fff;letter-spacing:-.02em" id="homeTotal">R$ 0,00</div>
           <div id="homeDailyRow" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.65);margin-top:2px"></div>
         </div>
@@ -2457,8 +2457,8 @@ function updateCaixa(){
   if(faltaSubEl)faltaSubEl.textContent=diff>=0?'Cofre OK':'para cobrir tudo';
   const totalLblEl=document.getElementById('homeTotalLbl');
   if(totalLblEl){
-    const lblMap={rafael:'Saldo Rafa',ingrid:'Saldo Guigui',all:'Saldo Total'};
-    totalLblEl.textContent=lblMap[dashView]||'Saldo Total';
+    const lblMap={rafael:'Contas · Rafa',ingrid:'Contas · Guigui',all:'Contas'};
+    totalLblEl.textContent=lblMap[dashView]||'Contas';
   }
   // Per-user balances — always computed from ALL bills; 'todos' bills split 50/50
   const savedDashView=dashView;
