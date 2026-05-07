@@ -1337,13 +1337,12 @@ function getSupa(){
 function startBillsRealtime(){
   if(_billsChannel)return;
   _billsChannel=getSupa()
-    .channel('bills-changes')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bills'},_onBillsChange)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bills'},_onBillsChange)
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'bills'},_onBillsChange)
+    .channel('custom-all-channel')
+    .on('postgres_changes',{event:'*',schema:'public',table:'bills'},_onBillsChange)
     .subscribe((status,err)=>{
-      console.log('[bills-rt] status:',status,err||'');
+      console.log('[bills-rt] status:', status, err||'');
       if(status==='SUBSCRIBED'){
+        console.log('[bills-rt] canal bills inscrito com sucesso — aguardando mudanças...');
         _setRtStatus('bills',true);
         clearTimeout(_billsReconnTimer);_billsReconnTimer=null;
       } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
@@ -1492,20 +1491,26 @@ async function _onProfilesChange(){
   }
 }
 
-function _onBillsChange(payload){
-  console.log('[bills-rt] evento recebido:',payload?.eventType,payload?.new?.id||payload?.old?.id||'');
+async function _onBillsChange(payload){
+  console.log('Mudança detectada no Realtime!', payload);
+  if(!curUser)return;
   clearTimeout(_billsRtTimer);
+  // Atualiza os cards imediatamente com os dados em memória enquanto busca do servidor
+  renderHome();
+  // Busca dados atualizados do Supabase e re-renderiza tudo
   _billsRtTimer=setTimeout(async()=>{
-    if(!curUser)return;
-    await loadFromSupa();
-    _updateSyncTime();
-    preFillFutureMonths();
-    updateCaixa();
-    renderHome();
-    if(curSc==='sc-bills')renderBills();
-    else if(curSc==='sc-charts')renderCharts();
-    else if(curSc==='sc-dashboard')renderDash();
-  },500);
+    try{
+      await loadFromSupa();
+      _updateSyncTime();
+      preFillFutureMonths();
+      updateCaixa();
+      // Atualiza os 3 cards: Saldo Total, Rafa, Guigui
+      renderHome();
+      if(curSc==='sc-bills')renderBills();
+      else if(curSc==='sc-charts')renderCharts();
+      else if(curSc==='sc-dashboard')renderDash();
+    }catch(e){console.error('[bills-rt] erro ao aplicar mudança:',e);}
+  },200);
 }
 
 /* ══════════════════════════════════════════════════
