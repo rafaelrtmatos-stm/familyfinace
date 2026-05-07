@@ -1320,8 +1320,8 @@ console.error=(...args)=>{_diagOrigErr(...args);_diagCapture('err',args);};
 /* ══════════════════════════════════════════════════
    SUPABASE CONFIG
 ══════════════════════════════════════════════════ */
-const SUPA_URL='__SUPABASE_URL__';
-const SUPA_KEY='__SUPABASE_ANON_KEY__';
+let SUPA_URL='';
+let SUPA_KEY='';
 let _supa=null;
 let _billsChannel=null;
 let _billsRtTimer=null;
@@ -1384,9 +1384,9 @@ function _setRtStatus(ch,ok){
 
 function getSupa(){
   if(_supa)return _supa;
-  if(!SUPA_URL||SUPA_URL==='__SUPABASE_URL__'||!SUPA_KEY||SUPA_KEY==='__SUPABASE_ANON_KEY__'){
-    console.error('[Supabase] ❌ SUPABASE_URL ou SUPABASE_ANON_KEY não configurados! Verifique as variáveis de ambiente no servidor (Replit Secrets).');
-    throw new Error('Supabase não configurado: defina SUPABASE_URL e SUPABASE_ANON_KEY nos Secrets do Replit.');
+  if(!SUPA_URL||!SUPA_KEY){
+    console.error('[Supabase] ❌ Credenciais ainda não carregadas. Chame initSupaConfig() antes.');
+    throw new Error('Supabase não configurado: credenciais não carregadas ainda.');
   }
   _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
   return _supa;
@@ -6124,6 +6124,19 @@ function seed(){
    INIT
 ══════════════════════════════════════════════════ */
 window.onload=async()=>{
+  // Fetch Supabase credentials from the server — never relies on cached HTML
+  try{
+    const cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());
+    if(cfg.supaUrl)SUPA_URL=cfg.supaUrl;
+    if(cfg.supaKey)SUPA_KEY=cfg.supaKey;
+    if(!SUPA_URL||!SUPA_KEY){
+      console.error('[init] /api/config retornou credenciais vazias — verifique os Secrets do Replit.');
+    } else {
+      console.log('[init] Supabase config carregada via /api/config ✓');
+    }
+  }catch(e){
+    console.error('[init] Falha ao carregar config do servidor:',e.message);
+  }
   initTheme();
   await ldb();
   // Seed local user chips (for login screen display)

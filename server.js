@@ -21,8 +21,26 @@ const MIME = {
 
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url);
-  let pathname = parsed.pathname === '/' ? '/index.html' : parsed.pathname;
-  const filePath = path.join(ROOT, pathname);
+  const pathname = parsed.pathname;
+
+  // Dynamic config endpoint — never cached, always returns current env vars
+  if (pathname === '/api/config') {
+    const supaUrl = process.env.SUPABASE_URL || '';
+    const supaKey = process.env.SUPABASE_ANON_KEY || '';
+    if (!supaUrl || !supaKey) {
+      console.warn('[AVISO] SUPABASE_URL ou SUPABASE_ANON_KEY não configurados nos Secrets!');
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+    });
+    res.end(JSON.stringify({ supaUrl, supaKey }));
+    return;
+  }
+
+  let filePath_raw = pathname === '/' ? '/index.html' : pathname;
+  const filePath = path.join(ROOT, filePath_raw);
   const ext = path.extname(filePath).toLowerCase();
 
   fs.readFile(filePath, (err, data) => {
@@ -32,30 +50,19 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    let content = data;
-
-    // Inject env vars only into index.html (only if env vars are set)
     const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
-    if (pathname === '/index.html') {
-      const supaUrl  = process.env.SUPABASE_URL;
-      const supaKey  = process.env.SUPABASE_ANON_KEY;
-      let html = data.toString('utf8');
-      if (supaUrl) html = html.replace('__SUPABASE_URL__', supaUrl);
-      if (supaKey) html = html.replace('__SUPABASE_ANON_KEY__', supaKey);
-      content = Buffer.from(html, 'utf8');
-      // Prevent browser from caching the injected HTML
+
+    // For index.html: prevent caching so the browser always gets a fresh copy
+    if (filePath_raw === '/index.html') {
       headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
       headers['Pragma'] = 'no-cache';
     }
 
     res.writeHead(200, headers);
-    res.end(content);
+    res.end(data);
   });
 });
 
 server.listen(PORT, () => {
   console.log(`Serving on http://localhost:${PORT}`);
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    console.warn('[AVISO] SUPABASE_URL ou SUPABASE_ANON_KEY não configurados nos Secrets!');
-  }
 });
