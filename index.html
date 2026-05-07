@@ -1302,6 +1302,8 @@ const SUPA_KEY='sb_publishable_QYn7gHfDWOHlogX--h6ImQ_6FYqDbm7';
 let _supa=null;
 let _billsChannel=null;
 let _billsRtTimer=null;
+let _appSettingsChannel=null;
+let _profilesChannel=null;
 
 function getSupa(){
   if(_supa)return _supa;
@@ -1329,15 +1331,15 @@ function stopBillsRealtime(){
   clearTimeout(_billsRtTimer);
 }
 
-let _profilesChannel=null;
-
 function startProfilesRealtime(){
   if(_profilesChannel)return;
   _profilesChannel=getSupa()
     .channel('profiles-changes')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'profiles'},_onProfilesChange)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},_onProfilesChange)
     .subscribe((status,err)=>{
       console.log('[profiles-rt] status:',status,err||'');
+      if(status==='CHANNEL_ERROR')console.error('[profiles-rt] erro no canal — realtime pode não estar ativo');
     });
 }
 
@@ -1345,6 +1347,51 @@ function stopProfilesRealtime(){
   if(!_profilesChannel)return;
   try{getSupa().removeChannel(_profilesChannel);}catch{}
   _profilesChannel=null;
+}
+
+function startAppSettingsRealtime(){
+  if(_appSettingsChannel)return;
+  _appSettingsChannel=getSupa()
+    .channel('app-settings-changes')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'app_settings'},_onAppSettingsChange)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_settings'},_onAppSettingsChange)
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'app_settings'},_onAppSettingsChange)
+    .subscribe((status,err)=>{
+      console.log('[settings-rt] status:',status,err||'');
+      if(status==='CHANNEL_ERROR')console.error('[settings-rt] erro no canal — realtime de configurações inativo');
+    });
+}
+
+function stopAppSettingsRealtime(){
+  if(!_appSettingsChannel)return;
+  try{getSupa().removeChannel(_appSettingsChannel);}catch{}
+  _appSettingsChannel=null;
+}
+
+async function _onAppSettingsChange(payload){
+  if(!curUser)return;
+  console.log('[settings-rt] mudança recebida:',payload?.eventType,payload?.new?.key||payload?.old?.key||'');
+  try{
+    const s=getSupa();
+    const{data:sets,error:setsErr}=await s.from('app_settings').select('*');
+    if(setsErr){console.error('[settings-rt] erro ao recarregar app_settings:',setsErr);return;}
+    if(sets){
+      const catSetting=sets.find(x=>x.key==='cats');
+      if(catSetting?.value)db.cats=catSetting.value;
+      const coupleSetting=sets.find(x=>x.key==='couple');
+      if(coupleSetting?.value)db.couple=coupleSetting.value;
+    }
+    // Also refresh admin profile settings (newer source of truth for cats/couple)
+    const{data:profs}=await s.from('profiles').select('perms').eq('role','admin');
+    const adminProf=profs?.[0];
+    if(adminProf?.perms?._settings){
+      const ps=adminProf.perms._settings;
+      if(Array.isArray(ps.cats)&&ps.cats.length)db.cats=ps.cats;
+      if(Array.isArray(ps.couple))db.couple=ps.couple;
+    }
+    if(curSc==='sc-home')renderHome();
+    if(curSc==='sc-settings')renderSettings();
+  }catch(e){console.error('[settings-rt] erro ao aplicar mudança:',e);}
 }
 
 async function _onProfilesChange(){
@@ -1394,11 +1441,9 @@ function safeUID(id){
 // True only when the current session has a real Supabase UUID (not offline mode)
 function hasRealSession(){return isUUID(curUser?.id);}
 
-// sdb: schedule Supabase sync (localStorage removed — Supabase is source of truth)
+// sdb: schedule Supabase sync — Supabase is the single source of truth
 function sdb(){
   clearTimeout(_syncTimer);
-  // Always persist bills locally as backup (survives loadFromSupa overwrite)
-  try{localStorage.setItem('cpro4_bills_local',JSON.stringify(db.bills));}catch{}
   _syncTimer=setTimeout(()=>syncToSupa(),400);
 }
 
@@ -1421,38 +1466,20 @@ async function loadFromSupa(){
         perms:p.perms||{}, email:p.email
       }));
     }
-    // Load bills
-    const{data:bills}=await s.from('bills').select('*').order('created_at');
+    // Load bills — Supabase is the single source of truth, no localStorage merge
+    const{data:bills,error:billsLoadErr}=await s.from('bills').select('*').order('created_at');
+    if(billsLoadErr){console.error('[loadFromSupa] erro ao carregar contas:',billsLoadErr);toast('⚠️ Erro ao carregar contas: '+billsLoadErr.message);}
     if(bills){
-      // Load local backup to preserve any payments not yet saved to Supabase (e.g. RLS failures)
-      let localBills=[];
-      try{const lc=localStorage.getItem('cpro4_bills_local');if(lc)localBills=JSON.parse(lc);}catch{}
-      const remoteIds=new Set();
-      db.bills=bills.map(b=>{
-        remoteIds.add(b.id);
-        const mapped={
-          id:b.id, templateId:b.template_id, name:b.name,
-          amount:parseFloat(b.amount), day:b.day, month:b.month,
-          userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
-          cycle:b.cycle||'day', recurring:b.recurring||false,
-          noDaily:b.cycle==='avista'||b.no_daily||false,
-          installment:b.installment||null, payments:b.payments||[],
-          shared:b.shared||false,
-          _ownerId:b.user_id
-        };
-        // Merge: keep local payments if local has MORE entries (unsaved payments survive reload)
-        const local=localBills.find(l=>l.id===b.id);
-        if(local?.payments?.length>mapped.payments.length){
-          mapped.payments=local.payments;
-        }
-        return mapped;
-      }).filter(b=>!_pendingDeletes.has(b.id));
-      // Also preserve local-only bills not yet in Supabase
-      localBills.forEach(lb=>{
-        if(!remoteIds.has(lb.id)&&!_pendingDeletes.has(lb.id)){
-          db.bills.push(lb);
-        }
-      });
+      db.bills=bills.map(b=>({
+        id:b.id, templateId:b.template_id, name:b.name,
+        amount:parseFloat(b.amount), day:b.day, month:b.month,
+        userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
+        cycle:b.cycle||'day', recurring:b.recurring||false,
+        noDaily:b.cycle==='avista'||b.no_daily||false,
+        installment:b.installment||null, payments:b.payments||[],
+        shared:b.shared||false,
+        _ownerId:b.user_id
+      })).filter(b=>!_pendingDeletes.has(b.id));
     }
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
@@ -1582,8 +1609,16 @@ async function syncToSupa(){
         payments:b.payments||[], shared:(b.userId==='todos')?true:(b.shared||false),
         updated_at:new Date().toISOString()
       }));
-      const{error:billsErr}=await s.from('bills').upsert(rows,{onConflict:'id'});
-      if(billsErr)console.warn('syncToSupa bills error',billsErr);
+      // Validate user_id before upsert
+      const invalidRows=rows.filter(r=>!r.user_id);
+      if(invalidRows.length){console.error('[syncToSupa] contas sem user_id válido:',invalidRows.map(r=>r.id));}
+      const validRows=rows.filter(r=>r.user_id);
+      if(!validRows.length)return;
+      const{error:billsErr}=await s.from('bills').upsert(validRows,{onConflict:'id'});
+      if(billsErr){
+        console.error('[syncToSupa] erro ao sincronizar contas:',billsErr);
+        toast('⚠️ Erro ao sincronizar: '+billsErr.message+(billsErr.code==='42501'?' (permissão negada — verifique RLS)':''));
+      }
     }
     // Save settings (cats, couple, user perms) to admin profile — no app_settings needed
     await saveAdminSettingsToProfiles();
@@ -1606,11 +1641,17 @@ async function insertBillSupa(b){
     payments:b.payments||[], shared:isTodos?true:(b.shared||false),
     updated_at:new Date().toISOString()
   };
-  if(!row.user_id){console.warn('insertBillSupa: no valid user_id, skipping');return;}
+  if(!row.user_id){
+    console.error('[insertBillSupa] user_id ausente — conta NÃO salva. Bill:',b.id,'userId:',b.userId,'curUser.id:',curUser?.id);
+    toast('⚠️ Erro: usuário inválido. Faça logout e entre novamente.');
+    return;
+  }
   const{error}=await s.from('bills').insert(row);
   if(error){
-    console.log('insertBillSupa error:',error);
-    alert('Erro ao salvar no Supabase: '+error.message+'\n\nVerifique se a tabela "bills" existe no banco de dados.');
+    console.error('[insertBillSupa] erro ao inserir conta "'+b.name+'":',error);
+    const detail=error.code==='42501'?' (permissão negada — verifique RLS da tabela bills)':error.code==='23505'?' (conta já existe, tentando atualizar)':'';
+    if(error.code==='23505'){await saveBillSupa(b);return;}
+    toast('⚠️ Erro ao salvar "'+b.name+'": '+error.message+detail);
   }
 }
 
@@ -1630,20 +1671,21 @@ async function saveBillSupa(b){
   };
   const{error}=await s.from('bills').update(row).eq('id',b.id);
   if(error){
-    console.log('saveBillSupa error:',error);
-    // If RLS blocks it, try insert as fallback (bill may not exist in Supabase yet)
+    console.error('[saveBillSupa] erro ao atualizar conta "'+b.name+'":',error);
+    // If RLS blocks it or bill doesn't exist, try insert as fallback
     if(error.code==='42501'||error.code==='PGRST116'){
+      console.warn('[saveBillSupa] fallback para insert (RLS ou registro ausente)');
       await insertBillSupa(b);
     } else {
-      alert('Erro ao atualizar no Supabase: '+error.message);
+      toast('⚠️ Erro ao atualizar "'+b.name+'": '+error.message+(error.code==='42501'?' (permissão negada — verifique RLS)':''));
     }
   }
 }
 
-// Track locally-deleted IDs so they don't come back on sync
-let _pendingDeletes=new Set(JSON.parse(localStorage.getItem('cpro4_deleted')||'[]'));
-function _addPendingDelete(id){_pendingDeletes.add(id);try{localStorage.setItem('cpro4_deleted',JSON.stringify([..._pendingDeletes]));}catch{}}
-function _removePendingDelete(id){_pendingDeletes.delete(id);try{localStorage.setItem('cpro4_deleted',JSON.stringify([..._pendingDeletes]));}catch{}}
+// Track locally-deleted IDs per session so they don't flicker back before Supabase confirms
+let _pendingDeletes=new Set();
+function _addPendingDelete(id){_pendingDeletes.add(id);}
+function _removePendingDelete(id){_pendingDeletes.delete(id);}
 
 // Delete a bill from Supabase
 async function deleteBillSupa(id){
@@ -2055,6 +2097,7 @@ async function doLogin(u){
   startChatPoll();
   startBillsRealtime();
   startProfilesRealtime();
+  startAppSettingsRealtime();
 }
 
 function updateUIForUser(){
@@ -2080,6 +2123,7 @@ async function logout(){
   stopChatPoll();
   stopBillsRealtime();
   stopProfilesRealtime();
+  stopAppSettingsRealtime();
   curUser=null;selectedLoginUser=null;
   const lbl=document.getElementById('ghUserLbl');
   if(lbl)lbl.textContent='— Contas Pro —';

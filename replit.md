@@ -26,7 +26,8 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 
 - Single-file app: all HTML, CSS, and JavaScript are inline in `index.html`
 - Uses Supabase for authentication (email/password) and data persistence
-- Falls back to `localStorage` (`cpro4_cache`) for offline/local state
+- **Supabase is the single source of truth** — `bills` data is never read from or written to localStorage; `loadFromSupa()` uses Supabase exclusively; `sdb()` schedules a Supabase upsert with 400ms debounce
+- `_pendingDeletes` is an in-memory Set per session (no localStorage) to prevent deleted bills from flickering before Supabase confirms
 - Mobile-first UI with a 390×844 phone shell wrapper for desktop viewing
 - Hardcoded user profiles (Rafael/admin, Ingrid/user) with role-based permissions; `rafaelrtmatos@gmail.com` is always forced to admin role at login regardless of Supabase profile value
 - Chat messages stored in `app_settings` table with key `cpro4_chat` as JSON array; delivered via Supabase Realtime (`postgres_changes` on UPDATE, channel `chat-rt`); 30 s polling as fallback; presence (last-seen + readTs) in key `cpro4_presence` per user id; presence heartbeat every 30 s
@@ -35,7 +36,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Add form is a 3-step wizard (amount → category/type → details); step state in `addStep` var, controlled by `goAddStep()`
 - `selPM()` scoped to `.pm-row` parent to avoid cross-step chip deselection
 - Cofre (caixa) values synced to Supabase via key `cpro4_cofre` (object of localStorage keys → values); loaded on login, saved on every deposit/saque/edit/delete/zero
-- Realtime sync: `bills` table uses `startBillsRealtime()` (INSERT/UPDATE/DELETE); `profiles` table uses `startProfilesRealtime()` (UPDATE — cofre sync). Both require `REPLICA IDENTITY FULL` on the tables and RLS policy `FOR ALL TO authenticated USING (true)`.
+- Realtime sync: `bills` → `startBillsRealtime()` (INSERT/UPDATE/DELETE); `profiles` → `startProfilesRealtime()` (INSERT/UPDATE — cofre sync + new users); `app_settings` → `startAppSettingsRealtime()` (INSERT/UPDATE/DELETE — cats, couple, settings sync). All three start on login, stop on logout. All require `REPLICA IDENTITY FULL` and RLS policy `FOR ALL TO authenticated USING (true)`.
 - New user creation uses a temp Supabase client (`{auth:{persistSession:false}}`) for `signUp` so the admin session is preserved; profile is upserted into `profiles` table with the new auth UUID.
 - Non-admin users default to `dashView='mine'` and `billsView='mine'` on login, showing only their own bills. Admin defaults to `'all'`.
 - `changePass()` calls `getSupa().auth.updateUser({password})` to sync the new password to Supabase Auth.
@@ -65,7 +66,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - `ALTER TABLE bills REPLICA IDENTITY FULL;` required for Realtime events to deliver cross-user
 - `app_settings` must allow upsert by key; chat uses `cpro4_chat`; presence uses `cpro4_presence`
 - favicon.ico is missing (harmless 404 in logs)
-- `stopChatPoll()` / `startChatPoll()` must be called on logout / login to avoid ghost polling
+- `stopChatPoll()` / `startChatPoll()` and all three realtime channels (`stopBillsRealtime`, `stopProfilesRealtime`, `stopAppSettingsRealtime`) must be called on logout to avoid ghost listeners
 - `showPicker()` on month inputs uses try/catch to handle cross-origin iframe SecurityError in dev preview
 - `getLateBillsPrevMonths()` respects the current `dashView` user filter (mine/all/custom)
 - Admin password reset via app only updates local/profile; Supabase Auth password reset for other users requires service role key (not available client-side)
