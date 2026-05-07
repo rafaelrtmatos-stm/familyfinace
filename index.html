@@ -528,7 +528,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <!-- Saldo Total / Rafa / Guigui — 3 columns -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">
         <div style="text-align:center">
-          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px">Saldo Total</div>
+          <div style="font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.65);margin-bottom:3px" id="homeTotalLbl">Saldo Total</div>
           <div style="font-size:1.2rem;font-weight:900;color:#fff;letter-spacing:-.02em" id="homeTotal">R$ 0,00</div>
           <div id="homeDailyRow" style="font-size:.58rem;font-weight:700;color:rgba(255,255,255,.65);margin-top:2px"></div>
         </div>
@@ -2455,18 +2455,33 @@ function updateCaixa(){
   }
   if(faltaLblEl)faltaLblEl.textContent=diff>=0?'Saldo':'Débito';
   if(faltaSubEl)faltaSubEl.textContent=diff>=0?'Cofre OK':'para cobrir tudo';
-  // Per-user balances — always from all bills for the current period (ignores dashView filter)
+  const totalLblEl=document.getElementById('homeTotalLbl');
+  if(totalLblEl){
+    const lblMap={rafael:'Saldo Rafa',ingrid:'Saldo Guigui',all:'Saldo Total'};
+    totalLblEl.textContent=lblMap[dashView]||'Saldo Total';
+  }
+  // Per-user balances — always computed from ALL bills; 'todos' bills split 50/50
   const savedDashView=dashView;
   dashView='all';
   const allPeriodBills=getHomeBills();
   dashView=savedDashView;
   const rafaUser=db.users.find(x=>x.role==='admin'||x.name==='Rafael');
   const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  const validUsers=[rafaUser,guiguiUser].filter(Boolean);
+  const numValid=Math.max(1,validUsers.length);
   let rafaBal=0,guiguiBal=0,rafaOrig=0,guiguiOrig=0;
   allPeriodBills.forEach(b=>{
     const c=calc(b,td);
-    if(rafaUser&&(b.userId===rafaUser.id||b.userId==='todos')){rafaBal=r2(rafaBal+c.bal);rafaOrig=r2(rafaOrig+b.amount);}
-    if(guiguiUser&&(b.userId===guiguiUser.id||b.userId==='todos')){guiguiBal=r2(guiguiBal+c.bal);guiguiOrig=r2(guiguiOrig+b.amount);}
+    if(b.userId==='todos'){
+      // Split shared bills equally
+      const share=r2(c.bal/numValid);
+      const shareOrig=r2(b.amount/numValid);
+      if(rafaUser){rafaBal=r2(rafaBal+share);rafaOrig=r2(rafaOrig+shareOrig);}
+      if(guiguiUser){guiguiBal=r2(guiguiBal+share);guiguiOrig=r2(guiguiOrig+shareOrig);}
+    } else {
+      if(rafaUser&&b.userId===rafaUser.id){rafaBal=r2(rafaBal+c.bal);rafaOrig=r2(rafaOrig+b.amount);}
+      if(guiguiUser&&b.userId===guiguiUser.id){guiguiBal=r2(guiguiBal+c.bal);guiguiOrig=r2(guiguiOrig+b.amount);}
+    }
   });
   const rafaEl2=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
@@ -2530,8 +2545,14 @@ let donutDailyChart=null;
 
 function setHomeView(v,el){
   dashView=v;
-  if(v!=='custom')dashCustomUsers=[];
+  billsView=v;
+  if(v!=='custom'){dashCustomUsers=[];billsCustomUids=[];}
+  // Sync visual state of bills filter bar
+  document.querySelectorAll('#billsVfbar .vf').forEach(b=>b.classList.remove('on'));
+  const activeVf=document.querySelector(`#billsVfbar .vf[data-view="${v}"]`);
+  if(activeVf)activeVf.classList.add('on');
   renderHome();
+  if(curSc==='sc-bills')renderBills();
 }
 
 function toggleCustomUser(uid2,el){
@@ -3453,9 +3474,15 @@ let billsCustomUids=[];
 
 function setBillsView(v,el){
   billsView=v;
-  if(v!=='custom')billsCustomUids=[];
+  dashView=v;
+  if(v!=='custom'){billsCustomUids=[];dashCustomUsers=[];}
   document.querySelectorAll('#billsVfbar .vf').forEach(b=>b.classList.remove('on'));
   if(el)el.classList.add('on');
+  // Sync home tab visual state
+  ['rafael','all','ingrid'].forEach(k=>{
+    const t=document.getElementById('ghtab-'+k);
+    if(t)t.classList.toggle('active',k===v);
+  });
   const cuDiv=document.getElementById('billsCustomUsers');
   if(cuDiv){
     if(v==='custom'){
@@ -3464,6 +3491,7 @@ function setBillsView(v,el){
     } else cuDiv.style.display='none';
   }
   renderBills();
+  if(curSc==='sc-home')renderHome();
 }
 
 function toggleBillsUser(uid2,el){
@@ -3502,6 +3530,14 @@ function renderBills(){
   updateBillsMonLabel();
   const td=today();
   const stLbl={paid:'✓ Pago',pending:'Pendente',late:'Em Atraso',partial:'Parcial'};
+
+  // Rebuild filter bar every time so it reflects current billsView
+  if(vfEl){
+    let vh=`<button class="vf ${billsView==='rafael'?'on':''}" data-view="rafael" onclick="setBillsView('rafael',this)">👤 Rafa</button>`;
+    vh+=`<button class="vf ${billsView==='all'?'on':''}" data-view="all" onclick="setBillsView('all',this)">🌐 Todas</button>`;
+    vh+=`<button class="vf ${billsView==='ingrid'?'on':''}" data-view="ingrid" onclick="setBillsView('ingrid',this)">👤 Guigui</button>`;
+    vfEl.innerHTML=vh;
+  }
 
   // Apply view filter (who's bills to show — 'todos' always visible)
   let allBills=getBillsForView('all');
