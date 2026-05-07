@@ -2406,9 +2406,21 @@ async function doLoginBtn(){
       console.warn('[login] proxy indisponível, tentando SDK direto:',proxyFetchErr.message);
     }
 
-    // Step 3: fallback — direct SDK (works when proxy fails but browser can reach Supabase)
+    // Step 3: if credentials still empty, try loading from /api/config one more time
+    if(!SUPA_URL||!SUPA_KEY){
+      console.log('[login] credenciais vazias — buscando /api/config...');
+      try{
+        const cfg=await fetch('/api/config',{cache:'no-store'});
+        const cfgData=await cfg.json();
+        if(cfgData?.supaUrl){SUPA_URL=cfgData.supaUrl;_supa=null;}
+        if(cfgData?.supaKey){SUPA_KEY=cfgData.supaKey;_supa=null;}
+        console.log('[login] /api/config ok, SUPA_URL=',SUPA_URL?'✓':'vazio');
+      }catch(cfgErr){console.warn('[login] /api/config falhou:',cfgErr.message);}
+    }
+
+    // Step 4: fallback — direct SDK (works when proxy fails but browser can reach Supabase)
     const s=getSupa();
-    if(!s){return{data:null,error:new Error('Servidor indisponível. Recarregue a página.')};}
+    if(!s){return{data:null,error:new Error('Credenciais não configuradas. Verifique as variáveis de ambiente SUPABASE_URL e SUPABASE_ANON_KEY no Vercel/servidor.')};}
     console.log('[login] tentando signInWithPassword via SDK...');
     const{data,error}=await s.auth.signInWithPassword({email:SUPA_EMAIL,password:SUPA_PASS});
     if(!error&&data?.user&&data?.session){console.log('[login] SDK OK');return{data,error:null};}
