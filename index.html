@@ -1385,12 +1385,14 @@ function _setRtStatus(ch,ok){
 function getSupa(){
   if(_supa)return _supa;
   if(!SUPA_URL||!SUPA_KEY){
-    console.warn('[Supabase] credenciais ainda não disponíveis — aguardando /api/config...');
+    console.warn('[Supabase] credenciais não disponíveis ainda.');
+    return null;
   }
   try{
-    _supa=window.supabase.createClient(SUPA_URL||'https://placeholder.supabase.co',SUPA_KEY||'placeholder');
+    _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
   }catch(e){
     console.error('[Supabase] falha ao criar client:',e.message);
+    return null;
   }
   return _supa;
 }
@@ -2361,6 +2363,7 @@ async function doLoginBtn(){
 
   async function _supaLogin(){
     const s=getSupa();
+    if(!s){return{data:null,error:new Error('Sem conexão com o servidor. Recarregue a página e tente novamente.')};}
     // 1. Try sign in with known credentials
     console.log('[login] tentando signInWithPassword...');
     const{data,error}=await s.auth.signInWithPassword({email:SUPA_EMAIL,password:SUPA_PASS});
@@ -6127,18 +6130,28 @@ function seed(){
    INIT
 ══════════════════════════════════════════════════ */
 window.onload=async()=>{
-  // Fetch Supabase credentials from the server — never relies on cached HTML
+  // Primary: credentials already injected into HTML by the server.
+  // Fallback: /api/config ensures fresh values even when HTML is cached.
   try{
     const cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());
+    const urlChanged=cfg.supaUrl&&cfg.supaUrl!==SUPA_URL;
+    const keyChanged=cfg.supaKey&&cfg.supaKey!==SUPA_KEY;
     if(cfg.supaUrl)SUPA_URL=cfg.supaUrl;
     if(cfg.supaKey)SUPA_KEY=cfg.supaKey;
-    if(!SUPA_URL||!SUPA_KEY){
-      console.error('[init] /api/config retornou credenciais vazias — verifique os Secrets do Replit.');
-    } else {
-      console.log('[init] Supabase config carregada via /api/config ✓');
+    // Reset cached client if credentials were updated
+    if(urlChanged||keyChanged){_supa=null;}
+    if(SUPA_URL&&SUPA_KEY){
+      console.log('[init] Supabase config pronta ✓');
+    }else{
+      console.error('[init] Credenciais ausentes — verifique os Secrets do Replit.');
     }
   }catch(e){
-    console.error('[init] Falha ao carregar config do servidor:',e.message);
+    // /api/config failed — rely on server-injected values already in SUPA_URL/SUPA_KEY
+    if(SUPA_URL&&SUPA_KEY){
+      console.log('[init] /api/config indisponível, usando credenciais injetadas ✓');
+    }else{
+      console.error('[init] Sem credenciais disponíveis:',e.message);
+    }
   }
   initTheme();
   await ldb();
@@ -6157,8 +6170,10 @@ window.onload=async()=>{
   const s=getSupa();
   const stayPref=localStorage.getItem('cpro4_stay')==='1';
   let session=null;
-  try{const r=await s.auth.getSession();session=r?.data?.session||null;}catch(e){console.warn('[init] getSession erro:',e?.message);}
-  if(stayPref&&session&&session.user){
+  if(s){
+    try{const r=await s.auth.getSession();session=r?.data?.session||null;}catch(e){console.warn('[init] getSession erro:',e?.message);}
+  }
+  if(stayPref&&session&&session.user&&s){
     const{data:profile}=await s.from('profiles').select('*').eq('id',session.user.id).single();
     const u={
       id:session.user.id,
@@ -6176,6 +6191,7 @@ window.onload=async()=>{
   }
 
   // Auth listener único — detecta token expirado e força logout limpo
+  if(!s)return;
   s.auth.onAuthStateChange(async(event,_session)=>{
     if(event==='TOKEN_REFRESHED'){
       console.log('[auth] token renovado automaticamente — sessão ativa');
