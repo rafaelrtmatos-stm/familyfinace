@@ -1162,10 +1162,13 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button id="cofreFormDinheiro" class="vf" onclick="setCofreForm('dinheiro',this)" style="flex:1">💵 Dinheiro</button>
     </div>
     <!-- Display -->
-    <div style="background:#f7f9fc;border-radius:14px;padding:14px;text-align:center;margin-bottom:14px">
+    <div style="background:#f7f9fc;border-radius:14px;padding:14px;text-align:center;margin-bottom:10px">
       <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:4px">Valor</div>
       <div style="font-size:1.9rem;font-weight:900;color:var(--g2);font-family:'Nunito',sans-serif" id="cofreDisplay">0,00</div>
     </div>
+    <!-- Descrição opcional -->
+    <input id="cofreDesc" type="text" placeholder="Descrição (opcional, ex: salário, mercado…)" maxlength="60"
+      style="width:100%;box-sizing:border-box;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);background:var(--white);outline:none;margin-bottom:10px"/>
     <!-- Numpad -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
       <button class="npk" style="padding:14px;font-size:1.1rem" onclick="cofreNp('1')">1</button>
@@ -1181,11 +1184,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="npk" style="padding:14px;font-size:1.1rem" onclick="cofreNp('0')">0</button>
       <button class="npk del" style="padding:14px;font-size:1rem" onclick="cofreNpDel()">⌫</button>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
       <button onclick="saveCofreDeposit('deposito')" style="flex:1;padding:14px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">➕ Entrada</button>
       <button onclick="saveCofreDeposit('saque')" style="flex:1;padding:14px;background:rgba(231,76,60,.1);color:var(--red);border:1.5px solid rgba(231,76,60,.3);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">➖ Sacar</button>
       <button onclick="openCofreZerar()" style="padding:14px 10px;background:#f5f6fa;color:var(--ink3);border:1.5px solid #dde2ec;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;cursor:pointer">Zerar</button>
     </div>
+    <button onclick="openCofreHistFull()" style="width:100%;padding:11px;background:#f0f2ff;color:var(--g2);border:1.5px solid rgba(59,79,212,.2);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:900;cursor:pointer">📋 Ver Histórico</button>
   </div>
 </div>
 
@@ -1206,13 +1210,21 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
   <div class="user-sheet" style="padding-bottom:8px">
     <div class="ps-handle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div style="font-size:1rem;font-weight:900;color:var(--ink)" id="editCofreTitle">Editar</div>
+      <div style="font-size:1rem;font-weight:900;color:var(--ink)" id="editCofreTitle">Editar lançamento</div>
       <button onclick="closeEditCofreSheet()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
     </div>
-    <div style="font-size:.7rem;font-weight:700;color:var(--ink3);margin-bottom:14px" id="editCofreMeta"></div>
+    <div style="font-size:.7rem;font-weight:700;color:var(--ink3);margin-bottom:10px" id="editCofreMeta"></div>
+    <!-- Tipo: Entrada / Saque -->
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button id="editCofreTypeDep" class="pm-chip sel" onclick="setEditCofreType('deposito',this)" style="flex:1;padding:10px 0">➕ Entrada</button>
+      <button id="editCofreTypeSaq" class="pm-chip" onclick="setEditCofreType('saque',this)" style="flex:1;padding:10px 0">➖ Saque</button>
+    </div>
+    <!-- Descrição -->
+    <input id="editCofreDesc" type="text" placeholder="Descrição (ex: salário, mercado…)" maxlength="60"
+      style="width:100%;box-sizing:border-box;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:700;color:var(--ink);background:var(--white);outline:none;margin-bottom:10px"/>
     <!-- Display -->
-    <div style="background:#f7f9fc;border-radius:14px;padding:14px;text-align:center;margin-bottom:14px">
-      <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:4px">Novo valor</div>
+    <div style="background:#f7f9fc;border-radius:14px;padding:14px;text-align:center;margin-bottom:10px">
+      <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:4px">Valor</div>
       <div style="font-size:1.9rem;font-weight:900;color:var(--g2);font-family:'Nunito',sans-serif" id="editCofreDisplay">0,00</div>
     </div>
     <!-- Numpad -->
@@ -1230,7 +1242,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="npk" style="padding:13px;font-size:1.1rem" onclick="editCofreNp('0')">0</button>
       <button class="npk del" style="padding:13px;font-size:1rem" onclick="editCofreNpDel()">⌫</button>
     </div>
-    <button onclick="saveEditCofreHist()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">💾 Salvar</button>
+    <button onclick="saveEditCofreHist()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">💾 Salvar alterações</button>
   </div>
 </div>
 
@@ -4261,6 +4273,9 @@ function _applyCofreSnapshot(snap){
     const modeKey=getCofreFormKey('dinheiro');
     if(modeKey!=='cofre_dinheiro')localStorage.setItem(modeKey,String(snap.dinheiro));
   }
+  if(Array.isArray(snap.hist)){
+    localStorage.setItem(getCofreHistKey(),JSON.stringify(snap.hist));
+  }
   localStorage.setItem('cpro4_cofre_ts',String(remoteTs));
   return true;
 }
@@ -4270,7 +4285,8 @@ function _buildCofreSnapshot(){
   return{
     ts:Date.now(),
     pix:getCofreFormVal('pix'),
-    dinheiro:getCofreFormVal('dinheiro')
+    dinheiro:getCofreFormVal('dinheiro'),
+    hist:getCofreHist()
   };
 }
 
@@ -4444,12 +4460,16 @@ function saveCofreDeposit(type){
   const userName=db.users.find(u=>u.id===userId)?.name||curUser?.name||'?';
   localStorage.setItem(getCofreFormKey(cofreForm),newVal.toString());
   saveCofreToSupa();
+  const cofreDescEl=document.getElementById('cofreDesc');
+  const desc=(cofreDescEl?.value||'').trim();
+  if(cofreDescEl)cofreDescEl.value='';
   addCofreHist({
     id:Date.now().toString(36),
     type,form:cofreForm,amount:n,newBalance:newVal,
     user:userName,userId,
     date:today(),
-    time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+    time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    desc
   });
   const lbl=cofreForm==='pix'?'Pix':'Dinheiro';
   toast(type==='saque'?`✓ Saque de ${fmt(n)} em ${lbl}`:`✓ Depósito de ${fmt(n)} em ${lbl}`);
@@ -4630,46 +4650,63 @@ function openCofreHistFull(){
 
 function renderCofreHistFull(){
   const hist=getCofreHist();
-  document.getElementById('cofreHistList').innerHTML=hist.length
+  const total=hist.reduce((s,h)=>h.type==='saque'?r2(s-h.amount):r2(s+h.amount),0);
+  const headerHtml=hist.length?`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 12px;border-bottom:2px solid #eef0f5;margin-bottom:4px">
+      <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--ink3)">${hist.length} lançamento${hist.length!==1?'s':''}</div>
+      <div style="font-size:.88rem;font-weight:900;color:${total>=0?'var(--g2)':'var(--red)'}">Saldo total: ${total>=0?'+':''}${fmt(Math.abs(total))}</div>
+    </div>`:'';
+  document.getElementById('cofreHistList').innerHTML=headerHtml+(hist.length
     ?hist.map((h,idx)=>{
         const u=db.users.find(x=>x.id===h.userId);
         const color=u?.color||'#7f8c8d';
         const ico=h.form==='pix'?'💸':'💵';
         const isSaque=h.type==='saque';
-        return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f2f4f8">
-          <div style="width:34px;height:34px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:.76rem;font-weight:900;color:#fff;flex-shrink:0">${(h.user||'?').slice(0,1)}</div>
-          <div style="flex:1">
-            <div style="font-size:.8rem;font-weight:800;color:var(--ink)">${isSaque?'➖ Saque':'➕ Entrada'} ${ico} ${h.form==='pix'?'Pix':'Dinheiro'}</div>
-            <div style="font-size:.64rem;color:var(--ink3);font-weight:700;margin-top:1px">${esc(h.user||'?')} · ${h.date?fmtdate(h.date):''} ${h.time||''}</div>
+        return`<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f2f4f8">
+          <div style="width:36px;height:36px;border-radius:50%;background:${isSaque?'rgba(231,76,60,.15)':'rgba(46,204,113,.15)'};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${isSaque?'➖':'➕'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8rem;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.desc?esc(h.desc):(isSaque?'Saque':'Entrada')+' '+ico+' '+(h.form==='pix'?'Pix':'Dinheiro')}</div>
+            <div style="font-size:.62rem;color:var(--ink3);font-weight:700;margin-top:2px">
+              <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${color};color:#fff;font-size:.55rem;font-weight:900;text-align:center;line-height:18px;margin-right:3px">${(h.user||'?').slice(0,1)}</span>${esc(h.user||'?')} · ${ico} ${h.form==='pix'?'Pix':'Din'} · ${h.date?fmtdate(h.date):''} ${h.time||''}
+            </div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:.9rem;font-weight:900;color:${isSaque?'var(--red)':'var(--g2)'}">${isSaque?'-':'+'} ${fmt(h.amount)}</div>
-            <div style="display:flex;gap:5px;margin-top:4px;justify-content:flex-end">
-              <button onclick="editCofreHist(${idx})" style="padding:3px 8px;background:rgba(52,152,219,.1);border:1.5px solid rgba(52,152,219,.2);border-radius:6px;font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;color:var(--blue);cursor:pointer">✏️</button>
-              <button onclick="deleteCofreHist(${idx})" style="padding:3px 8px;background:rgba(231,76,60,.1);border:1.5px solid rgba(231,76,60,.2);border-radius:6px;font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;color:var(--red);cursor:pointer">🗑</button>
+            <div style="font-size:.92rem;font-weight:900;color:${isSaque?'var(--red)':'var(--g2)'}">${isSaque?'-':'+'} ${fmt(h.amount)}</div>
+            <div style="display:flex;gap:5px;margin-top:5px;justify-content:flex-end">
+              <button onclick="editCofreHist(${idx})" style="padding:4px 10px;background:rgba(52,152,219,.1);border:1.5px solid rgba(52,152,219,.2);border-radius:6px;font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar</button>
+              <button onclick="deleteCofreHist(${idx})" style="padding:4px 8px;background:rgba(231,76,60,.1);border:1.5px solid rgba(231,76,60,.2);border-radius:6px;font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;color:var(--red);cursor:pointer">🗑</button>
             </div>
           </div>
         </div>`;
       }).join('')
-    :`<div style="text-align:center;padding:28px;color:var(--ink3);font-size:.82rem;font-weight:700">Nenhum registro ainda</div>`;
+    :`<div style="text-align:center;padding:36px;color:var(--ink3);font-size:.84rem;font-weight:700">Nenhum lançamento ainda</div>`);
 }
 
 let _editCofreIdx=-1;
 let _editCofreNumStr='0';
+let _editCofreType='deposito';
+
+function setEditCofreType(t,el){
+  _editCofreType=t;
+  document.getElementById('editCofreTypeDep')?.classList.toggle('sel',t==='deposito');
+  document.getElementById('editCofreTypeSaq')?.classList.toggle('sel',t==='saque');
+}
 
 function editCofreHist(idx){
   const hist=getCofreHist();
   const h=hist[idx];if(!h)return;
   _editCofreIdx=idx;
   _editCofreNumStr=String(Math.round((h.amount||0)*100));
-  const isSaque=h.type==='saque';
+  _editCofreType=h.type||'deposito';
   const uname=h.user||'?';
   const ico=h.form==='pix'?'💸':'💵';
-  document.getElementById('editCofreTitle').textContent=
-    `${isSaque?'➖ Saque':'➕ Entrada'} ${ico} ${h.form==='pix'?'Pix':'Dinheiro'}`;
+  document.getElementById('editCofreTitle').textContent=`✏️ Editar lançamento`;
   document.getElementById('editCofreMeta').textContent=
-    `${uname} · ${h.date?fmtdate(h.date):''} ${h.time||''}`;
+    `${uname} · ${ico} ${h.form==='pix'?'Pix':'Dinheiro'} · ${h.date?fmtdate(h.date):''} ${h.time||''}`;
   document.getElementById('editCofreDisplay').textContent=fmtn(h.amount);
+  const descEl=document.getElementById('editCofreDesc');
+  if(descEl)descEl.value=h.desc||'';
+  setEditCofreType(_editCofreType,null);
   document.getElementById('editCofreOverlay').style.display='flex';
 }
 
@@ -4690,19 +4727,29 @@ function saveEditCofreHist(){
   const h=hist[_editCofreIdx];if(!h)return;
   const newAmt=(parseInt(_editCofreNumStr)||0)/100;
   if(!newAmt||newAmt<=0){toast('Valor inválido');return;}
-  const diff=r2(newAmt-h.amount);
-  const adjusted=h.type==='saque'?-diff:diff;
-  const cur=getCofreFormVal(h.form);
-  const newBal=r2(cur+adjusted);
-  if(newBal<0){toast('Saldo ficaria negativo após ajuste');return;}
+  const newType=_editCofreType;
+  const descEl=document.getElementById('editCofreDesc');
+  const newDesc=(descEl?.value||'').trim();
+  // Reverse old entry effect on balance
+  const oldFormBal=getCofreFormVal(h.form);
+  const reversed=h.type==='saque'?r2(oldFormBal+h.amount):r2(oldFormBal-h.amount);
+  localStorage.setItem(getCofreFormKey(h.form),Math.max(0,reversed).toString());
+  // Apply new entry effect
+  const updatedFormBal=getCofreFormVal(h.form);
+  const newBal=newType==='saque'?r2(updatedFormBal-newAmt):r2(updatedFormBal+newAmt);
+  if(newBal<0){
+    // Rollback
+    localStorage.setItem(getCofreFormKey(h.form),oldFormBal.toString());
+    toast('Saldo ficaria negativo após ajuste');return;
+  }
   localStorage.setItem(getCofreFormKey(h.form),newBal.toString());
-  hist[_editCofreIdx].amount=newAmt;
-  hist[_editCofreIdx].newBalance=newBal;
+  hist[_editCofreIdx]={...h,type:newType,amount:newAmt,newBalance:newBal,desc:newDesc};
   localStorage.setItem(getCofreHistKey(),JSON.stringify(hist));
   saveCofreToSupa();
-  toast(`✓ Valor atualizado: ${fmt(newAmt)}`);
+  toast(`✓ Lançamento atualizado: ${fmt(newAmt)}`);
   closeEditCofreSheet();
   renderCofreHistFull();
+  updateCofreSaldos();
   renderDash();
 }
 
