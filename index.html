@@ -2376,7 +2376,7 @@ function getHomeBills(){
   }
   // Apply user filter ('todos' bills always appear for every user)
   if(dashView==='rafael'||dashView==='ingrid'){
-    const u=db.users.find(x=>dashView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    const u=db.users.find(x=>dashView==='rafael'?x.role==='admin':x.role!=='admin');
     if(u)bills=bills.filter(b=>b.userId===u.id);
   }
   return bills;
@@ -2393,7 +2393,7 @@ function getLateBillsPrevMonths(){
     return calc(b,td).st!=='paid';
   });
   if(dashView==='rafael'||dashView==='ingrid'){
-    const u=db.users.find(x=>dashView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    const u=db.users.find(x=>dashView==='rafael'?x.role==='admin':x.role!=='admin');
     if(u)bills=bills.filter(b=>b.userId===u.id);
   }
   return bills;
@@ -2465,7 +2465,7 @@ function updateCaixa(){
   dashView='all';
   const allPeriodBills=getHomeBills();
   dashView=savedDashView;
-  const rafaUser=db.users.find(x=>x.role==='admin'||x.name==='Rafael');
+  const rafaUser=db.users.find(x=>x.role==='admin');
   const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
   const validUsers=[rafaUser,guiguiUser].filter(Boolean);
   const numValid=Math.max(1,validUsers.length);
@@ -3542,7 +3542,7 @@ function renderBills(){
   // Apply view filter (who's bills to show — 'todos' always visible)
   let allBills=getBillsForView('all');
   if(billsView==='rafael'||billsView==='ingrid'){
-    const u=db.users.find(x=>billsView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    const u=db.users.find(x=>billsView==='rafael'?x.role==='admin':x.role!=='admin');
     if(u)allBills=allBills.filter(b=>b.userId===u.id);
   }
 
@@ -4157,7 +4157,7 @@ function getBillsForDash(view){
   ensureRecurringForMonth(mk(dashCY,dashCM));
   let bills=db.bills.filter(b=>b.month===mk(dashCY,dashCM));
   if(view==='rafael'||view==='ingrid'){
-    const u=db.users.find(x=>view==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    const u=db.users.find(x=>view==='rafael'?x.role==='admin':x.role!=='admin');
     if(u)bills=bills.filter(b=>b.userId===u.id);
   }
   return bills;
