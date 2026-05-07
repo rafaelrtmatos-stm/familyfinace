@@ -35,6 +35,7 @@ const server = http.createServer((req, res) => {
     let content = data;
 
     // Inject env vars only into index.html (only if env vars are set)
+    const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
     if (pathname === '/index.html') {
       const supaUrl  = process.env.SUPABASE_URL;
       const supaKey  = process.env.SUPABASE_ANON_KEY;
@@ -42,9 +43,12 @@ const server = http.createServer((req, res) => {
       if (supaUrl) html = html.replace('__SUPABASE_URL__', supaUrl);
       if (supaKey) html = html.replace('__SUPABASE_ANON_KEY__', supaKey);
       content = Buffer.from(html, 'utf8');
+      // Prevent browser from caching the injected HTML
+      headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+      headers['Pragma'] = 'no-cache';
     }
 
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.writeHead(200, headers);
     res.end(content);
   });
 });
