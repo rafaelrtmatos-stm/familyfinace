@@ -45,7 +45,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Period filtering (monthly/weekly/daily views)
 - WhatsApp export integration
 - View filter in home header: Rafa / Todas / Guigui (same filter applies to Contas and Dashboard screens)
-- Home header shows 3 balance cards: Contas (total) / 💰 Rafa / 💰 Guigui — Rafa and Guigui cards show each person's net cofre/caixa balance (sum of deposits minus saques from history per userId)
+- Home header shows 3 balance cards: Contas (total) / 💰 Rafa / 💰 Guigui — Rafa and Guigui cards show the sum of `calc(b,td).bal` for all bills in the current month where `b.userId` matches that person's ID (looked up by name 'Rafa'/'Guigui', falls back to role); updates automatically via `renderHome()` on every data change
 - Add bill form uses toggle buttons (Rafa / Guigui / Todos) instead of a dropdown to select responsável
 - PWA support: `manifest.json` meta tags, `apple-touch-icon.png`, session persistence ("Permanecer logado")
 - Pull-to-refresh: swipe down from top reloads data from Supabase

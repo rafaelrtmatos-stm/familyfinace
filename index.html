@@ -2443,26 +2443,26 @@ function updateCaixa(){
     const lblMap={rafael:'Contas · Rafa',ingrid:'Contas · Guigui',all:'Contas'};
     totalLblEl.textContent=lblMap[dashView]||'Contas';
   }
-  // Per-user cofre balance from caixa history
-  const rafaUser=db.users.find(x=>x.role==='admin');
-  const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
-  const cofreHistAll=getCofreHist();
-  function calcCofreUserBal(userId){
-    return r2(cofreHistAll.reduce((s,h)=>{
-      if(h.userId!==userId)return s;
-      return h.type==='saque'?r2(s-h.amount):r2(s+h.amount);
+  // Per-user bill totals for current month
+  const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
+  const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  const curMonth=mk(CY,CM);
+  const allMonthBills=db.bills.filter(b=>b.month===curMonth);
+  function calcUserBillTotal(userId){
+    return r2(allMonthBills.filter(b=>b.userId===userId).reduce((s,b)=>{
+      return r2(s+calc(b,td).bal);
     },0));
   }
-  const rafaCofre=rafaUser?calcCofreUserBal(rafaUser.id):0;
-  const guiguiCofre=guiguiUser?calcCofreUserBal(guiguiUser.id):0;
+  const rafaTotal=rafaUser?calcUserBillTotal(rafaUser.id):0;
+  const guiguiTotal=guiguiUser?calcUserBillTotal(guiguiUser.id):0;
   const rafaEl2=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
   const rafaSubEl=document.getElementById('homeRafaSub');
   const guiguiSubEl=document.getElementById('homeGuiguiSub');
-  if(rafaEl2)rafaEl2.textContent=fmt(rafaCofre);
-  if(guiguiEl)guiguiEl.textContent=fmt(guiguiCofre);
-  if(rafaSubEl)rafaSubEl.textContent=rafaCofre>0?'no caixa':'sem depósitos';
-  if(guiguiSubEl)guiguiSubEl.textContent=guiguiCofre>0?'no caixa':'sem depósitos';
+  if(rafaEl2)rafaEl2.textContent=fmt(rafaTotal);
+  if(guiguiEl)guiguiEl.textContent=fmt(guiguiTotal);
+  if(rafaSubEl)rafaSubEl.textContent=rafaTotal>0?'a pagar':'sem contas';
+  if(guiguiSubEl)guiguiSubEl.textContent=guiguiTotal>0?'a pagar':'sem contas';
 }
 
 function openLateBillsModal(){
