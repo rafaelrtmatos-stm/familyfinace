@@ -4694,26 +4694,17 @@ async function loadCofreFromSupa(){
     if(!snaps.length){console.log('[cofre] no snapshot found in profiles');_cofreSynced=false;return;}
     // Usa o saldo do snapshot mais recente (saldo real)
     const bestSnap=snaps.reduce((a,b)=>((b.ts||0)>(a.ts||0)?b:a));
-    // Combina histórico de TODOS os profiles (cada dispositivo salva no próprio profile)
-    let allHist=[];
-    snaps.forEach(snap=>{if(Array.isArray(snap.hist))allHist=[...allHist,...snap.hist];});
-    // Remove duplicatas e ordena
-    const seen=new Set();
-    const mergedHist=allHist.filter(h=>{
-      const key=h.id||(h.date+h.time+String(h.amount)+h.userId);
-      if(seen.has(key))return false;seen.add(key);return true;
-    });
-    mergedHist.sort((a,b)=>{
-      const ka=(a.date||'')+(a.time||'')+(a.id||'');
-      const kb=(b.date||'')+(b.time||'')+(b.id||'');
-      return kb>ka?1:-1;
-    });
-    if(mergedHist.length>200)mergedHist.splice(200);
-    const mergedSnap={...bestSnap,hist:mergedHist};
-    console.log('[cofre] loaded from profiles, ts=',bestSnap.ts,'pix=',bestSnap.pix,'din=',bestSnap.dinheiro,'hist=',mergedHist.length,'entries');
+    // Combina histórico de TODOS os profiles (Supabase) + histórico LOCAL (nunca descarta entradas locais)
+    let allRemoteHist=[];
+    snaps.forEach(snap=>{if(Array.isArray(snap.hist))allRemoteHist=[...allRemoteHist,...snap.hist];});
+    // _mergeCofreHist já une remoto + local e remove duplicatas
+    const mergedHist=_mergeCofreHist(allRemoteHist);
+    console.log('[cofre] loaded from profiles, ts=',bestSnap.ts,'pix=',bestSnap.pix,'din=',bestSnap.dinheiro,'hist=',mergedHist.length,'entries (remote=',allRemoteHist.length,')');
     const localTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
-    // Sempre aplica se tiver histórico novo (mesmo que saldo não mudou)
-    if((bestSnap.ts||0)>localTs||mergedHist.length>getCofreHist().length){
+    // Sempre persiste o hist merged (garante que entradas locais nunca se percam)
+    localStorage.setItem(getCofreHistKey(),JSON.stringify(mergedHist));
+    // Só sobrescreve saldo (pix/dinheiro) se o remoto for mais recente
+    if((bestSnap.ts||0)>localTs){
       if(typeof bestSnap.pix==='number'){
         localStorage.setItem('cofre_pix',String(bestSnap.pix));
         const mk2=getCofreFormKey('pix');if(mk2!=='cofre_pix')localStorage.setItem(mk2,String(bestSnap.pix));
@@ -4722,12 +4713,9 @@ async function loadCofreFromSupa(){
         localStorage.setItem('cofre_dinheiro',String(bestSnap.dinheiro));
         const mk2=getCofreFormKey('dinheiro');if(mk2!=='cofre_dinheiro')localStorage.setItem(mk2,String(bestSnap.dinheiro));
       }
-      localStorage.setItem(getCofreHistKey(),JSON.stringify(mergedHist));
       localStorage.setItem('cpro4_cofre_ts',String(bestSnap.ts||Date.now()));
-      _cofreSynced=true;_cofreSyncTs=bestSnap.ts||0;
-    } else {
-      _cofreSynced=true;_cofreSyncTs=bestSnap.ts||0;
     }
+    _cofreSynced=true;_cofreSyncTs=bestSnap.ts||0;
   }catch(e){_cofreSynced=false;console.warn('[cofre] load error',e);}
 }
 
@@ -4879,10 +4867,10 @@ function saveCofreDeposit(type){
   const userId=cofreSelectedUserId;
   const userName=db.users.find(u=>u.id===userId)?.name||curUser?.name||'?';
   localStorage.setItem(getCofreFormKey(cofreForm),newVal.toString());
-  saveCofreToSupa();
   const cofreDescEl=document.getElementById('cofreDesc');
   const desc=(cofreDescEl?.value||'').trim();
   if(cofreDescEl)cofreDescEl.value='';
+  // Adiciona ao histórico ANTES de salvar no Supabase para que o snapshot inclua a nova entrada
   addCofreHist({
     id:Date.now().toString(36),
     type,form:cofreForm,amount:n,newBalance:newVal,
@@ -4891,11 +4879,16 @@ function saveCofreDeposit(type){
     time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
     desc
   });
+  saveCofreToSupa();
   const lbl=cofreForm==='pix'?'Pix':'Dinheiro';
   toast(type==='saque'?`✓ Saque de ${fmt(n)} em ${lbl}`:`✓ Depósito de ${fmt(n)} em ${lbl}`);
   cofreNumStr='0';
   document.getElementById('cofreDisplay').textContent='0,00';
   updateCofreSaldos();
+  // Atualiza cards Rafa/Guigui imediatamente no DOM (independente da tela atual)
+  calculateTotals();
+  updateCaixa();
+  _lastRenderHomeKey=''; // força re-render na próxima vez que entrar na Home
   renderDash();
   if(curSc==='sc-home')renderHome();
 }
