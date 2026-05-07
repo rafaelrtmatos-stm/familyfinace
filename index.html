@@ -1422,26 +1422,40 @@ function stopBillsRealtime(){
 async function _billsPollTick(){
   if(!curUser)return;
   try{
+    // — Poll bills —
     const{data:bills,error}=await getSupa().from('bills').select('id,updated_at').order('updated_at',{ascending:false}).limit(1);
-    if(error){console.error('[bills-poll] erro:',error.message);return;}
-    // Compara timestamp da conta mais recente com o que temos em memória
-    const remoteTs=bills?.[0]?.updated_at;
-    const localTs=db.bills.reduce((mx,b)=>b._updatedAt&&b._updatedAt>mx?b._updatedAt:mx,'');
-    if(remoteTs&&remoteTs!==localTs){
-      console.log('[bills-poll] mudança detectada, recarregando...');
-      await loadFromSupa();
-      preFillFutureMonths();
+    if(error){console.error('[bills-poll] erro:',error.message);}
+    else{
+      const remoteTs=bills?.[0]?.updated_at;
+      const localTs=db.bills.reduce((mx,b)=>b._updatedAt&&b._updatedAt>mx?b._updatedAt:mx,'');
+      if(remoteTs&&remoteTs!==localTs){
+        console.log('[bills-poll] mudança detectada, recarregando...');
+        await loadFromSupa();
+        preFillFutureMonths();
+        calculateTotals();
+        updateCaixa();
+        renderHome();
+        if(curSc==='sc-bills')renderBills();
+        else if(curSc==='sc-charts')renderCharts();
+        else if(curSc==='sc-dashboard')renderDash();
+      }
+    }
+    // — Poll cofre (profiles sem REPLICA IDENTITY FULL não dispara Realtime UPDATE) —
+    const prevCofreTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+    await loadCofreFromSupa();
+    const newCofreTs=parseInt(localStorage.getItem('cpro4_cofre_ts')||'0');
+    if(newCofreTs>prevCofreTs){
+      console.log('[cofre-poll] mudança detectada, recalculando...');
+      calculateTotals();
       updateCaixa();
-      renderHome();
-      if(curSc==='sc-bills')renderBills();
-      else if(curSc==='sc-charts')renderCharts();
+      if(curSc==='sc-home')renderHome();
       else if(curSc==='sc-dashboard')renderDash();
     }
   }catch(e){console.error('[bills-poll] erro inesperado:',e);}
 }
 function startBillsPoll(){
   stopBillsPoll();
-  _billsPollTimer=setInterval(_billsPollTick,15000);
+  _billsPollTimer=setInterval(_billsPollTick,10000);
 }
 function stopBillsPoll(){
   clearInterval(_billsPollTimer);
@@ -4725,21 +4739,32 @@ function updateCofreSaldos(){
     </div>`;
 }
 function openCofreSheet(){
-  cofreNumStr='0';cofreForm='pix';
+  cofreNumStr='0';cofreForm='pix';cofreSelectedUserId='';
   document.getElementById('cofreDisplay').textContent='0,00';
   document.getElementById('cofreFormPix').classList.add('on');
   document.getElementById('cofreFormDinheiro').classList.remove('on');
   // Set up user toggle buttons
-  const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin');
-  const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  const rafaUser=db.users.find(x=>x.name==='Rafa')||db.users.find(x=>x.role==='admin')||db.users[0];
+  const guiguiUser=db.users.find(x=>x.name==='Guigui')||db.users.find(x=>x.name==='Ingrid')||db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
   const btnRafa=document.getElementById('cofreUserBtnRafa');
   const btnGuigui=document.getElementById('cofreUserBtnGuigui');
   if(btnRafa&&rafaUser){btnRafa.dataset.userid=rafaUser.id;btnRafa.textContent='💙 '+(rafaUser.name);}
   if(btnGuigui&&guiguiUser){btnGuigui.dataset.userid=guiguiUser.id;btnGuigui.textContent='🧡 '+(guiguiUser.name);}
   // Default: select current user, fallback to Rafa
-  const isGuigui=curUser?.id===guiguiUser?.id;
-  const defaultBtn=isGuigui?btnGuigui:btnRafa;
-  if(defaultBtn)setCofreUser(defaultBtn);
+  const isGuigui=curUser&&guiguiUser&&curUser.id===guiguiUser.id;
+  const defaultBtn=(isGuigui&&btnGuigui)||btnRafa;
+  if(defaultBtn){
+    setCofreUser(defaultBtn);
+  }
+  // Fallback direto se o setCofreUser não conseguiu definir o userId
+  if(!cofreSelectedUserId&&rafaUser&&isUUID(rafaUser.id)){
+    cofreSelectedUserId=rafaUser.id;
+    if(btnRafa){
+      btnRafa.style.borderColor='var(--g2)';
+      btnRafa.style.background='rgba(59,79,212,.08)';
+      btnRafa.style.color='var(--g2)';
+    }
+  }
   updateCofreSaldos();
   document.getElementById('cofreOverlay').style.display='flex';
 }
@@ -4778,7 +4803,11 @@ function saveCofreDeposit(type){
   } else {
     newVal=r2(cur+n);
   }
-  if(!cofreSelectedUserId){toast('Selecione Rafa ou Guigui');return;}
+  if(!cofreSelectedUserId){
+    const fallback=db.users.find(x=>x.role==='admin')||db.users[0];
+    if(fallback&&isUUID(fallback.id))cofreSelectedUserId=fallback.id;
+    else{toast('Selecione Rafa ou Guigui');return;}
+  }
   const userId=cofreSelectedUserId;
   const userName=db.users.find(u=>u.id===userId)?.name||curUser?.name||'?';
   localStorage.setItem(getCofreFormKey(cofreForm),newVal.toString());
