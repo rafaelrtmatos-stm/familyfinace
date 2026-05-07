@@ -478,10 +478,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
   <!-- Login card -->
   <div style="background:#fff;border-radius:24px;padding:24px;width:100%;max-width:320px;box-shadow:0 12px 40px rgba(0,0,0,.18);position:relative;z-index:1">
     <div style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:18px;text-align:center">Entrar</div>
-    <!-- Email field -->
+    <!-- Username field -->
     <div style="background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:11px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
-      <input type="email" id="loginEmail" placeholder="E-mail" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);flex:1;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"/>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <input type="text" id="loginEmail" placeholder="Usuário" autocomplete="username" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);flex:1;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"/>
     </div>
     <!-- Password field -->
     <div style="background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:11px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -561,9 +561,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
     <!-- View filter tabs in header -->
     <div class="gh-tabs" id="homeViewTabs" style="margin-top:10px;position:relative;z-index:2">
-      <button class="ghtab active" id="ghtab-mine" onclick="setHomeView('mine',this)">👤 Minhas</button>
-      <button class="ghtab" id="ghtab-all" onclick="setHomeView('all',this)">🌐 Todas</button>
-      <button class="ghtab" id="ghtab-custom" style="display:none" onclick="setHomeView('custom',this)">⚙️ Personalizado</button>
+      <button class="ghtab" id="ghtab-rafael" onclick="setHomeView('rafael',this)">👤 Rafael</button>
+      <button class="ghtab active" id="ghtab-all" onclick="setHomeView('all',this)">🌐 Todas</button>
+      <button class="ghtab" id="ghtab-ingrid" onclick="setHomeView('ingrid',this)">👤 Ingrid</button>
     </div>
 
   </div>
@@ -626,10 +626,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <div class="bni-lbl">Gráficos</div>
     </button>
-    <button class="bni" id="bni-chat" onclick="go('sc-chat')" style="position:relative">
-      <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-      <div class="bni-lbl">Chat</div>
-      <span class="chat-unread" id="chatUnreadDot"></span>
+    <button class="bni" id="bni-users" onclick="go('sc-users')">
+      <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div class="bni-lbl">Usuários</div>
     </button>
   </div>
 </div>
@@ -928,32 +927,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 </div>
 
 <!-- ══ CHAT SCREEN ══ -->
-<div class="screen off" id="sc-chat">
-  <div class="sbar" style="background:var(--g2)"></div>
-  <div class="inner-gh">
-    <div class="inner-top">
-      <button class="back-btn" onclick="back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <div class="inner-title">💬 Mensagens</div>
-      <button onclick="loadChatMessages(true);loadPresence();" style="background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;padding:6px;font-size:.78rem;font-weight:800">↻</button>
-    </div>
-    <div id="chatPresenceBar" style="display:none;font-size:.72rem;font-weight:600;text-align:center;padding:4px 0 6px;letter-spacing:.01em;"></div>
-  </div>
-  <div class="chat-body" id="chatBody">
-    <div class="chat-empty">
-      <div style="font-size:2rem">💬</div>
-      <div style="font-size:.8rem;font-weight:700;color:var(--ink3)">Sem mensagens ainda</div>
-    </div>
-  </div>
-  <div class="chat-input-row">
-    <button class="chat-mic" id="chatMicBtn" onclick="toggleChatAudio()" title="Gravar áudio">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-    </button>
-    <input class="chat-inp" id="chatInp" placeholder="Digite uma mensagem…" onkeydown="if(event.key==='Enter')sendChatMsg()"/>
-    <button class="chat-send" onclick="sendChatMsg()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
-  </div>
-</div>
 
 <!-- ══ PAYMENT SHEET ══ -->
 <div class="pay-overlay" id="payOverlay" onclick="if(event.target===this)closePaySheet()">
@@ -2060,75 +2033,67 @@ const LOCAL_CREDS=[
 ];
 
 async function doLoginBtn(){
-  const emailVal=document.getElementById('loginEmail').value.trim().toLowerCase();
+  const userVal=document.getElementById('loginEmail').value.trim().toLowerCase();
   const passVal=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
   const stay=document.getElementById('stayLoggedIn')?.checked||false;
   errEl.textContent='';
-  if(!emailVal){errEl.textContent='Digite o e-mail.';document.getElementById('loginEmail').focus();return;}
+  if(!userVal){errEl.textContent='Digite o usuário.';document.getElementById('loginEmail').focus();return;}
   if(!passVal){errEl.textContent='Digite a senha.';document.getElementById('loginPass').focus();return;}
 
-  if(stay){localStorage.setItem('cpro4_stay','1');}else{localStorage.removeItem('cpro4_stay');}
+  // Only accept adm / qwertyui
+  if(userVal!=='adm'||passVal!=='qwertyui'){
+    errEl.textContent='Usuário ou senha incorretos.';
+    document.getElementById('loginPass').value='';
+    document.getElementById('loginPass').focus();
+    return;
+  }
 
+  if(stay){localStorage.setItem('cpro4_stay','1');}else{localStorage.removeItem('cpro4_stay');}
   showLoader('Entrando...');
 
-  // Always authenticate with Supabase to get a valid JWT (required for RLS)
+  const SUPA_EMAIL='rafaelrtmatos@gmail.com';
+  const SUPA_PASS='Geper3tp@';
+  const offlineUser={id:'adm',name:'Rafael',email:SUPA_EMAIL,role:'admin',color:'#27ae60',perms:{}};
+
   try{
     const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),8000));
-    const authCall=getSupa().auth.signInWithPassword({email:emailVal,password:passVal});
+    const authCall=getSupa().auth.signInWithPassword({email:SUPA_EMAIL,password:SUPA_PASS});
     const{data,error}=await Promise.race([authCall,timeout]);
     if(!error && data?.user){
-      const email=data.user.email;
       const{data:profile}=await getSupa().from('profiles').select('*').eq('id',data.user.id).single();
-      // Merge profile with hardcoded defaults for name/role/color/perms
-      const hardcoded=LOCAL_CREDS.find(c=>c.email===email)||{};
       const u={
         id:data.user.id,
-        name:profile?.name||hardcoded.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
-        email,
-        role:email==='rafaelrtmatos@gmail.com'?'admin':(profile?.role||hardcoded.role||'user'),
-        color:profile?.color||hardcoded.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
-        perms:profile?.perms||hardcoded.perms||{}
+        name:profile?.name||'Rafael',
+        email:SUPA_EMAIL,
+        role:'admin',
+        color:profile?.color||'#27ae60',
+        perms:{}
       };
-      // Ensure profile row exists in Supabase (upsert on first login or if row was never created)
       if(!profile){
         await getSupa().from('profiles').upsert({
           id:u.id,name:u.name,email:u.email,role:u.role,color:u.color,perms:u.perms
         },{onConflict:'id'});
-        console.log('[login] profile row created for',u.email);
       }
       hideLoader();
       await doLogin(u);
       return;
     }
-    // Supabase auth failed — try hardcoded local credentials as offline fallback
-    const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
-    if(hardcoded){
-      hideLoader();
-      toast('⚠️ Modo offline — dados não serão salvos na nuvem');
-      await doLogin({...hardcoded});
-      return;
-    }
     hideLoader();
-    errEl.textContent='E-mail ou senha incorretos.';
+    toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+    await doLogin(offlineUser);
   }catch(e){
     hideLoader();
     if(e.message==='timeout'){
-      // On timeout, try hardcoded local credentials as offline fallback
-      const hardcoded=LOCAL_CREDS.find(c=>c.email===emailVal && c.password===passVal);
-      if(hardcoded){
-        toast('⚠️ Modo offline — dados não serão salvos na nuvem');
-        await doLogin({...hardcoded});
-        return;
-      }
-      errEl.textContent='Servidor demorou demais. Verifique a internet.';
+      toast('⚠️ Modo offline — dados não serão salvos na nuvem');
+      await doLogin(offlineUser);
     }else{
       errEl.textContent='Erro de conexão. Verifique a internet.';
+      console.error('Login error:',e);
+      document.getElementById('loginPass').value='';
+      document.getElementById('loginPass').focus();
     }
-    console.error('Login error:',e);
   }
-  document.getElementById('loginPass').value='';
-  document.getElementById('loginPass').focus();
 }
 
 async function seedIfEmpty(){
@@ -2165,9 +2130,7 @@ async function doLogin(u){
   curSc='sc-home';navStack.length=0;
   document.querySelectorAll('.screen').forEach(s=>s.classList.add('off'));
   document.getElementById('sc-home').classList.remove('off');
-  // Non-admin users default to "Minha" view (only their own bills)
-  if(u.role!=='admin'){dashView='mine';billsView='mine';}
-  else{dashView='all';billsView='all';}
+  dashView='all';billsView='all';
   // Clear cached vfbar so it rebuilds with correct active state
   const vfEl=document.getElementById('billsVfbar');
   if(vfEl)vfEl.innerHTML='';
@@ -2181,9 +2144,8 @@ async function doLogin(u){
   document.querySelectorAll('.bni').forEach(b=>b.classList.remove('active'));
   const homeBtn=document.getElementById(BNAV_MAP['sc-home']);
   if(homeBtn)homeBtn.classList.add('active');
-  toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}! ${u.role==='admin'?'👑':''}`);
+  toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}!`);
   await loadCofreFromSupa();
-  startChatPoll();
   startBillsRealtime();
   startProfilesRealtime();
   startAppSettingsRealtime();
@@ -2210,7 +2172,6 @@ function reqAdm(msg){if(!isAdm()){toast(msg||'⚠️ Somente administrador');ret
 function hasPerm(key){return isAdm()||!!(getPerms(curUser)[key]);}
 
 async function logout(){
-  stopChatPoll();
   stopBillsRealtime();
   stopBillsPoll();
   stopProfilesRealtime();
@@ -2236,7 +2197,7 @@ async function logout(){
 ══════════════════════════════════════════════════ */
 let curSc='sc-home';
 const navStack=[];  // navigation history stack
-const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts','sc-chat':'bni-chat'};
+const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts','sc-users':'bni-users'};
 
 function go(id){
   if(id===curSc)return;
@@ -2266,7 +2227,6 @@ function go(id){
   else if(id==='sc-admin')renderAdmin();
   else if(id==='sc-add'){populateUserSel();resetAddForm();}
   else if(id==='sc-settings'){renderSettings();showST('users',document.querySelector('.stab'));}
-  else if(id==='sc-chat'){loadChatMessages(false);loadPresence();markChatRead();}
 }
 
 function back(){
@@ -2386,10 +2346,10 @@ function getHomeBills(){
     bills=db.bills.filter(b=>b.month===mk(CY,CM));
   }
   // Apply user filter ('todos' bills always appear for every user)
-  if(dashView==='mine'&&curUser?.id)
-    bills=bills.filter(b=>b.userId===curUser.id||b.userId==='todos');
-  else if(dashView==='custom'&&dashCustomUsers.length>0)
-    bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
+  if(dashView==='rafael'||dashView==='ingrid'){
+    const u=db.users.find(x=>dashView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    if(u)bills=bills.filter(b=>b.userId===u.id||b.userId==='todos');
+  }
   return bills;
 }
 
@@ -2403,10 +2363,10 @@ function getLateBillsPrevMonths(){
     if(b.month>=curKey)return false;
     return calc(b,td).st!=='paid';
   });
-  if(dashView==='mine'&&curUser?.id)
-    bills=bills.filter(b=>b.userId===curUser.id||b.userId==='todos');
-  else if(dashView==='custom'&&dashCustomUsers.length>0)
-    bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
+  if(dashView==='rafael'||dashView==='ingrid'){
+    const u=db.users.find(x=>dashView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    if(u)bills=bills.filter(b=>b.userId===u.id||b.userId==='todos');
+  }
   return bills;
 }
 
@@ -2541,27 +2501,15 @@ function renderHome(){
   ensureRecurringForMonth(mk(CY,CM));
 
   // ── Sync header view tabs ──
-  const tabMine=document.getElementById('ghtab-mine');
+  const tabRafael=document.getElementById('ghtab-rafael');
   const tabAll=document.getElementById('ghtab-all');
-  const tabCustom=document.getElementById('ghtab-custom');
-  if(tabMine){tabMine.classList.toggle('active',dashView==='mine');}
-  if(tabAll){tabAll.classList.toggle('active',dashView==='all');tabAll.style.display='';}
-  if(tabCustom){tabCustom.classList.toggle('active',dashView==='custom');tabCustom.style.display='';}  
+  const tabIngrid=document.getElementById('ghtab-ingrid');
+  if(tabRafael){tabRafael.classList.toggle('active',dashView==='rafael');}
+  if(tabAll){tabAll.classList.toggle('active',dashView==='all');}
+  if(tabIngrid){tabIngrid.classList.toggle('active',dashView==='ingrid');}  
   const vfEl=document.getElementById('homeVfbar');
   if(vfEl)vfEl.innerHTML='';
 
-  // Custom user checkboxes
-  let customEl=document.getElementById('homeCustomUsers');
-  if(!customEl&&vfEl){
-    customEl=document.createElement('div');customEl.id='homeCustomUsers';
-    vfEl.parentNode.insertBefore(customEl,vfEl.nextSibling);
-  }
-  if(customEl){
-    customEl.innerHTML=dashView==='custom'
-      ?`<div style="display:flex;gap:6px;overflow-x:auto;padding:6px 14px;background:var(--white);border-bottom:1px solid #eef0f5;-webkit-overflow-scrolling:touch">
-          ${db.users.map(u=>`<button onclick="toggleCustomUser('${u.id}',this)" class="vf ${dashCustomUsers.includes(u.id)?'on':''}" style="${dashCustomUsers.includes(u.id)?'background:'+u.color+';border-color:'+u.color+';color:#fff':'color:'+u.color+';border-color:'+u.color}">${u.name.slice(0,1)} ${esc(u.name)}</button>`).join('')}
-        </div>`:'';
-  }
 
   // ── Get bills for current view + period filter ──
   const bills=getHomeBills();
@@ -2598,8 +2546,8 @@ function renderHome(){
   if(wdEl)wdEl.textContent=calWd;
   const ulEl=document.getElementById('ghUserLbl');
   if(ulEl){
-    const viewNames={mine:curUser?.name||'Minhas',all:'Todas as Contas',custom:'Personalizado'};
-    ulEl.textContent=viewNames[dashView]||curUser?.name||'—';
+    const viewNames={rafael:'Rafael',ingrid:'Ingrid',all:'Todas as Contas'};
+    ulEl.textContent=viewNames[dashView]||'Contas Pro';
   }
 
   // ── Chart 1: Daily donut ──
@@ -3489,9 +3437,9 @@ function renderBills(){
   const vfEl=document.getElementById('billsVfbar');
   if(vfEl&&!vfEl.hasChildNodes()){
     const p=getPerms(curUser);
-    let vh=`<button class="vf ${billsView==='all'?'on':''}" onclick="setBillsView('all',this)">🌐 Todas</button>`;
-    vh+=`<button class="vf ${billsView==='mine'?'on':''}" onclick="setBillsView('mine',this)">👤 Minhas</button>`;
-    if(isAdm())vh+=`<button class="vf ${billsView==='custom'?'on':''}" onclick="setBillsView('custom',this)">⚙️ Custom</button>`;
+    let vh=`<button class="vf ${billsView==='rafael'?'on':''}" onclick="setBillsView('rafael',this)">👤 Rafael</button>`;
+    vh+=`<button class="vf ${billsView==='all'?'on':''}" onclick="setBillsView('all',this)">🌐 Todas</button>`;
+    vh+=`<button class="vf ${billsView==='ingrid'?'on':''}" onclick="setBillsView('ingrid',this)">👤 Ingrid</button>`;
     vfEl.innerHTML=vh;
   }
   updateBillsMonLabel();
@@ -3500,10 +3448,10 @@ function renderBills(){
 
   // Apply view filter (who's bills to show — 'todos' always visible)
   let allBills=getBillsForView('all');
-  if(billsView==='mine'&&curUser?.id)
-    allBills=allBills.filter(b=>b.userId===curUser.id||b.userId==='todos');
-  else if(billsView==='custom'&&billsCustomUids.length>0)
-    allBills=allBills.filter(b=>billsCustomUids.includes(b.userId)||b.userId==='todos');
+  if(billsView==='rafael'||billsView==='ingrid'){
+    const u=db.users.find(x=>billsView==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    if(u)allBills=allBills.filter(b=>b.userId===u.id||b.userId==='todos');
+  }
 
   // Apply status filter
   let bills=[...allBills];
@@ -4115,17 +4063,9 @@ function chDashMon(d){
 function getBillsForDash(view){
   ensureRecurringForMonth(mk(dashCY,dashCM));
   let bills=db.bills.filter(b=>b.month===mk(dashCY,dashCM));
-  if(view==='mine'){
-    if(curUser&&curUser.id)
-      bills=bills.filter(b=>b.userId===curUser.id);
-  } else if(view==='custom'){
-    if(dashCustomUsers.length>0)
-      bills=bills.filter(b=>dashCustomUsers.includes(b.userId)||b.userId==='todos');
-  } else if(view==='couple'){
-    const coupleIds=db.couple||[];
-    bills=bills.filter(b=>coupleIds.includes(b.userId));
-  } else if(view&&view.startsWith('u_')){
-    bills=bills.filter(b=>b.userId===view.slice(2));
+  if(view==='rafael'||view==='ingrid'){
+    const u=db.users.find(x=>view==='rafael'?(x.name==='Rafael'||x.role==='admin'):x.name==='Ingrid');
+    if(u)bills=bills.filter(b=>b.userId===u.id||b.userId==='todos');
   }
   return bills;
 }
@@ -4138,9 +4078,9 @@ function renderDash(){
   // View filter buttons (populate static dashVfbar)
   const vfEl=document.getElementById('dashVfbar');
   if(vfEl&&!vfEl.hasChildNodes()){
-    let vh=`<button class="vf ${dashView==='mine'?'on':''}" onclick="setDashView('mine',this)">👤 Minhas</button>`;
+    let vh=`<button class="vf ${dashView==='rafael'?'on':''}" onclick="setDashView('rafael',this)">👤 Rafael</button>`;
     vh+=`<button class="vf ${dashView==='all'?'on':''}" onclick="setDashView('all',this)">🌐 Todas</button>`;
-    vh+=`<button class="vf ${dashView==='custom'?'on':''}" onclick="setDashView('custom',this)">⚙️ Personalizado</button>`;
+    vh+=`<button class="vf ${dashView==='ingrid'?'on':''}" onclick="setDashView('ingrid',this)">👤 Ingrid</button>`;
     vfEl.innerHTML=vh;
   }
 
@@ -4199,8 +4139,7 @@ function renderDash(){
     </div>`;
   }).join(''):`<div style="text-align:center;padding:28px;color:var(--ink3);font-size:.84rem;font-weight:700">Nenhuma conta em ${MN[dashCM].slice(0,3)} ${dashCY}</div>`;
 
-  const viewLbl={mine:'Minhas Contas',all:'Todas as Contas',custom:'Personalizado',couple:'Contas do Casal'}[dashView]
-    ||(dashView.startsWith('u_')?'Usuário: '+(db.users.find(u=>'u_'+u.id===dashView)?.name||''):'');
+  const viewLbl={rafael:'Contas de Rafael',ingrid:'Contas de Ingrid',all:'Todas as Contas'}[dashView]||'Todas as Contas';
 
   document.getElementById('dashContent').innerHTML=`
     <!-- Month navigator -->
@@ -5724,19 +5663,17 @@ window.onload=async()=>{
   const stayPref=localStorage.getItem('cpro4_stay')==='1';
   const{data:{session}}=await s.auth.getSession();
   if(stayPref&&session&&session.user){
-    const email=session.user.email;
     const{data:profile}=await s.from('profiles').select('*').eq('id',session.user.id).single();
     const u={
       id:session.user.id,
-      name:profile?.name||(email==='rafaelrtmatos@gmail.com'?'Rafael':'Ingrid'),
-      email,
-      role:email==='rafaelrtmatos@gmail.com'?'admin':(profile?.role||'user'),
-      color:profile?.color||(email==='rafaelrtmatos@gmail.com'?'#27ae60':'#e74c3c'),
-      perms:profile?.perms||{}
+      name:profile?.name||'Rafael',
+      email:'rafaelrtmatos@gmail.com',
+      role:'admin',
+      color:profile?.color||'#27ae60',
+      perms:{}
     };
     await doLogin(u);
   } else {
-    populateLoginChips();
     const ls=document.getElementById('loginScreen');
     ls.classList.remove('off');ls.style.display='flex';
     document.querySelectorAll('.screen:not(#loginScreen)').forEach(sc=>sc.classList.add('off'));
