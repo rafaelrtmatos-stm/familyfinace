@@ -2460,28 +2460,19 @@ function updateCaixa(){
     const lblMap={rafael:'Contas · Rafa',ingrid:'Contas · Guigui',all:'Contas'};
     totalLblEl.textContent=lblMap[dashView]||'Contas';
   }
-  // Per-user balances — always computed from ALL bills; 'todos' bills split 50/50
+  // Per-user balances — only bills directly assigned to each user (not todos/shared split)
   const savedDashView=dashView;
   dashView='all';
   const allPeriodBills=getHomeBills();
   dashView=savedDashView;
   const rafaUser=db.users.find(x=>x.role==='admin');
   const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
-  const validUsers=[rafaUser,guiguiUser].filter(Boolean);
-  const numValid=Math.max(1,validUsers.length);
   let rafaBal=0,guiguiBal=0,rafaOrig=0,guiguiOrig=0;
   allPeriodBills.forEach(b=>{
+    if(b.userId==='todos')return; // compartilhadas aparecem no Saldo Total, não nos cartões individuais
     const c=calc(b,td);
-    if(b.userId==='todos'){
-      // Split shared bills equally
-      const share=r2(c.bal/numValid);
-      const shareOrig=r2(b.amount/numValid);
-      if(rafaUser){rafaBal=r2(rafaBal+share);rafaOrig=r2(rafaOrig+shareOrig);}
-      if(guiguiUser){guiguiBal=r2(guiguiBal+share);guiguiOrig=r2(guiguiOrig+shareOrig);}
-    } else {
-      if(rafaUser&&b.userId===rafaUser.id){rafaBal=r2(rafaBal+c.bal);rafaOrig=r2(rafaOrig+b.amount);}
-      if(guiguiUser&&b.userId===guiguiUser.id){guiguiBal=r2(guiguiBal+c.bal);guiguiOrig=r2(guiguiOrig+b.amount);}
-    }
+    if(rafaUser&&b.userId===rafaUser.id){rafaBal=r2(rafaBal+c.bal);rafaOrig=r2(rafaOrig+b.amount);}
+    if(guiguiUser&&b.userId===guiguiUser.id){guiguiBal=r2(guiguiBal+c.bal);guiguiOrig=r2(guiguiOrig+b.amount);}
   });
   const rafaEl2=document.getElementById('homeRafaBal');
   const guiguiEl=document.getElementById('homeGuiguiBal');
