@@ -1305,6 +1305,7 @@ let _supa=null;
 let _billsChannel=null;
 let _billsRtTimer=null;
 let _billsReconnTimer=null;
+let _billsPollTimer=null;
 let _appSettingsChannel=null;
 let _appSettingsReconnTimer=null;
 let _profilesChannel=null;
@@ -1366,6 +1367,36 @@ function stopBillsRealtime(){
   try{getSupa().removeChannel(_billsChannel);}catch{}
   _billsChannel=null;
   _setRtStatus('bills',false);
+}
+
+// Polling fallback — garante sync mesmo quando o Realtime não entrega eventos
+async function _billsPollTick(){
+  if(!curUser)return;
+  try{
+    const{data:bills,error}=await getSupa().from('bills').select('id,updated_at').order('updated_at',{ascending:false}).limit(1);
+    if(error){console.error('[bills-poll] erro:',error.message);return;}
+    // Compara timestamp da conta mais recente com o que temos em memória
+    const remoteTs=bills?.[0]?.updated_at;
+    const localTs=db.bills.reduce((mx,b)=>b._updatedAt&&b._updatedAt>mx?b._updatedAt:mx,'');
+    if(remoteTs&&remoteTs!==localTs){
+      console.log('[bills-poll] mudança detectada, recarregando...');
+      await loadFromSupa();
+      preFillFutureMonths();
+      updateCaixa();
+      renderHome();
+      if(curSc==='sc-bills')renderBills();
+      else if(curSc==='sc-charts')renderCharts();
+      else if(curSc==='sc-dashboard')renderDash();
+    }
+  }catch(e){console.error('[bills-poll] erro inesperado:',e);}
+}
+function startBillsPoll(){
+  stopBillsPoll();
+  _billsPollTimer=setInterval(_billsPollTick,15000);
+}
+function stopBillsPoll(){
+  clearInterval(_billsPollTimer);
+  _billsPollTimer=null;
 }
 
 function startProfilesRealtime(){
@@ -1535,7 +1566,8 @@ async function loadFromSupa(){
         noDaily:b.cycle==='avista'||b.no_daily||false,
         installment:b.installment||null, payments:b.payments||[],
         shared:b.shared||false,
-        _ownerId:b.user_id
+        _ownerId:b.user_id,
+        _updatedAt:b.updated_at||b.created_at||''
       })).filter(b=>!_pendingDeletes.has(b.id));
     }
     // Load holidays
@@ -2155,6 +2187,7 @@ async function doLogin(u){
   startBillsRealtime();
   startProfilesRealtime();
   startAppSettingsRealtime();
+  startBillsPoll();
 }
 
 function updateUIForUser(){
@@ -2179,6 +2212,7 @@ function hasPerm(key){return isAdm()||!!(getPerms(curUser)[key]);}
 async function logout(){
   stopChatPoll();
   stopBillsRealtime();
+  stopBillsPoll();
   stopProfilesRealtime();
   stopAppSettingsRealtime();
   curUser=null;selectedLoginUser=null;
