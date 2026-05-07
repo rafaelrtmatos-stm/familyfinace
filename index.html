@@ -431,6 +431,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:.45}
 .chat-unread{position:absolute;top:3px;right:8px;width:9px;height:9px;background:#e74c3c;border-radius:50%;display:none;animation:chatPulse 1.5s infinite}
 @keyframes chatPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,.6)}50%{transform:scale(1.35);box-shadow:0 0 0 4px rgba(231,76,60,0)}}
+@keyframes rtPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,92,92,.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(255,92,92,0)}}
 .chat-mic{width:42px;height:42px;border-radius:50%;background:var(--ink3);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s,transform .15s}
 .chat-mic.recording{background:#e74c3c;animation:chatPulse 1s infinite}
 .chat-mic:active{transform:scale(.9)}
@@ -514,6 +515,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="0" y1="1" x2="20" y2="1"/><line x1="0" y1="7" x2="20" y2="7"/><line x1="0" y1="13" x2="20" y2="13"/></svg>
       </button>
       <div id="ghUserLbl" style="font-size:.72rem;font-weight:800;color:rgba(255,255,255,.85);letter-spacing:.04em;text-align:center;flex:1">— Contas Pro —</div>
+      <div id="rtDot" title="Realtime desconectado — reconectando..." onclick="toast('📡 Reconectando ao vivo em até 30s...')" style="display:none;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff5c5c;box-shadow:0 0 0 3px rgba(255,92,92,.35);animation:rtPulse 1.4s ease-in-out infinite"></span></div>
       <button class="gh-menu" id="syncBtn" onclick="syncData()" title="Sincronizar dados">
         <svg id="syncIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
       </button>
@@ -1302,8 +1304,33 @@ const SUPA_KEY='sb_publishable_QYn7gHfDWOHlogX--h6ImQ_6FYqDbm7';
 let _supa=null;
 let _billsChannel=null;
 let _billsRtTimer=null;
+let _billsReconnTimer=null;
 let _appSettingsChannel=null;
+let _appSettingsReconnTimer=null;
 let _profilesChannel=null;
+let _profilesReconnTimer=null;
+// Realtime status tracking — true = SUBSCRIBED
+let _rtStatus={bills:false,profiles:false,settings:false};
+let _rtDisconnectToastShown=false;
+let _presenceErrLogged=false;
+
+function _setRtStatus(ch,ok){
+  _rtStatus[ch]=ok;
+  const allOk=_rtStatus.bills&&_rtStatus.profiles&&_rtStatus.settings;
+  const dot=document.getElementById('rtDot');
+  if(dot){
+    dot.style.display=allOk?'none':'flex';
+    dot.title=allOk?'Tempo real: conectado':'⚠️ Realtime desconectado — reconectando...';
+  }
+  if(!allOk&&!_rtDisconnectToastShown){
+    _rtDisconnectToastShown=true;
+    toast('📡 Conexão ao vivo perdida. Reconectando em 30s...');
+  }
+  if(allOk&&_rtDisconnectToastShown){
+    _rtDisconnectToastShown=false;
+    toast('✅ Conexão ao vivo restaurada!');
+  }
+}
 
 function getSupa(){
   if(_supa)return _supa;
@@ -1320,15 +1347,25 @@ function startBillsRealtime(){
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'bills'},_onBillsChange)
     .subscribe((status,err)=>{
       console.log('[bills-rt] status:',status,err||'');
-      if(status==='CHANNEL_ERROR')console.warn('[bills-rt] channel error — bills Realtime may not be delivering events');
+      if(status==='SUBSCRIBED'){
+        _setRtStatus('bills',true);
+        clearTimeout(_billsReconnTimer);_billsReconnTimer=null;
+      } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
+        console.error('[bills-rt] canal perdido:',status,err||'');
+        _setRtStatus('bills',false);
+        clearTimeout(_billsReconnTimer);
+        _billsReconnTimer=setTimeout(()=>{if(!curUser)return;stopBillsRealtime();startBillsRealtime();},30000);
+      }
     });
 }
 
 function stopBillsRealtime(){
+  clearTimeout(_billsReconnTimer);_billsReconnTimer=null;
+  clearTimeout(_billsRtTimer);
   if(!_billsChannel)return;
   try{getSupa().removeChannel(_billsChannel);}catch{}
   _billsChannel=null;
-  clearTimeout(_billsRtTimer);
+  _setRtStatus('bills',false);
 }
 
 function startProfilesRealtime(){
@@ -1339,14 +1376,24 @@ function startProfilesRealtime(){
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},_onProfilesChange)
     .subscribe((status,err)=>{
       console.log('[profiles-rt] status:',status,err||'');
-      if(status==='CHANNEL_ERROR')console.error('[profiles-rt] erro no canal — realtime pode não estar ativo');
+      if(status==='SUBSCRIBED'){
+        _setRtStatus('profiles',true);
+        clearTimeout(_profilesReconnTimer);_profilesReconnTimer=null;
+      } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
+        console.error('[profiles-rt] canal perdido:',status,err||'');
+        _setRtStatus('profiles',false);
+        clearTimeout(_profilesReconnTimer);
+        _profilesReconnTimer=setTimeout(()=>{if(!curUser)return;stopProfilesRealtime();startProfilesRealtime();},30000);
+      }
     });
 }
 
 function stopProfilesRealtime(){
+  clearTimeout(_profilesReconnTimer);_profilesReconnTimer=null;
   if(!_profilesChannel)return;
   try{getSupa().removeChannel(_profilesChannel);}catch{}
   _profilesChannel=null;
+  _setRtStatus('profiles',false);
 }
 
 function startAppSettingsRealtime(){
@@ -1358,14 +1405,24 @@ function startAppSettingsRealtime(){
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'app_settings'},_onAppSettingsChange)
     .subscribe((status,err)=>{
       console.log('[settings-rt] status:',status,err||'');
-      if(status==='CHANNEL_ERROR')console.error('[settings-rt] erro no canal — realtime de configurações inativo');
+      if(status==='SUBSCRIBED'){
+        _setRtStatus('settings',true);
+        clearTimeout(_appSettingsReconnTimer);_appSettingsReconnTimer=null;
+      } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
+        console.error('[settings-rt] canal perdido:',status,err||'');
+        _setRtStatus('settings',false);
+        clearTimeout(_appSettingsReconnTimer);
+        _appSettingsReconnTimer=setTimeout(()=>{if(!curUser)return;stopAppSettingsRealtime();startAppSettingsRealtime();},30000);
+      }
     });
 }
 
 function stopAppSettingsRealtime(){
+  clearTimeout(_appSettingsReconnTimer);_appSettingsReconnTimer=null;
   if(!_appSettingsChannel)return;
   try{getSupa().removeChannel(_appSettingsChannel);}catch{}
   _appSettingsChannel=null;
+  _setRtStatus('settings',false);
 }
 
 async function _onAppSettingsChange(payload){
@@ -2128,6 +2185,9 @@ async function logout(){
   const lbl=document.getElementById('ghUserLbl');
   if(lbl)lbl.textContent='— Contas Pro —';
   localStorage.removeItem('cpro4_stay');
+  _rtDisconnectToastShown=false;
+  _presenceErrLogged=false;
+  _pendingDeletes=new Set();
   try{await getSupa().auth.signOut();}catch{}
   document.getElementById('loginPass').value='';
   document.getElementById('loginErr').textContent='';
@@ -5817,7 +5877,7 @@ async function updateMyPresence(readTs){
     const presence=(data?.value&&typeof data.value==='object')?{...data.value}:{};
     presence[myId]={ts:Date.now(),readTs:readTs||presence[myId]?.readTs||0,name:curUser.name};
     const{error}=await s.from('app_settings').upsert({key:PRESENCE_KEY,value:presence,updated_at:new Date().toISOString()},{onConflict:'key'});
-    if(error)console.warn('presence upsert error',error);
+    if(error){if(!_presenceErrLogged){_presenceErrLogged=true;console.warn('[presence] upsert error (RLS) — verifique política app_settings:',error.message);}}
   }catch(e){console.warn('presence update',e);}
 }
 
