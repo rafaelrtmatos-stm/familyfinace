@@ -1384,6 +1384,10 @@ function _setRtStatus(ch,ok){
 
 function getSupa(){
   if(_supa)return _supa;
+  if(!SUPA_URL||SUPA_URL==='__SUPABASE_URL__'||!SUPA_KEY||SUPA_KEY==='__SUPABASE_ANON_KEY__'){
+    console.error('[Supabase] ❌ SUPABASE_URL ou SUPABASE_ANON_KEY não configurados! Verifique as variáveis de ambiente no servidor (Replit Secrets).');
+    throw new Error('Supabase não configurado: defina SUPABASE_URL e SUPABASE_ANON_KEY nos Secrets do Replit.');
+  }
   _supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
   return _supa;
 }
@@ -1584,7 +1588,8 @@ async function _onBillsChange(payload){
     preFillFutureMonths();
     calculateTotals();
     updateCaixa();
-    _scheduleRenderHome();
+    if(curSc==='sc-home'){renderHome();}
+    else{_scheduleRenderHome();}
     if(curSc==='sc-bills')renderBills();
     else if(curSc==='sc-charts')renderCharts();
     else if(curSc==='sc-dashboard')renderDash();
@@ -1814,7 +1819,13 @@ async function loadFromSupa(){
     }
     // Load bills — Supabase is the single source of truth, no localStorage merge
     const{data:bills,error:billsLoadErr}=await s.from('bills').select('*').order('created_at');
-    if(billsLoadErr){console.error('[loadFromSupa] erro ao carregar contas:',billsLoadErr);toast('⚠️ Erro ao carregar contas: '+billsLoadErr.message);}
+    if(billsLoadErr){
+      if(billsLoadErr.message&&(billsLoadErr.message.includes('refresh_token_not_found')||billsLoadErr.message.includes('JWT')||billsLoadErr.message.includes('invalid claim'))){
+        console.warn('[loadFromSupa] erro de auth nas contas, forçando logout:',billsLoadErr.message);
+        hideLoader();_forceAuthLogout();return;
+      }
+      console.error('[loadFromSupa] erro ao carregar contas:',billsLoadErr);toast('⚠️ Erro ao carregar contas: '+billsLoadErr.message);
+    }
     if(bills){
       db.bills=bills.map(b=>({
         id:b.id, templateId:b.template_id, name:b.name,
@@ -1884,6 +1895,10 @@ async function loadFromSupa(){
   }catch(e){
     console.error('loadFromSupa error',e);
     hideLoader();
+    if(e?.message&&(e.message.includes('refresh_token_not_found')||e.message.includes('JWT')||e.message.includes('invalid claim'))){
+      console.warn('[loadFromSupa] erro de auth no catch, forçando logout:',e.message);
+      _forceAuthLogout();return;
+    }
     toast('⚠️ Erro ao carregar dados da nuvem');
   }
 }
@@ -2449,20 +2464,19 @@ async function doLogin(u){
   const vfEl=document.getElementById('billsVfbar');
   if(vfEl)vfEl.innerHTML='';
   updateUIForUser();
-  // Load fresh data from Supabase
+  // Load fresh data from Supabase — cofre must be loaded before renderHome so cards are never zero
   await loadFromSupa();
+  await loadCofreFromSupa();
   await seedIfEmpty();
   populateUserSel();
   preFillFutureMonths();
+  calculateTotals();
+  updateCaixa();
   renderHome();
   document.querySelectorAll('.bni').forEach(b=>b.classList.remove('active'));
   const homeBtn=document.getElementById(BNAV_MAP['sc-home']);
   if(homeBtn)homeBtn.classList.add('active');
   toast(`Bem-vindo${u.name?', '+u.name.split(' ')[0]:''}!`);
-  await loadCofreFromSupa();
-  // Atualiza os cards imediatamente após carregar o histórico do cofre
-  calculateTotals();
-  updateCaixa();
   startBillsRealtime();
   startProfilesRealtime();
   startAppSettingsRealtime();
