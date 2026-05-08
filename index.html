@@ -4477,17 +4477,31 @@ function renderBills(){
     if(u)allBills=allBills.filter(b=>b.userId===u.id);
   }
 
-  // Apply cycle classification filter
+  // Apply cycle classification filter (by due date period)
   let bills=[...allBills];
-  if(billsCycle==='diaria')bills=bills.filter(b=>b.cycle==='diaria'||b.category==='diaria');
-  else if(billsCycle==='semanal')bills=bills.filter(b=>b.weeklyDay!==undefined&&b.weeklyDay!==null||b.category==='semanal');
-  else if(billsCycle==='mensal')bills=bills.filter(b=>{
-    const isDiaria=b.cycle==='diaria'||b.category==='diaria';
-    const isSemanal=b.weeklyDay!==undefined&&b.weeklyDay!==null||b.category==='semanal';
-    const isCustom=!!b.installment||b.cycle==='avista'||b.noDaily;
-    return!isDiaria&&!isSemanal&&!isCustom&&b.recurring;
-  });
-  else if(billsCycle==='custom')bills=bills.filter(b=>!!b.installment||b.cycle==='avista'||b.noDaily);
+  if(billsCycle==='diaria'){
+    // Only bills due exactly today
+    const todayStr=today();
+    bills=bills.filter(b=>{const c=calc(b,td);return c.st!=='future'&&c.dISO===todayStr;});
+  } else if(billsCycle==='semanal'){
+    // Bills due within the current week (Mon–Sun)
+    const todayTs=piso(today()).getTime();
+    const dayOfWeek=new Date(todayTs).getDay(); // 0=Sun
+    const daysToMon=dayOfWeek===0?-6:1-dayOfWeek;
+    const weekStart=new Date(todayTs);weekStart.setDate(weekStart.getDate()+daysToMon);
+    const weekEnd=new Date(weekStart);weekEnd.setDate(weekStart.getDate()+6);
+    const wsTs=weekStart.getTime(),weTs=weekEnd.getTime();
+    bills=bills.filter(b=>{const c=calc(b,td);if(c.st==='future')return false;const dTs=piso(c.dISO).getTime();return dTs>=wsTs&&dTs<=weTs;});
+  } else if(billsCycle==='mensal'){
+    // Bills due within the current calendar month
+    const y=billsCY,m=billsCM;
+    const mStart=new Date(y,m,1).getTime();
+    const mEnd=new Date(y,m+1,0).getTime()+86399999;
+    bills=bills.filter(b=>{const c=calc(b,td);if(c.st==='future')return false;const dTs=piso(c.dISO).getTime();return dTs>=mStart&&dTs<=mEnd;});
+  } else if(billsCycle==='custom'){
+    // À vista and parceladas
+    bills=bills.filter(b=>!!b.installment||b.cycle==='avista'||b.noDaily);
+  }
 
   // Apply status filter
   if(activeF==='paid')bills=bills.filter(b=>calc(b,td).st==='paid');
