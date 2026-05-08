@@ -1253,10 +1253,11 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
     </div>
     <div class="us-field"><div class="us-label">Tipo de conta</div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="pm-chip" id="editTypeAvista" onclick="setEditType('avista',this)">💳 À vista</button>
         <button class="pm-chip" id="editTypeParcelada" onclick="setEditType('parcelada',this)">📋 Parcelada</button>
         <button class="pm-chip" id="editTypeRecorrente" onclick="setEditType('recorrente',this)">↺ Recorrente</button>
+        <button class="pm-chip" id="editTypeSemanal" onclick="setEditType('semanal',this)">📅 Semanal</button>
       </div>
       <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
     </div>
@@ -1265,6 +1266,17 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip sel" id="editCycleDay" onclick="setEditCycle('day',this)">📅 Por dia</button>
         <button class="pm-chip" id="editCycleFortnight" onclick="setEditCycle('fortnight',this)">📅 Quinzenal</button>
         <button class="pm-chip" id="editCycleMonth" onclick="setEditCycle('month',this)">📅 Mensal</button>
+      </div>
+    </div>
+    <div class="us-field" id="editSemanalRow" style="display:none"><div class="us-label">Dia da semana</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="pm-chip" id="ewd0" onclick="setEditWeekday(0,this)">Dom</button>
+        <button class="pm-chip sel" id="ewd1" onclick="setEditWeekday(1,this)">Seg</button>
+        <button class="pm-chip" id="ewd2" onclick="setEditWeekday(2,this)">Ter</button>
+        <button class="pm-chip" id="ewd3" onclick="setEditWeekday(3,this)">Qua</button>
+        <button class="pm-chip" id="ewd4" onclick="setEditWeekday(4,this)">Qui</button>
+        <button class="pm-chip" id="ewd5" onclick="setEditWeekday(5,this)">Sex</button>
+        <button class="pm-chip" id="ewd6" onclick="setEditWeekday(6,this)">Sáb</button>
       </div>
     </div>
     <div class="us-field"><div class="us-label">Responsável</div>
@@ -5137,24 +5149,39 @@ function setEditCycle(c,el){
 }
 
 let _editBillType='avista';
+let _editWeekday=1;
+function setEditWeekday(d,el){
+  _editWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('ewd'+i)?.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+}
 function setEditType(t,el){
   _editBillType=t;
-  document.querySelectorAll('#editTypeAvista,#editTypeParcelada,#editTypeRecorrente').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('#editTypeAvista,#editTypeParcelada,#editTypeRecorrente,#editTypeSemanal').forEach(b=>b.classList.remove('sel'));
   if(el)el.classList.add('sel');
   const note=document.getElementById('editTypeNote');
   const cycleRow=document.getElementById('editCycleRow');
+  const semanalRow=document.getElementById('editSemanalRow');
   if(t==='avista'){
     note.style.display='block';
     note.textContent='💳 À vista: valor fixo, sem acréscimo de diária. Aparece como atrasada se não paga.';
     cycleRow.style.display='none';
+    semanalRow.style.display='none';
   } else if(t==='parcelada'){
     note.style.display='block';
     note.textContent='📋 Parcelada: cada parcela acumula diária normalmente até o vencimento.';
     cycleRow.style.display='block';
+    semanalRow.style.display='none';
+  } else if(t==='semanal'){
+    note.style.display='block';
+    note.textContent='📅 Semanal: recorrente toda semana no dia escolhido, gera uma entrada por ocorrência no mês.';
+    cycleRow.style.display='none';
+    semanalRow.style.display='block';
   } else {
     note.style.display='block';
     note.textContent='↺ Recorrente: gera nova parcela todo mês e acumula diária normalmente.';
     cycleRow.style.display='block';
+    semanalRow.style.display='none';
   }
 }
 
@@ -5174,10 +5201,14 @@ function openEditSheet(id,applyAll){
   const mlbl=document.getElementById('editMonthLabel');
   if(mlbl)mlbl.textContent=MN[mm]+' '+my;
   // Set bill type selector
-  const bType=b.recurring?'recorrente':(b.installment&&b.installment.total>1?'parcelada':'avista');
+  const bType=b.category==='semanal'||b.weeklyDay!==undefined?'semanal':(b.recurring?'recorrente':(b.installment&&b.installment.total>1?'parcelada':'avista'));
   setEditType(bType,document.getElementById(
-    bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista'
+    bType==='semanal'?'editTypeSemanal':bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista'
   ));
+  // Pre-select weekday if semanal
+  if(bType==='semanal'&&b.weeklyDay!==undefined){
+    setEditWeekday(b.weeklyDay,document.getElementById('ewd'+b.weeklyDay));
+  }
   // Set cycle
   const cycle=b.cycle||'day';
   setEditCycle(cycle,document.getElementById(
@@ -5230,10 +5261,12 @@ async function saveEditBill(){
   const category=document.getElementById('editCategory').value;
   // Get selected cycle
   const cycleEl=['editCycleDay','editCycleFortnight','editCycleMonth'].find(id=>document.getElementById(id)?.classList.contains('sel'));
-  const cycle=_editBillType==='avista'?'avista':(cycleEl==='editCycleFortnight'?'fortnight':cycleEl==='editCycleMonth'?'month':'day');
+  const cycle=(_editBillType==='avista'||_editBillType==='semanal')?'avista':(cycleEl==='editCycleFortnight'?'fortnight':cycleEl==='editCycleMonth'?'month':'day');
   // Derive type fields from _editBillType
   const noDaily=_editBillType==='avista';
-  const newRecurring=_editBillType==='recorrente';
+  const newRecurring=_editBillType==='recorrente'||_editBillType==='semanal';
+  const newCategory=_editBillType==='semanal'?'semanal':category;
+  const newWeeklyDay=_editBillType==='semanal'?_editWeekday:undefined;
   if(!name){toast('Digite o nome');return;}
   if(!amount||amount<=0){toast('Valor inválido');return;}
   if(!day||day<1||day>31){toast('Dia inválido');return;}
@@ -5244,12 +5277,16 @@ async function saveEditBill(){
     const siblings=db.bills.filter(x=>x.templateId===tid&&!x.payments?.length);
     await Promise.all(siblings.map(s=>{
       const suffix=s.installment?` (${s.installment.index}/${s.installment.total})`:'';
-      Object.assign(s,{name:name+suffix,amount,day,userId,payMethod,category,noDaily,recurring:newRecurring,cycle,shared:newShared});
+      const upd={name:name+suffix,amount,day,userId,payMethod,category:newCategory,noDaily,recurring:newRecurring,cycle,shared:newShared};
+      if(newWeeklyDay!==undefined)upd.weeklyDay=newWeeklyDay;else delete s.weeklyDay;
+      Object.assign(s,upd);
       return saveBillSupa(s);
     }));
     toast(`✓ ${siblings.length} parcela${siblings.length!==1?'s':''} atualizadas`);
   } else {
-    Object.assign(b,{name,amount,day,month,userId,payMethod,category,cycle,noDaily,recurring:newRecurring,shared:newShared});
+    const upd={name,amount,day,month,userId,payMethod,category:newCategory,cycle,noDaily,recurring:newRecurring,shared:newShared};
+    if(newWeeklyDay!==undefined)upd.weeklyDay=newWeeklyDay;else delete b.weeklyDay;
+    Object.assign(b,upd);
     await saveBillSupa(b);
     toast('✓ Conta atualizada');
   }
