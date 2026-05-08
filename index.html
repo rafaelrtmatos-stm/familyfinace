@@ -733,6 +733,26 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="pm-chip" id="typeRecorrente" onclick="setType('recorrente')">↺ Recorrente</button>
       <button class="pm-chip" id="typeSemanal" onclick="setType('semanal')">📅 Semanal</button>
     </div>
+    <div id="recorrenteWrap" style="display:none;margin-bottom:10px">
+      <div class="abl" style="margin-bottom:6px">Frequência da recorrência</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="pm-chip sel" id="rfreqMensal" onclick="setRecorrenteFreq('mensal')" style="flex:1">📅 Mensal</button>
+        <button class="pm-chip" id="rfreqSemanal" onclick="setRecorrenteFreq('semanal')" style="flex:1">📆 Semanal</button>
+        <button class="pm-chip" id="rfreqDiaria" onclick="setRecorrenteFreq('diaria')" style="flex:1">🗓️ Diária</button>
+      </div>
+      <div id="rfreqSemanalWrap" style="display:none;margin-bottom:8px">
+        <div class="abl" style="margin-bottom:4px">Dia da semana</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="pm-chip" id="rwd0" onclick="setRecorrenteWeekday(0,this)">Dom</button>
+          <button class="pm-chip sel" id="rwd1" onclick="setRecorrenteWeekday(1,this)">Seg</button>
+          <button class="pm-chip" id="rwd2" onclick="setRecorrenteWeekday(2,this)">Ter</button>
+          <button class="pm-chip" id="rwd3" onclick="setRecorrenteWeekday(3,this)">Qua</button>
+          <button class="pm-chip" id="rwd4" onclick="setRecorrenteWeekday(4,this)">Qui</button>
+          <button class="pm-chip" id="rwd5" onclick="setRecorrenteWeekday(5,this)">Sex</button>
+          <button class="pm-chip" id="rwd6" onclick="setRecorrenteWeekday(6,this)">Sáb</button>
+        </div>
+      </div>
+    </div>
     <div id="semanalWrap" style="display:none;margin-bottom:10px">
       <div class="abl">Dia da semana</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
@@ -1235,6 +1255,27 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip" id="editTypeSemanal" onclick="setEditType('semanal',this)">📅 Semanal</button>
       </div>
       <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
+    </div>
+    <!-- Recorrente: frequência (Mensal/Semanal/Diária) -->
+    <div id="editRecorrenteWrap" style="display:none;margin-bottom:11px">
+      <div class="us-label" style="margin-bottom:6px">Frequência da recorrência</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="pm-chip sel" id="editRfreqMensal" onclick="setEditRecorrenteFreq('mensal')" style="flex:1">📅 Mensal</button>
+        <button class="pm-chip" id="editRfreqSemanal" onclick="setEditRecorrenteFreq('semanal')" style="flex:1">📆 Semanal</button>
+        <button class="pm-chip" id="editRfreqDiaria" onclick="setEditRecorrenteFreq('diaria')" style="flex:1">🗓️ Diária</button>
+      </div>
+      <div id="editRfreqSemanalWrap" style="display:none">
+        <div class="us-label" style="margin-bottom:4px">Dia da semana</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="pm-chip" id="erwd0" onclick="setEditRecorrenteWeekday(0,this)">Dom</button>
+          <button class="pm-chip sel" id="erwd1" onclick="setEditRecorrenteWeekday(1,this)">Seg</button>
+          <button class="pm-chip" id="erwd2" onclick="setEditRecorrenteWeekday(2,this)">Ter</button>
+          <button class="pm-chip" id="erwd3" onclick="setEditRecorrenteWeekday(3,this)">Qua</button>
+          <button class="pm-chip" id="erwd4" onclick="setEditRecorrenteWeekday(4,this)">Qui</button>
+          <button class="pm-chip" id="erwd5" onclick="setEditRecorrenteWeekday(5,this)">Sex</button>
+          <button class="pm-chip" id="erwd6" onclick="setEditRecorrenteWeekday(6,this)">Sáb</button>
+        </div>
+      </div>
     </div>
     <!-- Semanal: dia da semana (visível só quando tipo=semanal) -->
     <div id="editSemanalWrap" style="display:none;margin-bottom:11px">
@@ -3926,6 +3967,22 @@ function setCycle(c,el){
 const WD_NAMES=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let addWeekday=1;
 let addSemanalMode='recorrente';
+let addRecorrenteFreq='mensal';
+let addRecorrenteWeekday=1;
+
+function setRecorrenteFreq(f){
+  addRecorrenteFreq=f;
+  ['mensal','semanal','diaria'].forEach(v=>document.getElementById('rfreq'+v.charAt(0).toUpperCase()+v.slice(1))?.classList.toggle('sel',v===f));
+  const sw=document.getElementById('rfreqSemanalWrap');
+  if(sw)sw.style.display=f==='semanal'?'block':'none';
+  const dw=document.getElementById('addDayWrap');
+  if(dw)dw.style.display=f==='semanal'?'none':'block';
+}
+
+function setRecorrenteWeekday(d,el){
+  addRecorrenteWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('rwd'+i)?.classList.toggle('sel',i===d));
+}
 
 function setWeekday(d,el){
   addWeekday=d;
@@ -3996,12 +4053,14 @@ function setType(t){
   });
   document.getElementById('parcelaWrap').style.display=t==='parcelada'?'block':'none';
   document.getElementById('semanalWrap').style.display=t==='semanal'?'block':'none';
+  document.getElementById('recorrenteWrap').style.display=t==='recorrente'?'block':'none';
   const dw=document.getElementById('addDayWrap');
-  if(dw)dw.style.display=t==='semanal'?'none':'block';
+  if(dw)dw.style.display=(t==='semanal'||(t==='recorrente'&&addRecorrenteFreq==='semanal'))?'none':'block';
   const sn=document.getElementById('addSemanalNote');
   if(sn){sn.style.display=t==='semanal'?'block':'none';if(t==='semanal')updateSemanalNote();}
   if(t==='parcelada')updateParcelaPreview();
   if(t==='semanal')setSemanalMode(addSemanalMode);
+  if(t==='recorrente')setRecorrenteFreq(addRecorrenteFreq);
 }
 
 function updateParcelaPreview(){
@@ -4043,7 +4102,7 @@ function resetAddForm(){
   document.getElementById('addDay').value='';
   document.getElementById('addMonth').value=mk(CY,CM);
   onAddMonthChange(mk(CY,CM));
-  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente'; addParcelaFreq='mensal'; addParcelaWeekday=1;
+  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente'; addParcelaFreq='mensal'; addParcelaWeekday=1; addRecorrenteFreq='mensal'; addRecorrenteWeekday=1;
   renderAddCatGrid();
   const ai=document.getElementById('addAmtInput');if(ai){ai.value='';ai.dataset.cents='0';}
   const pmRow=document.querySelector('#addForm .pm-row');
@@ -4155,12 +4214,33 @@ async function saveAdd(){
 
     } else if(addType==='recorrente'){
       const tid=uid();
-      const bill={id:uid(),templateId:tid,name:billName,amount:total,day:billDay,month:billMonth,
-        userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
-        recurring:true,payments:[],shared:addShared};
-      db.bills.push(bill);
-      await insertBillSupa(bill);
-      preFillFutureMonths();
+      if(addRecorrenteFreq==='semanal'){
+        // Weekly recurring: one seed bill with weeklyDay set; autoGenerate fills instances
+        const{y,m}=ymk(billMonth);
+        const dates=getDatesOfWeekday(y,m,addRecorrenteWeekday);
+        const firstDay=dates[0]||billDay||1;
+        const bill={id:uid(),templateId:tid,name:billName,amount:total,day:firstDay,month:billMonth,
+          userId,payMethod:selPMethod,category:selCat,cycle:'day',
+          recurring:true,weeklyDay:addRecorrenteWeekday,payments:[],shared:addShared};
+        db.bills.push(bill);
+        await insertBillSupa(bill);
+        preFillFutureMonths();
+      } else if(addRecorrenteFreq==='diaria'){
+        const bill={id:uid(),templateId:tid,name:billName,amount:total,day:billDay,month:billMonth,
+          userId,payMethod:selPMethod,category:selCat,cycle:'diaria',
+          recurring:true,payments:[],shared:addShared};
+        db.bills.push(bill);
+        await insertBillSupa(bill);
+        preFillFutureMonths();
+      } else {
+        // Mensal (default)
+        const bill={id:uid(),templateId:tid,name:billName,amount:total,day:billDay,month:billMonth,
+          userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
+          recurring:true,payments:[],shared:addShared};
+        db.bills.push(bill);
+        await insertBillSupa(bill);
+        preFillFutureMonths();
+      }
 
     } else if(addType==='semanal'){
       const{y,m}=ymk(billMonth);
@@ -5255,35 +5335,58 @@ function setEditType(t,el){
   const amtLbl=document.getElementById('editAmountLabel');
   const dayLbl=document.getElementById('editDayLabel');
   note.style.display='block';
+  const recorrenteWrap=document.getElementById('editRecorrenteWrap');
   if(t==='avista'){
     note.textContent='💳 À vista: valor fixo, sem acréscimo de diária. Aparece como atrasada se não paga.';
     if(parcelaWrap)parcelaWrap.style.display='none';
     if(semanalWrap)semanalWrap.style.display='none';
+    if(recorrenteWrap)recorrenteWrap.style.display='none';
     if(amtLbl)amtLbl.textContent='Valor da conta (R$)';
     if(dayLbl)dayLbl.textContent='Dia de vencimento';
   } else if(t==='parcelada'){
     note.textContent='📋 Parcelada: cada parcela tem valor individual e acumula diária até o vencimento.';
     if(parcelaWrap)parcelaWrap.style.display='block';
     if(semanalWrap)semanalWrap.style.display='none';
+    if(recorrenteWrap)recorrenteWrap.style.display='none';
     if(amtLbl)amtLbl.textContent='Por parcela (R$)';
     if(dayLbl)dayLbl.textContent='Dia de vencimento';
   } else if(t==='semanal'){
     note.textContent='📅 Semanal: cobrança automática no dia da semana selecionado.';
     if(parcelaWrap)parcelaWrap.style.display='none';
     if(semanalWrap)semanalWrap.style.display='block';
+    if(recorrenteWrap)recorrenteWrap.style.display='none';
     if(amtLbl)amtLbl.textContent='Valor semanal (R$)';
     if(dayLbl)dayLbl.textContent='Dia base (dia do mês de início)';
   } else {
-    note.textContent='↺ Recorrente: gera nova parcela todo mês e acumula diária normalmente.';
+    note.textContent='↺ Recorrente: gera nova parcela automaticamente com a frequência escolhida.';
     if(parcelaWrap)parcelaWrap.style.display='none';
     if(semanalWrap)semanalWrap.style.display='none';
+    if(recorrenteWrap)recorrenteWrap.style.display='block';
     if(amtLbl)amtLbl.textContent='Valor da conta (R$)';
     if(dayLbl)dayLbl.textContent='Dia de vencimento';
+    setEditRecorrenteFreq(_editRecorrenteFreq);
   }
 }
 function setEditWeekday(d,el){
   _editWeekday=d;
   [0,1,2,3,4,5,6].forEach(i=>document.getElementById('ewd'+i)?.classList.toggle('sel',i===d));
+}
+
+let _editRecorrenteFreq='mensal';
+let _editRecorrenteWeekday=1;
+
+function setEditRecorrenteFreq(f){
+  _editRecorrenteFreq=f;
+  ['mensal','semanal','diaria'].forEach(v=>document.getElementById('editRfreq'+v.charAt(0).toUpperCase()+v.slice(1))?.classList.toggle('sel',v===f));
+  const sw=document.getElementById('editRfreqSemanalWrap');
+  if(sw)sw.style.display=f==='semanal'?'block':'none';
+  const dayLbl=document.getElementById('editDayLabel');
+  if(dayLbl)dayLbl.textContent=f==='semanal'?'Dia base (início)':'Dia de vencimento';
+}
+
+function setEditRecorrenteWeekday(d,el){
+  _editRecorrenteWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('erwd'+i)?.classList.toggle('sel',i===d));
 }
 function setEditParcelaFreq(f){
   _editParcelaFreq=f;
@@ -5330,15 +5433,32 @@ function openEditSheet(id,applyAll){
   const curMonthKey=mk(CY,CM);
   document.querySelectorAll('#editQDates .qd').forEach(btn=>btn.classList.remove('on'));
   if(b.month===curMonthKey){const btn=document.querySelector('#editQDates .qd:nth-child(2)');if(btn)btn.classList.add('on');}
-  // Set bill type selector — detect semanal
-  const isSemanalBill=b.category==='semanal'||b.weeklyDay!==undefined;
+  // Set bill type selector — detect semanal vs recorrente (semanal/diaria/mensal) vs parcelada vs avista
+  const isSemanalBill=b.category==='semanal'||(b.weeklyDay!==undefined&&!b.recurring);
+  const isRecorrenteSemanal=b.recurring&&b.weeklyDay!==undefined;
+  const isRecorrenteDiaria=b.recurring&&(b.cycle==='diaria');
   const bType=isSemanalBill?'semanal':(b.recurring?'recorrente':(b.installment&&b.installment.total>1?'parcelada':'avista'));
   const typeElId=bType==='semanal'?'editTypeSemanal':bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista';
+  // Pre-set recorrente freq before calling setEditType so the wrap shows correctly
+  if(bType==='recorrente'){
+    if(isRecorrenteSemanal){
+      _editRecorrenteFreq='semanal';
+      _editRecorrenteWeekday=b.weeklyDay;
+    } else if(isRecorrenteDiaria){
+      _editRecorrenteFreq='diaria';
+    } else {
+      _editRecorrenteFreq='mensal';
+    }
+  }
   setEditType(bType,document.getElementById(typeElId));
-  // Semanal weekday
+  // Semanal (standalone) weekday
   if(isSemanalBill){
     _editWeekday=b.weeklyDay!==undefined?b.weeklyDay:1;
     [0,1,2,3,4,5,6].forEach(i=>document.getElementById('ewd'+i)?.classList.toggle('sel',i===_editWeekday));
+  }
+  // Recorrente semanal weekday picker
+  if(isRecorrenteSemanal){
+    [0,1,2,3,4,5,6].forEach(i=>document.getElementById('erwd'+i)?.classList.toggle('sel',i===_editRecorrenteWeekday));
   }
   // Pre-fill installment fields
   const instEl=document.getElementById('editInstallments');
@@ -5425,12 +5545,25 @@ async function saveEditBill(){
   const userId=document.getElementById('editUser').value;
   const payMethod=_editPayMethod;
   const category=_editCat;
-  // Derive type fields from _editBillType
-  const cycle=_editBillType==='avista'?'avista':'day';
-  const noDaily=_editBillType==='avista';
-  const newRecurring=_editBillType==='recorrente'||_editBillType==='semanal';
-  const newWeeklyDay=_editBillType==='semanal'?_editWeekday:undefined;
-  const newCategory=_editBillType==='semanal'?'semanal':category;
+  // Derive type fields from _editBillType + recorrente freq
+  let cycle, noDaily, newRecurring, newWeeklyDay, newCategory;
+  if(_editBillType==='avista'){
+    cycle='avista'; noDaily=true; newRecurring=false; newWeeklyDay=undefined; newCategory=category;
+  } else if(_editBillType==='semanal'){
+    cycle='day'; noDaily=false; newRecurring=true; newWeeklyDay=_editWeekday; newCategory='semanal';
+  } else if(_editBillType==='recorrente'){
+    noDaily=false; newRecurring=true;
+    if(_editRecorrenteFreq==='semanal'){
+      cycle='day'; newWeeklyDay=_editRecorrenteWeekday; newCategory=category;
+    } else if(_editRecorrenteFreq==='diaria'){
+      cycle='diaria'; newWeeklyDay=undefined; newCategory=category;
+    } else {
+      cycle='day'; newWeeklyDay=undefined; newCategory=category;
+    }
+  } else {
+    // parcelada
+    cycle='day'; noDaily=false; newRecurring=false; newWeeklyDay=undefined; newCategory=category;
+  }
   if(!name){toast('Digite o nome');return;}
   if(!amount||amount<=0){toast('Valor inválido');return;}
   if(!day||day<1||day>31){toast('Dia inválido');return;}
