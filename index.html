@@ -2047,6 +2047,24 @@ function fixInstallmentDates(){
     });
   });
 }
+function fixWeeklyBills(){
+  // Contas semanais recorrentes geram várias instâncias no mesmo mês (todos os sábados, por ex.).
+  // Se um templateId tem 2+ contas no mesmo mês → todas são semanais. Deriva weeklyDay da data.
+  const groups={};
+  db.bills.forEach(b=>{
+    if(!b.templateId||b.weeklyDay!==undefined)return;
+    const key=b.templateId+':'+b.month;
+    if(!groups[key])groups[key]=[];
+    groups[key].push(b);
+  });
+  Object.values(groups).forEach(group=>{
+    if(group.length<2)return; // 1 por mês = mensal, pula
+    group.forEach(b=>{
+      const[yr,mo]=b.month.split('-').map(Number);
+      b.weeklyDay=new Date(yr,mo,b.day).getDay();
+    });
+  });
+}
 async function loadFromSupa(){
   const s=getSupa();
   try{
@@ -2089,6 +2107,7 @@ async function loadFromSupa(){
         };
       }).filter(b=>!_pendingDeletes.has(b.id));
       fixInstallmentDates();
+      fixWeeklyBills();
     }
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
