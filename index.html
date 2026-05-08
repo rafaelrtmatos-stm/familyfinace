@@ -2526,7 +2526,7 @@ function calc(b,ref){
   if(b.noDaily||b.cycle==='avista'){
     acc=0;
     if(refDate>piso(dISO)){late=wdb(dISO,ref);daysElapsed=wd;daysLeft=0;daily=b.amount;}
-    else{late=0;daysElapsed=wdBefore(periodStart,ref);daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hols)?1:0);daily=r2(b.amount/Math.max(1,daysLeft));}
+    else{late=0;daysElapsed=wdBefore(periodStart,ref);daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hols)?1:0);daily=r2(b.amount/Math.max(1,wd));}
     accrued=b.amount;
   }else if(b.month<mesAtual){
     daysElapsed=wd;daysLeft=0;
