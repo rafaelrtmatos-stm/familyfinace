@@ -4446,11 +4446,15 @@ function renderBills(){
             </div>
             <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700">
               <span style="color:var(--ink3)">${c.daysElapsed} diárias × ${fmtn(c.daily)}</span>
-              <span style="color:var(--g2);font-weight:800">${fmtn(c.accrued)}</span>
+              <span style="color:var(--g2);font-weight:800">${fmtn(c.late>0?b.amount:c.accrued)}</span>
             </div>
+            ${c.acc>0?`<div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700">
+              <span style="color:var(--red)">⚠️ Multa de atraso</span>
+              <span style="color:var(--red);font-weight:800">+ ${fmtn(c.acc)}</span>
+            </div>`:''}
             <div style="display:flex;justify-content:space-between;font-size:.68rem;border-top:1px solid rgba(59,79,212,.12);margin-top:2px;padding-top:4px">
               <span style="color:var(--ink3);font-weight:700">Saldo (este mês)</span>
-              <span style="color:var(--g2);font-weight:900">${fmtn(c.accrued)}</span>
+              <span style="color:${c.late>0?'var(--red)':'var(--g2)'};font-weight:900">${fmtn(c.accrued)}</span>
             </div>
           </div>
         </div>
@@ -4651,8 +4655,9 @@ function refreshDet(id){
     ${detPrevSaldo>0?`<div class="calc-box">
       <div style="font-size:.56rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:6px">Seção C — Cálculo do Mês</div>
       <div class="calc-row"><span class="calc-lbl">Atual</span><span class="calc-val">${fmt(b.amount)}</span></div>
+      ${c.acc>0?`<div class="calc-row"><span class="calc-lbl" style="color:var(--red)">⚠️ Multa de atraso</span><span class="calc-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
       <div class="calc-row"><span class="calc-lbl" style="color:var(--red)">⚠️ Meses anteriores</span><span class="calc-val" style="color:var(--red)">+ ${fmt(detPrevSaldo)}</span></div>
-      <div class="calc-row last" style="border-top:2px solid rgba(231,76,60,.25);margin-top:4px;padding-top:6px"><span class="calc-lbl" style="font-weight:900;color:var(--red)">Total a pagar</span><span class="calc-val" style="color:var(--red);font-weight:900">${fmt(r2(b.amount+detPrevSaldo))}</span></div>
+      <div class="calc-row last" style="border-top:2px solid rgba(231,76,60,.25);margin-top:4px;padding-top:6px"><span class="calc-lbl" style="font-weight:900;color:var(--red)">Total a pagar</span><span class="calc-val" style="color:var(--red);font-weight:900">${fmt(r2(b.amount+c.acc+detPrevSaldo))}</span></div>
     </div>`:''}
     `;
   }
