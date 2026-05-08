@@ -4548,7 +4548,7 @@ function refreshDet(id){
   // Previous overdue balance from same recurring template
   const detPrevSaldo=b.recurring&&b.templateId
     ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
-        .reduce((s,x)=>s+calc(x,td).bal,0))
+        .reduce((s,x)=>s+origBal(x),0))
     :0;
 
   document.getElementById('detTitle').textContent=b.name;
