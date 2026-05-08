@@ -942,6 +942,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="hist-tab active" id="ht-pay" onclick="setHistTab('pay',this)">💰 Pagamentos</button>
     <button class="hist-tab" id="ht-add" onclick="setHistTab('add',this)">📋 Contas Adicionadas</button>
   </div>
+  <div id="histSortBar" style="display:none;gap:6px;padding:8px 12px 6px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap">
+    <button class="vf on" id="hs-recentes" onclick="setHistSort('recentes',this)">🕐 Recentes</button>
+    <button class="vf" id="hs-antigas" onclick="setHistSort('antigas',this)">⏳ Mais antigas</button>
+    <button class="vf" id="hs-maior" onclick="setHistSort('maior',this)">⬆️ Maior valor</button>
+    <button class="vf" id="hs-menor" onclick="setHistSort('menor',this)">⬇️ Menor valor</button>
+  </div>
   <div class="bills-scroll" id="histBody" style="padding-top:6px"></div>
 </div>
 
@@ -3606,8 +3612,10 @@ function renderHome(){
   }
 
   const widgetsEl=document.getElementById('homeWidgets');
-  // ── Seção Recentes: últimas contas adicionadas (qualquer mês) ──
-  const allSorted=[...db.bills].sort((a,z)=>z.id.localeCompare(a.id));
+  // ── Seção Recentes: últimas contas adicionadas (qualquer mês) — exclui deletadas pendentes ──
+  const allSorted=[...db.bills]
+    .filter(b=>!_pendingDeletes.has(b.id))
+    .sort((a,z)=>(z._createdAt||z._updatedAt||'').localeCompare(a._createdAt||a._updatedAt||''));
   const recentBills=allSorted.slice(0,4);
   let recentesHTML='';
   if(recentBills.length){
@@ -4538,6 +4546,7 @@ function clearBillsSearch(){
    HISTORY SCREEN
 ══════════════════════════════════════════════════ */
 let curHistTab='pay';
+let histBillSort='recentes';
 
 function userNameById(uid){
   if(!uid||uid==='todos')return'Todos';
@@ -4556,6 +4565,15 @@ function setHistTab(tab,el){
   curHistTab=tab;
   document.querySelectorAll('.hist-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
+  const sb=document.getElementById('histSortBar');
+  if(sb)sb.style.display=tab==='add'?'flex':'none';
+  renderHist();
+}
+
+function setHistSort(sort,el){
+  histBillSort=sort;
+  document.querySelectorAll('#histSortBar .vf').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
   renderHist();
 }
 
@@ -4605,8 +4623,19 @@ function renderHist(){
     el.innerHTML=html+'<div style="height:20px"></div>';
 
   } else {
-    // Bill addition history — sorted by created_at DESC
-    const sorted=[...db.bills].sort((a,z)=>(z._createdAt||z._updatedAt||'').localeCompare(a._createdAt||a._updatedAt||''));
+    // Bill addition history — only existing bills, with user-selected sort
+    const existing=db.bills.filter(b=>!_pendingDeletes.has(b.id));
+    const sorted=[...existing];
+    if(histBillSort==='antigas'){
+      sorted.sort((a,z)=>(a._createdAt||a._updatedAt||'').localeCompare(z._createdAt||z._updatedAt||''));
+    } else if(histBillSort==='maior'){
+      sorted.sort((a,z)=>z.amount-a.amount);
+    } else if(histBillSort==='menor'){
+      sorted.sort((a,z)=>a.amount-z.amount);
+    } else {
+      // recentes (default)
+      sorted.sort((a,z)=>(z._createdAt||z._updatedAt||'').localeCompare(a._createdAt||a._updatedAt||''));
+    }
     if(!sorted.length){
       el.innerHTML=`<div style="text-align:center;padding:48px 20px;color:var(--ink3);font-size:.84rem;font-weight:700">Nenhuma conta cadastrada ainda.</div>`;
       return;
@@ -4620,7 +4649,7 @@ function renderHist(){
       const ownerName=userNameById(b._ownerId||b.userId);
       const dtLbl=fmtDatetime(b._createdAt||b._updatedAt);
       const typeTag=b.recurring?'Recorrente':b.installment?`Parcela ${b.installment.index}/${b.installment.total}`:'À vista';
-      return`<div class="hist-bill-row">
+      return`<div class="hist-bill-row" onclick="go('sc-bills');setTimeout(()=>openDet('${b.id}'),320)" style="cursor:pointer">
         <div style="width:38px;height:38px;border-radius:50%;background:${cat.bg||'rgba(92,107,192,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.05rem">${cat.ico||'📌'}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:.84rem;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
