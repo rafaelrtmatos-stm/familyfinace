@@ -2011,6 +2011,30 @@ async function ldb(){
 }
 
 // Load all data from Supabase after login
+function fixInstallmentDates(){
+  const groups={};
+  db.bills.forEach(b=>{
+    if(!b.installment||b.weeklyDay!==undefined)return;
+    const tid=b.installment.templateId||b.templateId;
+    if(!tid)return;
+    if(!groups[tid])groups[tid]=[];
+    groups[tid].push(b);
+  });
+  Object.values(groups).forEach(group=>{
+    group.sort((a,b)=>(a.installment.index||0)-(b.installment.index||0));
+    const first=group[0];
+    const{y,m}=ymk(first.month);
+    let curD=new Date(+y,+m,first.day);
+    while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
+    group.forEach((b,i)=>{
+      b._dISO=iso(new Date(curD));
+      if(i<group.length-1){
+        curD.setDate(curD.getDate()+1);
+        while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
+      }
+    });
+  });
+}
 async function loadFromSupa(){
   const s=getSupa();
   try{
@@ -2046,6 +2070,7 @@ async function loadFromSupa(){
         _createdAt:b.created_at||'',
         _updatedAt:b.updated_at||b.created_at||''
       })).filter(b=>!_pendingDeletes.has(b.id));
+      fixInstallmentDates();
     }
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
@@ -2464,8 +2489,8 @@ function calc(b,ref){
   periodStart=iso(new Date(py,pm,b.day));
   rawDueISO=iso(new Date(+y,+m,b.day));
   wd=wdBefore(periodStart,rawDueISO)+1;
-  // For daily installments: skip Sundays forward to Monday
-  const dISO=b.installment?adjustDueFwd(rawDueISO):adjustDue(rawDueISO);
+  // For daily installments: use cascade-corrected date (no Sundays, no collisions)
+  const dISO=b.installment?(b._dISO||adjustDueFwd(rawDueISO)):adjustDue(rawDueISO);
   let divisor=wd;
   const cycle=b.cycle||'day';
   if(cycle==='fortnight')divisor=15;
