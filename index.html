@@ -885,14 +885,21 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
     </div>
   </div>
-  <!-- Month navigator + period selector -->
-  <div style="display:flex;align-items:center;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;padding:8px 14px;gap:8px">
+  <!-- Nav mode selector: Dia / Semana / Mês / Período -->
+  <div id="billsNavModeBar" style="display:flex;gap:4px;padding:6px 12px 4px;background:var(--white);flex-shrink:0">
+    <button class="nm" onclick="setNavMode('dia',this)" style="flex:1;padding:5px 4px;border-radius:100px;font-size:.66rem;font-weight:800;cursor:pointer;border:1.5px solid #dde2ec;background:transparent;color:var(--ink3);transition:all .17s">Dia</button>
+    <button class="nm" onclick="setNavMode('semana',this)" style="flex:1;padding:5px 4px;border-radius:100px;font-size:.66rem;font-weight:800;cursor:pointer;border:1.5px solid #dde2ec;background:transparent;color:var(--ink3);transition:all .17s">Semana</button>
+    <button class="nm on" id="billsNavModeMes" onclick="setNavMode('mes',this)" style="flex:1;padding:5px 4px;border-radius:100px;font-size:.66rem;font-weight:800;cursor:pointer;border:1.5px solid var(--g2);background:var(--g2);color:#fff;transition:all .17s">Mês</button>
+    <button class="nm" onclick="setNavMode('periodo',this)" style="flex:1;padding:5px 4px;border-radius:100px;font-size:.66rem;font-weight:800;cursor:pointer;border:1.5px solid #dde2ec;background:transparent;color:var(--ink3);transition:all .17s">Período</button>
+  </div>
+  <!-- Arrow navigator -->
+  <div style="display:flex;align-items:center;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;padding:5px 14px 8px;gap:8px">
     <button onclick="billsChMon(-1)" id="billsMonPrev" style="width:36px;height:36px;border:1.5px solid #dde2ec;border-radius:9px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink2)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <div style="flex:1;text-align:center;cursor:pointer" onclick="setBillsPeriodMode()">
+    <div style="flex:1;text-align:center">
       <div style="font-size:.88rem;font-weight:900;color:var(--ink)" id="billsMonLabel">—</div>
-      <div style="font-size:.62rem;font-weight:700;color:var(--ink3)" id="billsPeriodSub">Toque para período personalizado</div>
+      <div style="font-size:.62rem;font-weight:700;color:var(--ink3)" id="billsPeriodSub">Mês completo</div>
     </div>
     <button onclick="billsChMon(1)" id="billsMonNext" style="width:36px;height:36px;border:1.5px solid #dde2ec;border-radius:9px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink2)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -2869,10 +2876,16 @@ function go(id){
   if(id==='sc-home')renderHome();
   else if(id==='sc-bills'){
     billsCY=CY;billsCM=CM;billsPeriod='single';
+    billsNavMode='mes';billsNavDay=today();
+    document.querySelectorAll('#billsNavModeBar .nm').forEach(b=>{b.style.background='transparent';b.style.borderColor='#dde2ec';b.style.color='var(--ink3)';});
+    const mesBtn=document.getElementById('billsNavModeMes');
+    if(mesBtn){mesBtn.style.background='var(--g2)';mesBtn.style.borderColor='var(--g2)';mesBtn.style.color='#fff';}
     billsCycle='all';
     document.querySelectorAll('#billsCycleBar .fc').forEach(b=>b.classList.remove('on'));
     const cycleAll=document.getElementById('bcyc-all');
     if(cycleAll)cycleAll.classList.add('on');
+    const wrap=document.getElementById('customPeriodWrap');
+    if(wrap)wrap.style.display='none';
     const vfEl=document.getElementById('billsVfbar');
     if(vfEl)vfEl.innerHTML=''; // force re-render of view filter
     renderBills();
@@ -4159,66 +4172,121 @@ let billsCM=new Date().getMonth();
 let billsPeriod='single';
 let billsCustomStart='';
 let billsCustomEnd='';
+let billsNavMode='mes'; // 'dia'|'semana'|'mes'|'periodo'
+let billsNavDay=today(); // reference date (YYYY-MM-DD) for dia/semana modes
 
 function billsChMon(d){
-  // Only works when not in custom period
-  if(billsPeriod==='custom')return;
-  billsCM+=d;
-  if(billsCM>11){billsCM=0;billsCY++;}
-  if(billsCM<0){billsCM=11;billsCY--;}
-  // Update the CY/CM so getBillsForView reads correct month
-  billsPeriod='single'; // single specific month
+  if(billsNavMode==='periodo')return;
+  if(billsNavMode==='dia'){
+    const dt=piso(billsNavDay);dt.setDate(dt.getDate()+d);
+    billsNavDay=iso(dt);billsCY=dt.getFullYear();billsCM=dt.getMonth();
+  } else if(billsNavMode==='semana'){
+    const dt=piso(billsNavDay);dt.setDate(dt.getDate()+d*7);
+    billsNavDay=iso(dt);billsCY=dt.getFullYear();billsCM=dt.getMonth();
+  } else {
+    billsCM+=d;
+    if(billsCM>11){billsCM=0;billsCY++;}
+    if(billsCM<0){billsCM=11;billsCY--;}
+    billsNavDay=iso(new Date(billsCY,billsCM,1));
+  }
   updateBillsMonLabel();
   renderBills();
+}
+
+const DN=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function _weekRangeOf(dayStr){
+  const dt=piso(dayStr);
+  const dow=dt.getDay();
+  const daysToMon=dow===0?-6:1-dow;
+  const mon=new Date(dt);mon.setDate(dt.getDate()+daysToMon);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  return{mon,sun};
 }
 
 function updateBillsMonLabel(){
   const lbl=document.getElementById('billsMonLabel');
   const sub=document.getElementById('billsPeriodSub');
   if(!lbl)return;
-  if(billsPeriod==='custom'){
-    lbl.textContent=`${billsCustomStart||'?'} → ${billsCustomEnd||'?'}`;
-    if(sub)sub.textContent='Período personalizado · toque para alterar';
-  } else {
-    lbl.textContent=`${MN[billsCM]} ${billsCY}`;
-    if(sub)sub.textContent='Toque para período personalizado';
-  }
-  // Show/hide arrow buttons
   const prev=document.getElementById('billsMonPrev');
   const next=document.getElementById('billsMonNext');
-  if(prev)prev.style.opacity=billsPeriod==='custom'?'.3':'1';
-  if(next)next.style.opacity=billsPeriod==='custom'?'.3':'1';
+  const disableArrows=billsNavMode==='periodo';
+  if(prev)prev.style.opacity=disableArrows?'.3':'1';
+  if(next)next.style.opacity=disableArrows?'.3':'1';
+  if(billsNavMode==='dia'){
+    const dt=piso(billsNavDay);
+    lbl.textContent=`${DN[dt.getDay()]}, ${dt.getDate()} de ${MN[dt.getMonth()]}`;
+    if(sub)sub.textContent=String(dt.getFullYear());
+  } else if(billsNavMode==='semana'){
+    const{mon,sun}=_weekRangeOf(billsNavDay);
+    const sameMonth=mon.getMonth()===sun.getMonth();
+    if(sameMonth){
+      lbl.textContent=`${mon.getDate()} – ${sun.getDate()} de ${MN[mon.getMonth()]}`;
+    } else {
+      lbl.textContent=`${mon.getDate()} ${MN[mon.getMonth()].slice(0,3)} – ${sun.getDate()} ${MN[sun.getMonth()].slice(0,3)}`;
+    }
+    if(sub)sub.textContent=String(mon.getFullYear());
+  } else if(billsNavMode==='mes'){
+    lbl.textContent=`${MN[billsCM]} ${billsCY}`;
+    if(sub)sub.textContent='Mês completo';
+  } else {
+    if(billsCustomStart&&billsCustomEnd){
+      lbl.textContent=`${billsCustomStart} → ${billsCustomEnd}`;
+    } else {
+      lbl.textContent='Selecione o período';
+    }
+    if(sub)sub.textContent='Período personalizado';
+  }
+}
+
+function setNavMode(mode,el){
+  billsNavMode=mode;
+  // Update pill styles
+  document.querySelectorAll('#billsNavModeBar .nm').forEach(b=>{
+    b.style.background='transparent';b.style.borderColor='#dde2ec';b.style.color='var(--ink3)';
+  });
+  if(el){el.style.background='var(--g2)';el.style.borderColor='var(--g2)';el.style.color='#fff';}
+  const wrap=document.getElementById('customPeriodWrap');
+  if(mode==='periodo'){
+    if(wrap)wrap.style.display='flex';
+    if(!billsCustomStart){
+      const s=mk(billsCY,billsCM);
+      const se=document.getElementById('customStart');
+      const ee=document.getElementById('customEnd');
+      if(se)se.value=s;if(ee)ee.value=s;
+      billsPeriod='custom';billsCustomStart=s;billsCustomEnd=s;
+    }
+  } else {
+    if(wrap)wrap.style.display='none';
+    billsPeriod='single';
+    // Reset navDay to today for dia/semana
+    if(mode==='dia'||mode==='semana'){
+      billsNavDay=today();
+      const dt=piso(billsNavDay);billsCY=dt.getFullYear();billsCM=dt.getMonth();
+    }
+  }
+  updateBillsMonLabel();
+  renderBills();
 }
 
 function setBillsPeriodMode(){
-  const wrap=document.getElementById('customPeriodWrap');
-  if(!wrap)return;
-  if(wrap.style.display==='none'||!wrap.style.display){
-    wrap.style.display='flex';
-    // Pre-fill with current month
-    const start=mk(billsCY,billsCM);
-    document.getElementById('customStart').value=start;
-    document.getElementById('customEnd').value=start;
-  } else {
-    clearCustomPeriod();
-  }
+  // Legacy: activate periodo mode
+  const btn=document.querySelector('#billsNavModeBar .nm:last-child');
+  setNavMode('periodo',btn);
 }
 
 function clearCustomPeriod(){
-  billsPeriod='single';
-  billsCustomStart='';billsCustomEnd='';
+  billsPeriod='single';billsCustomStart='';billsCustomEnd='';
   const wrap=document.getElementById('customPeriodWrap');
   if(wrap)wrap.style.display='none';
-  updateBillsMonLabel();
-  renderBills();
+  const btn=document.getElementById('billsNavModeMes');
+  setNavMode('mes',btn);
 }
 
 function applyCustomPeriod(){
   const s=document.getElementById('customStart').value;
   const e=document.getElementById('customEnd').value;
   if(s&&e&&s<=e){
-    billsPeriod='custom';
-    billsCustomStart=s;billsCustomEnd=e;
+    billsPeriod='custom';billsCustomStart=s;billsCustomEnd=e;
     updateBillsMonLabel();
     renderBills();
   }
@@ -4235,8 +4303,8 @@ function getBillsForView(view){
   let bills;
   const singleKey=mk(billsCY,billsCM);
 
-  if(billsPeriod==='custom'&&billsCustomStart&&billsCustomEnd){
-    // Generate recurring for each month in custom range
+  if(billsNavMode==='periodo'&&billsCustomStart&&billsCustomEnd){
+    // Custom range: generate recurring for each month in range
     let ry=parseInt(billsCustomStart.split('-')[0]);
     let rm=parseInt(billsCustomStart.split('-')[1])-1;
     while(mk(ry,rm)<=billsCustomEnd){
@@ -4244,6 +4312,14 @@ function getBillsForView(view){
       rm++;if(rm>11){rm=0;ry++;}
     }
     bills=db.bills.filter(b=>b.month>=billsCustomStart&&b.month<=billsCustomEnd);
+  } else if(billsNavMode==='semana'){
+    // Week may span 2 months — load both
+    const{mon,sun}=_weekRangeOf(billsNavDay);
+    const k1=mk(mon.getFullYear(),mon.getMonth());
+    const k2=mk(sun.getFullYear(),sun.getMonth());
+    ensureRecurringForMonth(k1);
+    if(k2!==k1)ensureRecurringForMonth(k2);
+    bills=db.bills.filter(b=>b.month===k1||(k2!==k1&&b.month===k2));
   } else {
     ensureRecurringForMonth(singleKey);
     bills=db.bills.filter(b=>b.month===singleKey);
@@ -4472,6 +4548,16 @@ function renderBills(){
     const u=db.users.find(x=>billsView==='rafael'?x.role==='admin':x.role!=='admin');
     if(u)allBills=allBills.filter(b=>b.userId===u.id);
   }
+
+  // Apply nav mode primary date window filter
+  if(billsNavMode==='dia'){
+    allBills=allBills.filter(b=>{const c=calc(b,td);return c.st!=='future'&&c.dISO===billsNavDay;});
+  } else if(billsNavMode==='semana'){
+    const{mon,sun}=_weekRangeOf(billsNavDay);
+    const wsTs=mon.getTime(),weTs=sun.getTime()+86399999;
+    allBills=allBills.filter(b=>{const c=calc(b,td);if(c.st==='future')return false;const dTs=piso(c.dISO).getTime();return dTs>=wsTs&&dTs<=weTs;});
+  }
+  // 'mes' and 'periodo' are already handled by getBillsForView()
 
   // Apply cycle classification filter (by due date period)
   let bills=[...allBills];
