@@ -4363,6 +4363,15 @@ function renderBills(){
         </div>`
       :'';
 
+    // ── Equação de Fatura com Atraso Anterior ──
+    // Mostra: [Valor Base] + [Saldo de meses anteriores] = [Total próxima fatura]
+    const totalEquacaoPrev=r2(b.amount+prevSaldo);
+    const prevEquacaoHTML=prevSaldo>0&&!isPaid&&isActualCurMonth
+      ?`<div style="margin-top:6px;padding:6px 10px;background:rgba(231,76,60,.05);border:1px solid rgba(231,76,60,.18);border-radius:9px;font-size:.66rem;font-weight:800;color:var(--red);text-align:center;letter-spacing:.01em">
+          ${fmtn(b.amount)} <span style="color:var(--ink3);font-weight:700">+</span> ${fmtn(prevSaldo)} <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">(diárias)</span> <span style="color:var(--ink3);font-weight:700">=</span> <span style="color:var(--red);font-weight:900">${fmtn(totalEquacaoPrev)}</span> <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">para próxima fatura</span>
+        </div>`
+      :'';
+
     // ── Chip de crédito por pagamento excedente ──
     const creditTag=c.credit>0&&!isPaid
       ?`<span style="font-size:.62rem;font-weight:800;color:#27ae60;background:rgba(39,174,96,.1);padding:2px 7px;border-radius:100px">✅ Desc. ${fmt(c.credit)}</span>`
@@ -4405,6 +4414,7 @@ function renderBills(){
           </div>
           ${breakdownHTML}
           ${equacaoHTML}
+          ${prevEquacaoHTML}
         </div>
         <div class="bc-right">
           <div class="bc-val" style="color:${mainValColor}">${mainVal}</div>
