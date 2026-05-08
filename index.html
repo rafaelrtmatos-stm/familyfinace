@@ -5004,8 +5004,38 @@ function refreshDet(id){
     `;
   }
 
+  let installmentProgressCard='';
+  if(b.installment&&b.installment.templateId){
+    const tid=b.installment.templateId;
+    const allParcelas=db.bills
+      .filter(x=>x.installment&&x.installment.templateId===tid)
+      .sort((a,z)=>(a.installment.index||0)-(z.installment.index||0));
+    const totalOriginal=r2(allParcelas.reduce((s,x)=>s+x.amount,0));
+    const totalPago=r2(allParcelas.reduce((s,x)=>s+r2((x.payments||[]).reduce((ss,p)=>ss+p.amount,0)),0));
+    const totalFalta=r2(Math.max(0,totalOriginal-totalPago));
+    const parcelasPagas=allParcelas.filter(x=>r2((x.payments||[]).reduce((s,p)=>s+p.amount,0))>=x.amount).length;
+    const pct=totalOriginal>0?Math.min(100,Math.round(totalPago/totalOriginal*100)):0;
+    const creditTotal=r2(allParcelas.reduce((s,x)=>{
+      const xp=r2((x.payments||[]).reduce((ss,p)=>ss+p.amount,0));
+      return s+Math.max(0,xp-x.amount);
+    },0));
+    const quitado=totalFalta===0&&totalPago>0;
+    installmentProgressCard=`
+    <div class="info-card" style="background:linear-gradient(135deg,rgba(59,79,212,.07),rgba(92,107,192,.04));border:1.5px solid rgba(59,79,212,.18);margin-bottom:11px">
+      <div style="font-size:.56rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--g2);margin-bottom:10px">📊 Progresso do Parcelamento</div>
+      <div style="background:rgba(59,79,212,.12);border-radius:100px;height:8px;margin-bottom:12px;overflow:hidden">
+        <div style="background:var(--g2);height:100%;width:${pct}%;border-radius:100px"></div>
+      </div>
+      <div class="ir"><span class="ir-lbl">Total parcelado</span><span class="ir-val blue">${fmt(totalOriginal)}</span></div>
+      <div class="ir"><span class="ir-lbl">Total pago</span><span class="ir-val green">${fmt(totalPago)}</span></div>
+      <div class="ir"><span class="ir-lbl">Parcelas pagas</span><span class="ir-val">${parcelasPagas} de ${allParcelas.length} (${pct}%)</span></div>
+      ${creditTotal>0?`<div class="ir"><span class="ir-lbl">💡 Adiantamento disponível</span><span class="ir-val green">− ${fmt(creditTotal)} na próxima</span></div>`:''}
+      <div class="ir" style="border-bottom:none"><span class="ir-lbl" style="font-weight:900;color:${quitado?'var(--teal)':'var(--ink)'}">Falta para quitar</span><span class="ir-val" style="font-size:.95rem;font-weight:900;color:${quitado?'var(--teal)':'var(--orange)'}">${quitado?'✓ Quitado!':fmt(totalFalta)}</span></div>
+    </div>`;
+  }
+
   document.getElementById('detBody').innerHTML=`
-    ${nextHTML}${infoCard}
+    ${nextHTML}${infoCard}${installmentProgressCard}
     <div class="pay-hist-lbl">Histórico de Pagamentos <span style="font-size:.6rem;color:var(--ink3);font-weight:600;text-transform:none;letter-spacing:0">(toque para remover)</span></div>
     ${pays||`<div style="text-align:center;background:var(--white);border-radius:12px;padding:18px;color:var(--ink3);font-size:.8rem;font-weight:700;margin-bottom:8px">Nenhum pagamento registrado</div>`}
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
