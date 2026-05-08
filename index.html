@@ -3728,7 +3728,8 @@ function calcConfirm(){
   const n=_cToNum(_cCur);
   if(!n||n<=0){toast('⚠️ Digite um valor válido');return;}
   numStr=String(Math.round(n*100));
-  document.getElementById('addAmt').textContent=centsDisp(numStr);
+  const ai=document.getElementById('addAmtInput');
+  if(ai)setCurVal(ai,n);
   if(addType==='parcelada')updateParcelaPreview();
   closeCalc();
 }
