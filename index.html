@@ -5014,7 +5014,7 @@ function refreshDet(id){
       ${c.late>0?`<div class="ir"><span class="ir-lbl">Dias em atraso</span><span class="ir-val red">${c.late}d úteis</span></div>`:''}
       ${c.acc>0?`<div class="ir"><span class="ir-lbl">Multa de atraso</span><span class="ir-val red">+ ${fmt(c.acc)}</span></div>`:''}
       ${c.paid>0?`<div class="ir"><span class="ir-lbl">Já pago</span><span class="ir-val green">${fmt(c.paid)}</span></div>`:''}
-      <div class="ir" style="border-bottom:none"><span class="ir-lbl">Saldo atual (este mês)</span><span class="ir-val orange" style="font-size:.95rem;font-weight:900">${fmt(c.bal)}</span></div>
+      <div class="ir" style="border-bottom:none"><span class="ir-lbl">Saldo atual (esta semana)</span><span class="ir-val orange" style="font-size:.95rem;font-weight:900">${fmt(c.bal)}</span></div>
       ${secBHTML}${secCHTML}
     </div>
     ${detPrevSaldo>0?`<div class="calc-box">
