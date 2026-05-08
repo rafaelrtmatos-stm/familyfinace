@@ -382,6 +382,15 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 
 /* ── TOAST ── */
 .toast-el{position:absolute;bottom:76px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:9px 18px;border-radius:100px;font-size:.76rem;font-weight:800;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.3);z-index:999;pointer-events:none}
+/* ── SAVE FEEDBACK OVERLAY ── */
+.save-fb-overlay{position:absolute;inset:0;z-index:800;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.38);pointer-events:none}
+.save-fb-overlay.show{display:flex}
+.save-fb-circle{width:72px;height:72px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,0,0,.22)}
+.save-fb-spinner{width:34px;height:34px;border:3.5px solid #eef0f5;border-top-color:var(--g2);border-radius:50%;animation:spin .65s linear infinite}
+.save-fb-check{display:none;width:36px;height:36px}
+.save-fb-check svg{width:36px;height:36px}
+.save-fb-check svg path{stroke-dasharray:50;stroke-dashoffset:50;animation:drawCheck .35s ease forwards}
+@keyframes drawCheck{to{stroke-dashoffset:0}}
 
 /* ── ANIMATIONS ── */
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
@@ -1378,6 +1387,15 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 
 <input type="file" id="impFile" accept=".json" style="display:none" onchange="handleImport(event)"/>
 <div class="toast-el" id="toastEl"></div>
+<!-- ── SAVE FEEDBACK OVERLAY ── -->
+<div class="save-fb-overlay" id="saveFbOverlay">
+  <div class="save-fb-circle" id="saveFbCircle">
+    <div class="save-fb-spinner" id="saveFbSpinner"></div>
+    <div class="save-fb-check" id="saveFbCheck">
+      <svg viewBox="0 0 36 36" fill="none"><path d="M7 18 L15 26 L29 11" stroke="var(--g2)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+</div>
 
 <script>
 
@@ -1672,6 +1690,7 @@ async function _onProfilesChange(){
 async function _onBillsChange(payload){
   console.log('[bills-rt] Mudança recebida:', payload?.eventType, payload);
   if(!curUser)return;
+  if(_savingInProgress)return; // silencia durante save local para evitar piscar
   clearTimeout(_billsRtTimer);
   try{
     await loadFromSupa();
@@ -2137,6 +2156,31 @@ async function saveBillSupa(b){
 
 // Track locally-deleted IDs per session so they don't flicker back before Supabase confirms
 let _pendingDeletes=new Set();
+let _savingInProgress=false;
+
+function _showSaveFb(){
+  const ov=document.getElementById('saveFbOverlay');
+  const sp=document.getElementById('saveFbSpinner');
+  const ck=document.getElementById('saveFbCheck');
+  sp.style.display='block';ck.style.display='none';
+  ov.classList.add('show');
+}
+function _showSaveOk(cb){
+  const sp=document.getElementById('saveFbSpinner');
+  const ck=document.getElementById('saveFbCheck');
+  sp.style.display='none';
+  // reset animation then show
+  ck.style.display='block';
+  const path=ck.querySelector('path');
+  if(path){path.style.animation='none';void path.offsetWidth;path.style.animation='';}
+  setTimeout(()=>{
+    document.getElementById('saveFbOverlay').classList.remove('show');
+    if(cb)cb();
+  },700);
+}
+function _hideSaveFb(){
+  document.getElementById('saveFbOverlay').classList.remove('show');
+}
 function _addPendingDelete(id){_pendingDeletes.add(id);}
 function _removePendingDelete(id){_pendingDeletes.delete(id);}
 
@@ -3737,7 +3781,7 @@ async function saveAdd(){
   const startMonth=document.getElementById('addMonth').value;
   const userId=addUserId||document.getElementById('addUser').value;
 
-  // ── Validação de campos obrigatórios ──
+  // ── Validação ──
   const errors=[];
   if(!total||total<=0)      errors.push({id:'addAmt',     msg:'Digite o valor da conta'});
   if(!name)                 errors.push({id:'addName',    msg:'Digite o nome da conta'});
@@ -3748,15 +3792,12 @@ async function saveAdd(){
 
   if(errors.length){
     const first=errors[0];
-    // Navigate to the step that contains the erroneous field
     const stepMap={addAmt:0,addUser:1,addName:2,addDay:2,addMonthLabel:2};
-    const targetStep=stepMap[first.id]??2;
-    goAddStep(targetStep);
+    goAddStep(stepMap[first.id]??2);
     setTimeout(()=>{
       const el=document.getElementById(first.id);
       if(el){
-        el.style.outline='2px solid var(--red)';
-        el.style.borderRadius='8px';
+        el.style.outline='2px solid var(--red)';el.style.borderRadius='8px';
         setTimeout(()=>{el.style.outline='';el.style.borderRadius='';},2000);
         el.scrollIntoView({behavior:'smooth',block:'center'});
       }
@@ -3765,121 +3806,110 @@ async function saveAdd(){
     return;
   }
 
+  // ── Fechar form imediatamente para evitar piscar ──
+  back();
+  _showSaveFb();
+  _savingInProgress=true;
+
   const billDay=day;
   const billMonth=startMonth||mk(CY,CM);
   const billName=name;
 
-  if(addType==='avista'){
-    const id=uid();
-    const bill={id,templateId:id,name:billName,amount:total,day:billDay,month:billMonth,
-      userId,payMethod:selPMethod,category:selCat,cycle:'avista',
-      recurring:false,noDaily:true,installment:null,payments:[],shared:addShared};
-    db.bills.push(bill);
-    await insertBillSupa(bill);
-    toast(`✓ Conta adicionada — ${fmt(total)}`);
+  try{
+    if(addType==='avista'){
+      const id=uid();
+      const bill={id,templateId:id,name:billName,amount:total,day:billDay,month:billMonth,
+        userId,payMethod:selPMethod,category:selCat,cycle:'avista',
+        recurring:false,noDaily:true,installment:null,payments:[],shared:addShared};
+      db.bills.push(bill);
+      await insertBillSupa(bill);
 
-  } else if(addType==='parcelada'){
-    const n=Math.max(2,parseInt(document.getElementById('addParcelas').value)||2);
-    const parcel=r2(total/n);
-    const lastParcel=r2(total-(parcel*(n-1)));
-    const tid=uid();
-    const{y,m}=ymk(billMonth);
-    const newBills=[];
-    if(addParcelaFreq==='mensal'){
-      for(let i=0;i<n;i++){
-        let cy=y,cm=m+i;while(cm>11){cm-=12;cy++;}
-        const amt=i===n-1?lastParcel:parcel;
-        const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:billDay,month:mk(cy,cm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
-        db.bills.push(bill);newBills.push(bill);
-      }
-    } else if(addParcelaFreq==='semanal'){
-      const firstDate=getDatesOfWeekday(y,m,addParcelaWeekday)[0];
-      if(!firstDate){toast('⚠️ Dia da semana não ocorre neste mês');return;}
-      let curD=new Date(y,m,firstDate);
-      for(let i=0;i<n;i++){
-        const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
-        const amt=i===n-1?lastParcel:parcel;
-        const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,weeklyDay:addParcelaWeekday,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
-        db.bills.push(bill);newBills.push(bill);
-        curD.setDate(curD.getDate()+7);
-      }
-    } else if(addParcelaFreq==='diaria'){
-      let curD=new Date(y,m,billDay);
-      for(let i=0;i<n;i++){
-        const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
-        const amt=i===n-1?lastParcel:parcel;
-        const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
-        db.bills.push(bill);newBills.push(bill);
-        curD.setDate(curD.getDate()+1);
-      }
-    }
-    for(const b of newBills)await insertBillSupa(b);
-    const freqLabel=addParcelaFreq==='mensal'?'meses':addParcelaFreq==='semanal'?'semanas':'dias';
-    toast(`✓ ${n} parcelas de ${fmt(parcel)} (${freqLabel}) criadas`);
-
-  } else if(addType==='recorrente'){
-    const tid=uid();
-    const bill={
-      id:uid(),templateId:tid,
-      name:billName,amount:total,day:billDay,month:billMonth,
-      userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
-      recurring:true,payments:[],shared:addShared
-    };
-    db.bills.push(bill);
-    await insertBillSupa(bill);
-    preFillFutureMonths();
-    toast(`✓ Recorrente criada — aparece em todos os meses`);
-
-  } else if(addType==='semanal'){
-    const{y,m}=ymk(billMonth);
-    const tid=uid();
-    const newBills=[];
-
-    if(addSemanalMode==='parcela'){
-      // N sequential weekly installments (may span multiple months)
-      const n=Math.max(2,parseInt(document.getElementById('addSemParcelas').value)||4);
-      const firstDate=getDatesOfWeekday(y,m,addWeekday)[0];
-      if(!firstDate){toast('⚠️ Dia da semana não ocorre neste mês');return;}
+    } else if(addType==='parcelada'){
+      const n=Math.max(2,parseInt(document.getElementById('addParcelas').value)||2);
       const parcel=r2(total/n);
-      const lastParcel=r2(total-parcel*(n-1));
-      let curD=new Date(y,m,firstDate);
-      for(let i=0;i<n;i++){
-        const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
-        const amt=i===n-1?lastParcel:parcel;
-        const bill={
-          id:uid(),templateId:tid,
-          name:`${billName} (${i+1}/${n})`,
-          amount:amt,day:bd,month:mk(by,bm),
-          userId,payMethod:selPMethod,category:selCat,
-          recurring:false,weeklyDay:addWeekday,
-          installment:{index:i+1,total:n,originalTotal:total,templateId:tid},
-          payments:[],shared:addShared
-        };
-        db.bills.push(bill);newBills.push(bill);
-        curD.setDate(curD.getDate()+7);
+      const lastParcel=r2(total-(parcel*(n-1)));
+      const tid=uid();
+      const{y,m}=ymk(billMonth);
+      const newBills=[];
+      if(addParcelaFreq==='mensal'){
+        for(let i=0;i<n;i++){
+          let cy=y,cm=m+i;while(cm>11){cm-=12;cy++;}
+          const amt=i===n-1?lastParcel:parcel;
+          const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:billDay,month:mk(cy,cm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+          db.bills.push(bill);newBills.push(bill);
+        }
+      } else if(addParcelaFreq==='semanal'){
+        const firstDate=getDatesOfWeekday(y,m,addParcelaWeekday)[0];
+        if(!firstDate){_savingInProgress=false;_hideSaveFb();toast('⚠️ Dia da semana não ocorre neste mês');return;}
+        let curD=new Date(y,m,firstDate);
+        for(let i=0;i<n;i++){
+          const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
+          const amt=i===n-1?lastParcel:parcel;
+          const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,weeklyDay:addParcelaWeekday,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+          db.bills.push(bill);newBills.push(bill);
+          curD.setDate(curD.getDate()+7);
+        }
+      } else if(addParcelaFreq==='diaria'){
+        let curD=new Date(y,m,billDay);
+        for(let i=0;i<n;i++){
+          const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
+          const amt=i===n-1?lastParcel:parcel;
+          const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+          db.bills.push(bill);newBills.push(bill);
+          curD.setDate(curD.getDate()+1);
+        }
       }
       for(const b of newBills)await insertBillSupa(b);
-      toast(`✓ ${n} semanas de ${fmt(parcel)} criadas`);
 
-    } else {
-      // Recorrente: one entry per weekday occurrence in start month, then future months
-      const dates=getDatesOfWeekday(y,m,addWeekday);
-      dates.forEach(d=>{
-        const bill={
-          id:uid(),templateId:tid,
-          name:billName,amount:total,day:d,month:billMonth,
-          userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
-          recurring:true,weeklyDay:addWeekday,payments:[],shared:addShared
-        };
-        db.bills.push(bill);newBills.push(bill);
-      });
-      for(const b of newBills)await insertBillSupa(b);
+    } else if(addType==='recorrente'){
+      const tid=uid();
+      const bill={id:uid(),templateId:tid,name:billName,amount:total,day:billDay,month:billMonth,
+        userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
+        recurring:true,payments:[],shared:addShared};
+      db.bills.push(bill);
+      await insertBillSupa(bill);
       preFillFutureMonths();
-      toast(`✓ Toda ${WD_NAMES[addWeekday]} — ${dates.length} contas criadas`);
-    }
-  }
 
-  back();
+    } else if(addType==='semanal'){
+      const{y,m}=ymk(billMonth);
+      const tid=uid();
+      const newBills=[];
+      if(addSemanalMode==='parcela'){
+        const n=Math.max(2,parseInt(document.getElementById('addSemParcelas').value)||4);
+        const firstDate=getDatesOfWeekday(y,m,addWeekday)[0];
+        if(!firstDate){_savingInProgress=false;_hideSaveFb();toast('⚠️ Dia da semana não ocorre neste mês');return;}
+        const parcel=r2(total/n);
+        const lastParcel=r2(total-parcel*(n-1));
+        let curD=new Date(y,m,firstDate);
+        for(let i=0;i<n;i++){
+          const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
+          const amt=i===n-1?lastParcel:parcel;
+          const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),
+            userId,payMethod:selPMethod,category:selCat,recurring:false,weeklyDay:addWeekday,
+            installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+          db.bills.push(bill);newBills.push(bill);
+          curD.setDate(curD.getDate()+7);
+        }
+        for(const b of newBills)await insertBillSupa(b);
+      } else {
+        const dates=getDatesOfWeekday(y,m,addWeekday);
+        dates.forEach(d=>{
+          const bill={id:uid(),templateId:tid,name:billName,amount:total,day:d,month:billMonth,
+            userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
+            recurring:true,weeklyDay:addWeekday,payments:[],shared:addShared};
+          db.bills.push(bill);newBills.push(bill);
+        });
+        for(const b of newBills)await insertBillSupa(b);
+        preFillFutureMonths();
+      }
+    }
+  } finally {
+    // Render único após todos os inserts, depois mostra checkmark
+    calculateTotals();
+    if(curSc==='sc-home')renderHome();
+    else if(curSc==='sc-bills')renderBills();
+    _showSaveOk(()=>{_savingInProgress=false;});
+  }
 }
 
 /* ══════════════════════════════════════════════════
