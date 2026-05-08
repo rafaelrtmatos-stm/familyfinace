@@ -2349,77 +2349,157 @@ function wdBefore(startISO,endISO){
 function calc(b,ref){
   ref=ref||today();
   const{y,m}=ymk(b.month);
+  const td=today();
+  const hols=hset();
+
+  // ══════════════════════════════════════════════════
+  // REGRA DE CICLOS — cada tipo tem 1 ciclo independente
+  // Fora do ciclo atual = 'future' (invisível, fora do contador)
+  // Atraso só existe se o ciclo JÁ PASSOU e não foi pago
+  // ══════════════════════════════════════════════════
+
+  const paid=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
+
+  // ── CONTA DIÁRIA (parcelas diárias) ──────────────────────────
+  // Ciclo = 1 dia. Diária = valor fixo. Futuro = invisível.
+  if(b.cycle==='diaria'||b.category==='diaria'){
+    const daily=b.amount;
+    const vencDate=new Date(+y,+m,b.day);
+    vencDate.setHours(0,0,0,0);
+    const hojeDate=piso(td);
+    const vencTs=vencDate.getTime();
+
+    if(vencTs>hojeDate){
+      // Parcela futura — não existe ainda
+      return{wd:1,daily:0,periodStart:'',rawDueISO:'',dISO:'',
+             daysElapsed:0,daysLeft:1,late:0,acc:0,accrued:0,
+             upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
+    }
+    const dISO=iso(vencDate);
+    const accrued=b.amount;
+    const late=vencTs<hojeDate?Math.round((hojeDate-vencTs)/86400000):0;
+    const bal=Math.max(0,r2(accrued-paid));
+    let st;
+    if(paid>=b.amount&&paid>0)st='paid';
+    else if(late>0)st='late';
+    else st='pending';
+    return{wd:1,daily,periodStart:dISO,rawDueISO:dISO,dISO,
+           daysElapsed:1,daysLeft:0,late,acc:0,accrued,
+           upd:b.amount,paid,bal,st,credit:Math.max(0,r2(paid-accrued)),monthShare:b.amount};
+  }
+
+  // ── CONTA SEMANAL ────────────────────────────────────────────
+  // Ciclo = 1 semana seg–sab, 6 dias úteis. Futuro = invisível.
+  if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
+    const wd=6;
+    const daily=r2(b.amount/wd);
+    const rawDueISO=iso(new Date(+y,+m,b.day));
+    const vencDate=piso(rawDueISO);
+    const startDate=new Date(vencDate);
+    startDate.setDate(new Date(vencDate).getDate()-6);
+    const periodStart=iso(startDate);
+    const dISO=adjustDue(rawDueISO);
+    const refTs=piso(ref);
+    const inicioTs=startDate.getTime();
+    const fimTs=piso(rawDueISO);
+
+    if(refTs<inicioTs){
+      // Semana futura — não existe ainda
+      return{wd,daily:0,periodStart,rawDueISO,dISO,
+             daysElapsed:0,daysLeft:wd,late:0,acc:0,accrued:0,
+             upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
+    }
+
+    let daysElapsed,daysLeft,late,acc,accrued,st;
+    if(refTs<=fimTs){
+      // Semana atual — acumula diárias dos dias decorridos
+      daysElapsed=wdBefore(periodStart,ref);
+      daysLeft=wd-daysElapsed;
+      late=0; acc=0;
+      accrued=r2(daily*daysElapsed);
+      st=paid>=b.amount?'paid':paid>0&&paid<accrued?'partial':'pending';
+    } else {
+      // Semana passou — atraso com valor FIXO, sem acréscimo
+      daysElapsed=wd;
+      daysLeft=0;
+      late=wdb(dISO,ref);
+      acc=0; // sem acréscimo de diárias no atraso
+      accrued=b.amount; // valor fixo
+      st=paid>=b.amount?'paid':'late';
+    }
+
+    const bal=Math.max(0,r2(accrued-paid));
+    const credit=Math.max(0,r2(paid-accrued));
+    const monthShare=b.amount;
+    return{wd,daily,periodStart,rawDueISO,dISO,
+           daysElapsed,daysLeft,late,acc,accrued,
+           upd:r2(b.amount+acc),paid,bal,st,credit,monthShare};
+  }
+
+  // ── CONTA MENSAL (padrão, recorrente, parcelada, à vista) ────
+  // Ciclo = 1 mês. Mês futuro = invisível. Atraso = valor fixo.
+  const mesAtual=mk(CY,CM);
+
+  // Mês futuro — não existe ainda, não entra no contador
+  if(b.month>mesAtual){
+    return{wd:0,daily:0,periodStart:'',rawDueISO:'',dISO:'',
+           daysElapsed:0,daysLeft:0,late:0,acc:0,accrued:0,
+           upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
+  }
 
   let periodStart,rawDueISO,wd;
-
-  if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
-    // WEEKLY bill: each instance is self-contained within its own 6-day Mon–Sat window.
-    // Period starts 6 calendar days before the bill's own due day (b.day).
-    rawDueISO=iso(new Date(y,m,b.day));
-    const dueTs=piso(rawDueISO);
-    const startTs=new Date(dueTs);startTs.setDate(startTs.getDate()-6);
-    periodStart=iso(startTs);
-    wd=6; // always 6 working days (Mon–Sat)
-  } else {
-    // Billing CYCLE: from day b.day of the PREVIOUS month to day b.day of current month
-    let py=y,pm=m-1;if(pm<0){pm=11;py--;}
-    periodStart=iso(new Date(py,pm,b.day));
-    rawDueISO  =iso(new Date(y,m,b.day));
-    // Total workdays in the full cycle
-    wd=wdBefore(periodStart,rawDueISO)+1;
-  }
+  let py=+y,pm=+m-1;if(pm<0){pm=11;py--;}
+  periodStart=iso(new Date(py,pm,b.day));
+  rawDueISO=iso(new Date(+y,+m,b.day));
+  wd=wdBefore(periodStart,rawDueISO)+1;
 
   const dISO=adjustDue(rawDueISO);
 
-  // Daily rate depends on cycle type
-  // Weekly bills already have wd=6; other bills respect the cycle setting
   let divisor=wd;
-  if(b.weeklyDay===undefined||b.weeklyDay===null){
-    const cycle=b.cycle||'day';
-    if(cycle==='fortnight') divisor=15;
-    else if(cycle==='month'){
-      const ps=piso(periodStart),pd=piso(rawDueISO);
-      divisor=Math.round((pd-ps)/(864e5))+1;
-    }
+  const cycle=b.cycle||'day';
+  if(cycle==='fortnight')divisor=15;
+  else if(cycle==='month'){
+    const ps=piso(periodStart),pd=piso(rawDueISO);
+    divisor=Math.round((pd-ps)/(864e5))+1;
   }
   if(divisor<1)divisor=1;
   let daily=r2(b.amount/divisor);
 
-  const paid=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
   const refDate=piso(ref);
   const dueDate=piso(dISO);
 
   let daysElapsed,daysLeft,late,acc,accrued;
 
   if(b.noDaily||b.cycle==='avista'){
-    // À vista: valor fixo, sem multa extra, mas diária calculada sobre os dias restantes
     acc=0;
     if(refDate>piso(dISO)){
-      // Passou do vencimento — diária = valor total (urgência máxima)
       late=wdb(dISO,ref); daysElapsed=wd; daysLeft=0;
       daily=b.amount;
     } else {
-      // Dentro do prazo — diária = valor / dias úteis restantes até o vencimento
       late=0;
       daysElapsed=wdBefore(periodStart,ref);
-      daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hset())?1:0);
+      daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hols)?1:0);
       daily=r2(b.amount/Math.max(1,daysLeft));
     }
     accrued=b.amount;
-  } else if(refDate<=piso(dISO)){
-    // Before or on due: count workdays elapsed from period start up to today (not incl today)
-    daysElapsed=wdBefore(periodStart,ref);
-    // Days left: workdays from today up to and including adjusted due
-    daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hset())?1:0);
-    late=0; acc=0;
-    accrued=r2(daysElapsed*daily);
-  } else {
-    // After due: full amount + late penalty
+  } else if(b.month<mesAtual){
+    // Mês anterior não pago — atraso com valor FIXO, sem acréscimo de diárias
     daysElapsed=wd;
     daysLeft=0;
     late=wdb(dISO,ref);
-    acc=r2(daily*late);
-    accrued=r2(b.amount+acc);
+    acc=0; // sem acréscimo
+    accrued=b.amount; // valor fixo
+  } else if(refDate<=dueDate){
+    daysElapsed=wdBefore(periodStart,ref);
+    daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hols)?1:0);
+    late=0; acc=0;
+    accrued=r2(daysElapsed*daily);
+  } else {
+    daysElapsed=wd;
+    daysLeft=0;
+    late=wdb(dISO,ref);
+    acc=0; // sem acréscimo de diárias no atraso
+    accrued=b.amount; // valor fixo
   }
 
   const upd=b.noDaily?b.amount:r2(b.amount+acc);
@@ -2432,13 +2512,11 @@ function calc(b,ref){
   else if(late>0)st='late';
   else st='pending';
 
-  // Overpayment credit: how much paid exceeds what has accrued so far
   const credit=Math.max(0,r2(paid-accrued));
 
-  // Monthly share for weekly bills that span a month boundary (Regra 1: corte mensal)
   let monthShare=b.amount;
   if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
-    const firstOfMonthISO=iso(new Date(y,m,1));
+    const firstOfMonthISO=iso(new Date(+y,+m,1));
     if(periodStart<firstOfMonthISO){
       const hs2=hset();
       const daysInThisMonth=wdBefore(firstOfMonthISO,rawDueISO)+(isWD(piso(rawDueISO),hs2)?1:0);
@@ -2448,7 +2526,6 @@ function calc(b,ref){
 
   return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd,paid,bal,st,credit,monthShare};
 }
-
 // Mês anterior em atraso = valor original da conta (sem diárias extras acumuladas após vencimento)
 function origBal(b){
   const paid=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
@@ -4337,6 +4414,7 @@ function renderBills(){
   let tot=0,paid=0,bal=0,daily=0;
   allBills.forEach(b=>{
     const c=calc(b,td);
+    if(c.st==='future')return; // ciclo futuro — não entra no contador
     tot+=b.amount;paid+=c.paid;bal+=c.bal;daily=r2(daily+c.daily);
   });
   const cofreTotal=getCofreVal();
@@ -4367,6 +4445,7 @@ function renderBills(){
     const isDiariaFixa=(b.recurring||isSemanal)&&!b.noDaily;
     const isActualCurMonth=b.month===mk(CY,CM);
     const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
+    if(c.st==='future')return''; // ciclo futuro — invisível, não renderiza
     const{y:by,m:bm}=ymk(b.month);
 
     // Contas atrasadas de meses anteriores do mesmo template (ordenadas do mais antigo)
