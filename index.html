@@ -867,7 +867,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="inner-top">
       <button class="back-btn" onclick="back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="inner-title">Contas</div>
-      <button class="inner-action" onclick="go('sc-add')">+ Nova</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button id="billsSearchToggle" onclick="toggleBillsSearch()" style="width:34px;height:34px;border:none;border-radius:9px;background:rgba(255,255,255,.18);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+        </button>
+        <button class="inner-action" onclick="go('sc-add')">+ Nova</button>
+      </div>
     </div>
   </div>
   <!-- Month navigator + period selector -->
@@ -904,6 +909,14 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="fc" onclick="setF('partial',this)">Parciais</button>
     <button class="fc" onclick="setF('recurring',this)">Recorrentes</button>
     <button class="fc" onclick="setF('semanal',this)">📅 Semanais</button>
+  </div>
+  <!-- Search bar (hidden by default) -->
+  <div id="billsSearchBar" style="display:none;padding:8px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:8px;background:#f4f6fa;border-radius:10px;padding:0 12px;border:1.5px solid #e2e6ef">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+      <input id="billsSearchInput" type="text" placeholder="Buscar conta por nome…" oninput="billsSearch=this.value.trim().toLowerCase();renderBills()" style="flex:1;border:none;background:none;padding:9px 0;font-family:'Nunito',sans-serif;font-size:.83rem;font-weight:700;color:var(--ink);outline:none"/>
+      <button id="billsSearchClear" onclick="clearBillsSearch()" style="display:none;border:none;background:none;cursor:pointer;color:var(--ink3);padding:0;font-size:1rem;line-height:1">✕</button>
+    </div>
   </div>
   <div class="bills-scroll" id="billsList"></div>
 </div>
@@ -4205,6 +4218,7 @@ function periodLabel(){
 }
 let activeF='all';
 let billsView='all'; // 'all'|'mine'|'custom'
+let billsSearch='';
 let billsCustomUids=[];
 
 function setBillsView(v,el){
@@ -4249,6 +4263,23 @@ function setF(f,el){
   if(el)el.classList.add('on');
   renderBills();
 }
+function toggleBillsSearch(){
+  const bar=document.getElementById('billsSearchBar');
+  const inp=document.getElementById('billsSearchInput');
+  const btn=document.getElementById('billsSearchToggle');
+  const open=bar.style.display==='none';
+  bar.style.display=open?'flex':'none';
+  btn.style.background=open?'rgba(255,255,255,.35)':'rgba(255,255,255,.18)';
+  if(open){inp.focus();}else{clearBillsSearch();}
+}
+function clearBillsSearch(){
+  billsSearch='';
+  const inp=document.getElementById('billsSearchInput');
+  if(inp)inp.value='';
+  const clrBtn=document.getElementById('billsSearchClear');
+  if(clrBtn)clrBtn.style.display='none';
+  renderBills();
+}
 
 function renderBills(){
   updateBillsMonLabel();
@@ -4289,6 +4320,12 @@ function renderBills(){
   else if(activeF==='partial')bills=bills.filter(b=>calc(b,td).st==='partial');
   else if(activeF==='recurring')bills=bills.filter(b=>b.recurring);
   else if(activeF==='semanal')bills=bills.filter(b=>b.category==='semanal');
+
+  // Apply name search filter
+  if(billsSearch)bills=bills.filter(b=>b.name.toLowerCase().includes(billsSearch));
+  // Show/hide clear button
+  const clrBtn=document.getElementById('billsSearchClear');
+  if(clrBtn)clrBtn.style.display=billsSearch?'block':'none';
 
   let tot=0,paid=0,bal=0,daily=0;
   allBills.forEach(b=>{
