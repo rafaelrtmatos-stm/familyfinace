@@ -372,10 +372,8 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .exp-btn:active{border-color:var(--g2);color:var(--g2);background:rgba(59,79,212,.07)}
 
 /* ── FILTER BAR ── */
-.fbar{display:flex;gap:5px;overflow-x:auto;padding:8px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
-.fbar::-webkit-scrollbar{display:none}
-.fbar .fc{scroll-snap-align:start;flex-shrink:0}
-.fc{padding:6px 13px;border-radius:100px;font-size:.72rem;font-weight:800;cursor:pointer;border:1.5px solid #dde2ec;background:transparent;color:var(--ink3);white-space:nowrap;transition:all .17s;min-height:34px}
+.fbar{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0}
+.fc{padding:5px 11px;border-radius:100px;font-size:.69rem;font-weight:800;cursor:pointer;border:1.5px solid #dde2ec;background:transparent;color:var(--ink3);white-space:nowrap;transition:all .17s;min-height:30px}
 .fc.on{background:var(--g2);border-color:var(--g2);color:#fff}
 
 /* ── SUMMARY BAR ── */
@@ -913,22 +911,20 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
   <div id="billsVfbar" style="display:flex;gap:5px;overflow-x:auto;padding:8px 14px 6px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
   <div id="billsCustomUsers" style="display:none;flex-wrap:nowrap;gap:5px;overflow-x:auto;padding:5px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
   <!-- Cycle classification filter -->
-  <div class="fbar" id="billsCycleBar" style="border-bottom:none;padding-bottom:4px">
-    <button class="fc on" id="bcyc-all"    onclick="setCycle('all',this)">Todas</button>
-    <button class="fc"    id="bcyc-diaria" onclick="setCycle('diaria',this)">📆 Diária</button>
-    <button class="fc"    id="bcyc-semanal" onclick="setCycle('semanal',this)">📅 Semanal</button>
+  <div class="fbar" id="billsCycleBar" style="border-bottom:none;padding-bottom:3px">
+    <button class="fc on" id="bcyc-all"     onclick="setCycle('all',this)">Todas</button>
+    <button class="fc"    id="bcyc-diaria"  onclick="setCycle('diaria',this)">📆 Diária</button>
+    <button class="fc"    id="bcyc-semanal" onclick="setCycle('semanal',this)">📅 Semana</button>
     <button class="fc"    id="bcyc-mensal"  onclick="setCycle('mensal',this)">🗓️ Mensal</button>
-    <button class="fc"    id="bcyc-custom"  onclick="setCycle('custom',this)">⚙️ Personalizado</button>
+    <button class="fc"    id="bcyc-custom"  onclick="setCycle('custom',this)">⚙️ Personal.</button>
   </div>
-  <!-- Status filter: all tabs in one scrollable row -->
+  <!-- Status filter -->
   <div class="fbar">
     <button class="fc on" onclick="setF('all',this)">Todas</button>
     <button class="fc" onclick="setF('pending',this)">Pendentes</button>
     <button class="fc" onclick="setF('paid',this)">Pagas</button>
     <button class="fc" onclick="setF('late',this)">Atrasadas</button>
     <button class="fc" onclick="setF('partial',this)">Parciais</button>
-    <button class="fc" onclick="setF('recurring',this)">Recorrentes</button>
-    <button class="fc" onclick="setF('semanal',this)">📅 Semanais</button>
   </div>
   <!-- Search bar (hidden by default) -->
   <div id="billsSearchBar" style="display:none;padding:8px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
