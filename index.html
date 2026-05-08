@@ -2458,7 +2458,8 @@ function calc(b,ref){
   periodStart=iso(new Date(py,pm,b.day));
   rawDueISO=iso(new Date(+y,+m,b.day));
   wd=wdBefore(periodStart,rawDueISO)+1;
-  const dISO=adjustDue(rawDueISO);
+  // For daily installments: use exact stored date (no backward adjustment)
+  const dISO=b.installment?rawDueISO:adjustDue(rawDueISO);
   let divisor=wd;
   const cycle=b.cycle||'day';
   if(cycle==='fortnight')divisor=15;
@@ -4019,12 +4020,16 @@ async function saveAdd(){
         }
       } else if(addParcelaFreq==='diaria'){
         let curD=new Date(y,m,billDay);
+        // Skip weekend for the very first day
+        while(curD.getDay()===0||curD.getDay()===6)curD.setDate(curD.getDate()+1);
         for(let i=0;i<n;i++){
           const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
           const amt=i===n-1?lastParcel:parcel;
           const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
           db.bills.push(bill);newBills.push(bill);
+          // Advance to next day, skipping weekends
           curD.setDate(curD.getDate()+1);
+          while(curD.getDay()===0||curD.getDay()===6)curD.setDate(curD.getDate()+1);
         }
       }
       for(const b of newBills)await insertBillSupa(b);
