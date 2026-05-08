@@ -2448,6 +2448,12 @@ function calc(b,ref){
   return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd,paid,bal,st,credit,monthShare};
 }
 
+// Mês anterior em atraso = valor original da conta (sem diárias extras acumuladas após vencimento)
+function origBal(b){
+  const paid=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
+  return Math.max(0,r2(b.amount-paid));
+}
+
 /* ══════════════════════════════════════════════════
    CATEGORIES
 ══════════════════════════════════════════════════ */
@@ -2994,7 +3000,7 @@ function updateCaixa(){
     totalOrig   =r2(totalOrig+b.amount);
   });
   const prevLateBills=getLateBillsPrevMonths();
-  const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+calc(b,td).bal,0));
+  const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+origBal(b),0));
   const remainWd=Math.max(1,wdBefore(td,iso(new Date(y,m+1,1))));
   const lateAddonDaily=totalPrevLateBal>0?r2(totalPrevLateBal/remainWd):0;
   const totalDailyWithLate=r2(totalDaily+lateAddonDaily);
@@ -3083,7 +3089,7 @@ function openLateBillsModal(){
     listEl.innerHTML='<div style="text-align:center;padding:24px;color:var(--ink3);font-size:.84rem;font-weight:700">✓ Nenhuma conta atrasada de meses anteriores</div>';
     overlay.style.display='flex';return;
   }
-  const totalLate=r2(bills.reduce((s,b)=>s+calc(b,td).bal,0));
+  const totalLate=r2(bills.reduce((s,b)=>s+origBal(b),0));
   listEl.innerHTML=`
     <div style="background:rgba(231,76,60,.09);border:1.5px solid rgba(231,76,60,.22);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -3104,7 +3110,7 @@ function openLateBillsModal(){
           <div style="font-size:.68rem;color:var(--ink3);font-weight:700;margin-top:2px">${uname?uname+' · ':''}${MN[bm].slice(0,3)} ${by} · Dia ${b.day}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:.88rem;font-weight:900;color:var(--red)">${fmt(c.bal)}</div>
+          <div style="font-size:.88rem;font-weight:900;color:var(--red)">${fmt(origBal(b))}</div>
           <div style="font-size:.62rem;font-weight:800;color:var(--red);margin-top:2px">Em atraso</div>
         </div>
       </div>`;
@@ -3180,7 +3186,7 @@ function renderHome(){
   });
   // ── Late bills from previous months ──
   const prevLateBills=getLateBillsPrevMonths();
-  const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+calc(b,td).bal,0));
+  const totalPrevLateBal=r2(prevLateBills.reduce((s,b)=>s+origBal(b),0));
   const remainWd=Math.max(1,wdBefore(td,iso(new Date(y,m+1,1))));
   const lateAddonDaily=totalPrevLateBal>0?r2(totalPrevLateBal/remainWd):0;
   const totalDailyWithLate=r2(totalDaily+lateAddonDaily);
