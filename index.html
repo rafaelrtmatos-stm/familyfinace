@@ -4437,10 +4437,10 @@ function renderBills(){
           </div>
         </div>
         <div style="margin-top:9px;padding:8px 10px;background:rgba(59,79,212,.05);border-radius:10px;border-left:3px solid var(--g2)">
-          <div style="font-size:.57rem;font-weight:900;text-transform:uppercase;color:var(--g2);margin-bottom:6px;letter-spacing:.05em">Seção A</div>
+          <div style="font-size:.57rem;font-weight:900;text-transform:uppercase;color:var(--g2);margin-bottom:6px;letter-spacing:.05em">Seção A — Diárias do Mês Atual</div>
           <div style="display:flex;flex-direction:column;gap:4px">
             <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700">
-              <span style="color:var(--ink3)">Original</span>
+              <span style="color:var(--ink3)">Valor original</span>
               <span style="color:var(--ink);font-weight:800">${fmtn(b.amount)}</span>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700">
@@ -4451,22 +4451,19 @@ function renderBills(){
               <span style="color:var(--ink3);font-weight:700">Saldo (este mês)</span>
               <span style="color:var(--g2);font-weight:900">${fmtn(c.accrued)}</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:800;color:var(--red)">
-              <span>⚠️ Meses anteriores</span>
-              <span>+ ${fmtn(prevSaldo)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:900;border-top:1px solid rgba(59,79,212,.12);margin-top:2px;padding-top:4px">
-              <span style="color:var(--ink)">Total a pagar</span>
-              <span style="color:var(--red)">${fmtn(totalAPagar)}</span>
-            </div>
           </div>
         </div>
         <div style="margin-top:6px;padding:8px 10px;background:rgba(231,76,60,.04);border-radius:10px;border-left:3px solid var(--red)">
-          <div style="font-size:.57rem;font-weight:900;text-transform:uppercase;color:var(--red);margin-bottom:5px;letter-spacing:.05em">⚠️ Seção B — Meses Anteriores${latePrevBills.length>1?' ('+latePrevBills.length+')':''}</div>
+          <div style="font-size:.57rem;font-weight:900;text-transform:uppercase;color:var(--red);margin-bottom:6px;letter-spacing:.05em">Seção B — Cálculo do Mês</div>
+          <div style="font-size:.63rem;font-weight:800;color:var(--ink3);margin-bottom:4px">Original</div>
           ${sectionBRows}
-          <div style="display:flex;justify-content:space-between;font-size:.7rem;font-weight:900;margin-top:4px;padding-top:4px">
-            <span style="color:var(--red)">Total em atraso</span>
-            <span style="color:var(--red)">${fmtn(prevSaldo)}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.7rem;font-weight:700;padding:3px 0;border-bottom:1px solid rgba(231,76,60,.08)">
+            <span style="color:var(--ink3)">${MNS[m]} ${y} <span style="font-size:.6rem;color:var(--g2);font-weight:800">(a vencer)</span></span>
+            <span style="color:var(--g2);font-weight:900">${fmtn(b.amount)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:900;margin-top:6px;padding-top:5px;border-top:1.5px solid rgba(231,76,60,.18)">
+            <span style="color:var(--red)">Total débitos</span>
+            <span style="color:var(--red)">${fmtn(r2(prevSaldo+b.amount))}</span>
           </div>
         </div>
         ${b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
