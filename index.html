@@ -1196,18 +1196,73 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <div class="us-title" style="margin-bottom:0">Editar Conta</div>
       <button onclick="closeEditSheet()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3);padding:4px">✕</button>
     </div>
-    <div class="us-field"><div class="us-label">Nome da conta</div>
-      <input type="text" class="us-inp" id="editName" placeholder="Ex: Aluguel…"/>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px">
-      <div class="us-field" style="margin-bottom:0"><div class="us-label" id="editAmountLabel">Valor (R$)</div>
-        <input type="text" inputmode="numeric" class="us-inp" id="editAmount" placeholder="0,00" oninput="currMask(this);_editInstCalc('parcela')"/>
+    <!-- Valor + calculadora -->
+    <div class="us-field">
+      <div class="us-label" id="editAmountLabel">Valor da conta (R$)</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="text" inputmode="numeric" class="us-inp" id="editAmount" placeholder="0,00" style="flex:1" oninput="currMask(this);_editInstCalc('parcela')"/>
+        <button onclick="openCalc('editAmount')" style="flex-shrink:0;padding:9px 12px;border-radius:10px;border:1.5px solid #dde2ec;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--ink2);cursor:pointer;display:flex;align-items:center;gap:5px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
+          Calculadora
+        </button>
       </div>
-      <div class="us-field" style="margin-bottom:0"><div class="us-label">Dia vencimento</div>
-        <input type="number" class="us-inp" id="editDay" inputmode="numeric" pattern="[0-9]*" min="1" max="31" placeholder="Ex: 20"/>
+    </div>
+    <!-- Responsável -->
+    <div class="us-field"><div class="us-label">Responsável</div>
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button class="pm-chip" id="editUserRafa" onclick="setEditUser('rafa',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👤 Rafa</button>
+        <button class="pm-chip" id="editUserGuigui" onclick="setEditUser('guigui',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👤 Guigui</button>
+        <button class="pm-chip" id="editUserTodos" onclick="setEditUser('todos',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👥 Todos</button>
+      </div>
+      <input type="hidden" id="editUser" value=""/>
+    </div>
+    <!-- Categoria -->
+    <div class="us-field"><div class="us-label">Categoria</div>
+      <div class="cat-grid" id="editCatGrid"></div>
+    </div>
+    <!-- Tipo de conta -->
+    <div class="us-field"><div class="us-label">Tipo de conta</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="pm-chip" id="editTypeAvista" onclick="setEditType('avista',this)">💳 À vista</button>
+        <button class="pm-chip" id="editTypeParcelada" onclick="setEditType('parcelada',this)">📋 Parcelada</button>
+        <button class="pm-chip" id="editTypeRecorrente" onclick="setEditType('recorrente',this)">↺ Recorrente</button>
+        <button class="pm-chip" id="editTypeSemanal" onclick="setEditType('semanal',this)">📅 Semanal</button>
+      </div>
+      <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
+    </div>
+    <!-- Semanal: dia da semana (visível só quando tipo=semanal) -->
+    <div id="editSemanalWrap" style="display:none;margin-bottom:11px">
+      <div class="us-label">Dia da semana</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="pm-chip" id="ewd0" onclick="setEditWeekday(0,this)">Dom</button>
+        <button class="pm-chip sel" id="ewd1" onclick="setEditWeekday(1,this)">Seg</button>
+        <button class="pm-chip" id="ewd2" onclick="setEditWeekday(2,this)">Ter</button>
+        <button class="pm-chip" id="ewd3" onclick="setEditWeekday(3,this)">Qua</button>
+        <button class="pm-chip" id="ewd4" onclick="setEditWeekday(4,this)">Qui</button>
+        <button class="pm-chip" id="ewd5" onclick="setEditWeekday(5,this)">Sex</button>
+        <button class="pm-chip" id="ewd6" onclick="setEditWeekday(6,this)">Sáb</button>
       </div>
     </div>
-    <div id="editInstallmentRow" style="display:none;margin-bottom:11px">
+    <!-- Parcelada: frequência + nº de parcelas (visível só quando tipo=parcelada) -->
+    <div id="editParcelaWrap" style="display:none;margin-bottom:11px">
+      <div class="us-label" style="margin-bottom:6px">Frequência das parcelas</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="pm-chip sel" id="editPfreqMensal" onclick="setEditParcelaFreq('mensal')" style="flex:1">📅 Mensal</button>
+        <button class="pm-chip" id="editPfreqSemanal" onclick="setEditParcelaFreq('semanal')" style="flex:1">📆 Semanal</button>
+        <button class="pm-chip" id="editPfreqDiaria" onclick="setEditParcelaFreq('diaria')" style="flex:1">🗓️ Diária</button>
+      </div>
+      <div id="editPfreqSemanalWrap" style="display:none;margin-bottom:8px">
+        <div class="us-label" style="margin-bottom:4px">Dia da semana das parcelas</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+          <button class="pm-chip" id="epwd0" onclick="setEditParcelaWeekday(0,this)">Dom</button>
+          <button class="pm-chip sel" id="epwd1" onclick="setEditParcelaWeekday(1,this)">Seg</button>
+          <button class="pm-chip" id="epwd2" onclick="setEditParcelaWeekday(2,this)">Ter</button>
+          <button class="pm-chip" id="epwd3" onclick="setEditParcelaWeekday(3,this)">Qua</button>
+          <button class="pm-chip" id="epwd4" onclick="setEditParcelaWeekday(4,this)">Qui</button>
+          <button class="pm-chip" id="epwd5" onclick="setEditParcelaWeekday(5,this)">Sex</button>
+          <button class="pm-chip" id="epwd6" onclick="setEditParcelaWeekday(6,this)">Sáb</button>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
         <div class="us-field" style="margin-bottom:0"><div class="us-label">Nº de parcelas</div>
           <input type="number" class="us-inp" id="editInstallments" inputmode="numeric" min="2" max="60" placeholder="Ex: 10" oninput="_editInstCalc('n')"/>
@@ -1218,31 +1273,35 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
       <div id="editInstallPreview" style="font-size:.76rem;font-weight:800;color:var(--g2);padding:7px 12px;background:rgba(59,79,212,.07);border-radius:8px;display:none;text-align:center"></div>
     </div>
-    <div class="us-field"><div class="us-label">Mês de referência</div>
-      <div style="position:relative;display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;cursor:pointer" onclick="try{document.getElementById('editMonth').showPicker();}catch(e){document.getElementById('editMonth').focus()}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span id="editMonthLabel" style="font-size:.88rem;font-weight:700;color:var(--ink);flex:1">—</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        <input type="month" id="editMonth" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"
-          oninput="const v=this.value;if(v){const p=v.split('-');document.getElementById('editMonthLabel').textContent=MN[parseInt(p[1])-1]+' '+p[0];}"/>
-      </div>
+    <!-- Nome da conta -->
+    <div class="us-field"><div class="us-label">Nome da conta</div>
+      <input type="text" class="us-inp" id="editName" placeholder="Ex: Aluguel, Energia…"/>
     </div>
-    <div class="us-field"><div class="us-label">Tipo de conta</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="pm-chip" id="editTypeAvista" onclick="setEditType('avista',this)">💳 À vista</button>
-        <button class="pm-chip" id="editTypeParcelada" onclick="setEditType('parcelada',this)">📋 Parcelada</button>
-        <button class="pm-chip" id="editTypeRecorrente" onclick="setEditType('recorrente',this)">↺ Recorrente</button>
-      </div>
-      <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
+    <!-- Dia de vencimento -->
+    <div class="us-field"><div class="us-label" id="editDayLabel">Dia de vencimento</div>
+      <input type="number" class="us-inp" id="editDay" inputmode="numeric" pattern="[0-9]*" min="1" max="31" placeholder="Ex: 20"/>
     </div>
-    <div class="us-field"><div class="us-label">Responsável</div>
-      <div style="display:flex;gap:8px;margin-bottom:4px">
-        <button class="pm-chip" id="editUserRafa" onclick="setEditUser('rafa',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👤 Rafa</button>
-        <button class="pm-chip" id="editUserGuigui" onclick="setEditUser('guigui',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👤 Guigui</button>
-        <button class="pm-chip" id="editUserTodos" onclick="setEditUser('todos',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👥 Todos</button>
-      </div>
-      <input type="hidden" id="editUser" value=""/>
+    <!-- Quando entra no sistema -->
+    <div class="us-label" style="margin-bottom:6px">Quando entra no sistema</div>
+    <div class="qdates" id="editQDates" style="margin-bottom:8px">
+      <button class="qd" onclick="applyEditQD('prev',this)">← Mês anterior</button>
+      <button class="qd" onclick="applyEditQD('current',this)">Este mês</button>
+      <button class="qd" onclick="applyEditQD('next',this)">Mês que vem</button>
+      <button class="qd" onclick="applyEditQD('plus2',this)">+2 meses</button>
+      <button class="qd" onclick="applyEditQD('plus6',this)">+6 meses</button>
+      <button class="qd" onclick="applyEditQD('plus12',this)">+1 ano</button>
     </div>
+    <div style="position:relative;display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;cursor:pointer;margin-bottom:11px" onclick="try{document.getElementById('editMonth').showPicker();}catch(e){document.getElementById('editMonth').focus()}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--g2)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <div style="flex:1">
+        <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:2px">Mês de início</div>
+        <span id="editMonthLabel" style="font-size:.9rem;font-weight:800;color:var(--ink)">—</span>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <input type="month" id="editMonth" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"
+        oninput="const v=this.value;if(v){const p=v.split('-');document.getElementById('editMonthLabel').textContent=MN[parseInt(p[1])-1]+' '+p[0];document.querySelectorAll('#editQDates .qd').forEach(b=>b.classList.remove('on'));}"/>
+    </div>
+    <!-- Forma de pagamento -->
     <div class="us-field"><div class="us-label">Forma de pagamento</div>
       <div class="pm-row" style="margin-bottom:4px">
         <button class="pm-chip" id="editPMpix" onclick="setEditPM(this,'pix')">💸 Pix</button>
@@ -1251,15 +1310,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip" id="editPMoutro" onclick="setEditPM(this,'outro')">💰 Outro</button>
       </div>
     </div>
-    <div class="us-field"><div class="us-label">Categoria</div>
-      <div class="cat-grid" id="editCatGrid"></div>
-    </div>
-    <div id="editRecurringRow" class="us-field" style="display:none">
-      <div class="us-label">Esta é uma conta recorrente</div>
-      <div style="font-size:.75rem;color:var(--ink3);font-weight:700;margin-top:4px;padding:8px;background:#f7f9fc;border-radius:8px">
-        ℹ️ Editar aqui muda apenas esta parcela. Para alterar todas as parcelas futuras, exclua e recrie a conta.
-      </div>
-    </div>
+    <div id="editRecurringRow" class="us-field" style="display:none"></div>
     <input type="hidden" id="editBillId"/>
     <button onclick="saveEditBill()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;margin-top:6px">Salvar alterações</button>
   </div>
@@ -3658,7 +3709,9 @@ function _cRefresh(){
   document.getElementById('calcMainVal').textContent=_cCur;
 }
 
-function openCalc(){
+let _calcTarget='addAmtInput';
+function openCalc(targetId){
+  _calcTarget=targetId||'addAmtInput';
   _cCur='0';_cPrev=null;_cOp=null;_cFresh=false;
   _cRefresh();
   document.getElementById('calcOverlay').style.display='flex';
@@ -3717,9 +3770,11 @@ function calcConfirm(){
   const n=_cToNum(_cCur);
   if(!n||n<=0){toast('⚠️ Digite um valor válido');return;}
   numStr=String(Math.round(n*100));
-  const ai=document.getElementById('addAmtInput');
+  const tgt=_calcTarget||'addAmtInput';
+  const ai=document.getElementById(tgt);
   if(ai)setCurVal(ai,n);
-  if(addType==='parcelada')updateParcelaPreview();
+  if(tgt==='addAmtInput'&&addType==='parcelada')updateParcelaPreview();
+  if(tgt==='editAmount')_editInstCalc('parcela');
   closeCalc();
 }
 function selPM(el,m){
@@ -5127,6 +5182,9 @@ function _editInstCalc(src){
 let _editBillType='avista';
 let _editPayMethod='pix';
 let _editCat='outro';
+let _editWeekday=1;
+let _editParcelaFreq='mensal';
+let _editParcelaWeekday=1;
 
 function setEditUser(val,el){
   document.querySelectorAll('#editUserRafa,#editUserGuigui,#editUserTodos').forEach(b=>b.classList.remove('sel'));
@@ -5160,31 +5218,68 @@ function renderEditCatGrid(){
 
 function setEditType(t,el){
   _editBillType=t;
-  document.querySelectorAll('#editTypeAvista,#editTypeParcelada,#editTypeRecorrente').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('#editTypeAvista,#editTypeParcelada,#editTypeRecorrente,#editTypeSemanal').forEach(b=>b.classList.remove('sel'));
   if(el)el.classList.add('sel');
   const note=document.getElementById('editTypeNote');
-  const cycleRow=document.getElementById('editCycleRow');
-  const instRow=document.getElementById('editInstallmentRow');
+  const parcelaWrap=document.getElementById('editParcelaWrap');
+  const semanalWrap=document.getElementById('editSemanalWrap');
   const amtLbl=document.getElementById('editAmountLabel');
+  const dayLbl=document.getElementById('editDayLabel');
+  note.style.display='block';
   if(t==='avista'){
-    note.style.display='block';
     note.textContent='💳 À vista: valor fixo, sem acréscimo de diária. Aparece como atrasada se não paga.';
-    if(cycleRow)cycleRow.style.display='none';
-    if(instRow)instRow.style.display='none';
-    if(amtLbl)amtLbl.textContent='Valor (R$)';
+    if(parcelaWrap)parcelaWrap.style.display='none';
+    if(semanalWrap)semanalWrap.style.display='none';
+    if(amtLbl)amtLbl.textContent='Valor da conta (R$)';
+    if(dayLbl)dayLbl.textContent='Dia de vencimento';
   } else if(t==='parcelada'){
-    note.style.display='block';
-    note.textContent='📋 Parcelada: cada parcela acumula diária normalmente até o vencimento.';
-    if(cycleRow)cycleRow.style.display='block';
-    if(instRow)instRow.style.display='block';
+    note.textContent='📋 Parcelada: cada parcela tem valor individual e acumula diária até o vencimento.';
+    if(parcelaWrap)parcelaWrap.style.display='block';
+    if(semanalWrap)semanalWrap.style.display='none';
     if(amtLbl)amtLbl.textContent='Por parcela (R$)';
+    if(dayLbl)dayLbl.textContent='Dia de vencimento';
+  } else if(t==='semanal'){
+    note.textContent='📅 Semanal: cobrança automática no dia da semana selecionado.';
+    if(parcelaWrap)parcelaWrap.style.display='none';
+    if(semanalWrap)semanalWrap.style.display='block';
+    if(amtLbl)amtLbl.textContent='Valor semanal (R$)';
+    if(dayLbl)dayLbl.textContent='Dia base (dia do mês de início)';
   } else {
-    note.style.display='block';
     note.textContent='↺ Recorrente: gera nova parcela todo mês e acumula diária normalmente.';
-    if(cycleRow)cycleRow.style.display='block';
-    if(instRow)instRow.style.display='none';
-    if(amtLbl)amtLbl.textContent='Valor (R$)';
+    if(parcelaWrap)parcelaWrap.style.display='none';
+    if(semanalWrap)semanalWrap.style.display='none';
+    if(amtLbl)amtLbl.textContent='Valor da conta (R$)';
+    if(dayLbl)dayLbl.textContent='Dia de vencimento';
   }
+}
+function setEditWeekday(d,el){
+  _editWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('ewd'+i)?.classList.toggle('sel',i===d));
+}
+function setEditParcelaFreq(f){
+  _editParcelaFreq=f;
+  ['Mensal','Semanal','Diaria'].forEach(v=>{
+    document.getElementById('editPfreq'+v)?.classList.toggle('sel',v.toLowerCase()===f);
+  });
+  const sw=document.getElementById('editPfreqSemanalWrap');
+  if(sw)sw.style.display=f==='semanal'?'block':'none';
+}
+function setEditParcelaWeekday(d,el){
+  _editParcelaWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('epwd'+i)?.classList.toggle('sel',i===d));
+}
+function applyEditQD(opt,el){
+  const n=new Date();let y=n.getFullYear(),m=n.getMonth();
+  if(opt==='prev'){m--;if(m<0){m=11;y--;}}
+  else if(opt==='next'){m++;if(m>11){m=0;y++;}}
+  else if(opt==='plus2'){m+=2;while(m>11){m-=12;y++;}}
+  else if(opt==='plus6'){m+=6;while(m>11){m-=12;y++;}}
+  else if(opt==='plus12'){y++;}
+  const val=mk(y,m);
+  document.getElementById('editMonth').value=val;
+  document.getElementById('editMonthLabel').textContent=MN[m]+' '+y;
+  document.querySelectorAll('#editQDates .qd').forEach(b=>b.classList.remove('on'));
+  if(el)el.classList.add('on');
 }
 
 // Flag: whether to apply edit to all siblings
@@ -5202,15 +5297,21 @@ function openEditSheet(id,applyAll){
   const{y:my,m:mm}=ymk(b.month);
   const mlbl=document.getElementById('editMonthLabel');
   if(mlbl)mlbl.textContent=MN[mm]+' '+my;
-  // Set bill type selector
+  // Highlight quick-date button if month matches
+  const curMonthKey=mk(CY,CM);
+  document.querySelectorAll('#editQDates .qd').forEach(btn=>btn.classList.remove('on'));
+  if(b.month===curMonthKey){const btn=document.querySelector('#editQDates .qd:nth-child(2)');if(btn)btn.classList.add('on');}
+  // Set bill type selector — detect semanal
   const isSemanalBill=b.category==='semanal'||b.weeklyDay!==undefined;
-  const bType=isSemanalBill?'recorrente':(b.recurring?'recorrente':(b.installment&&b.installment.total>1?'parcelada':'avista'));
-  setEditType(bType,document.getElementById(
-    bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista'
-  ));
-  const cycle='day';
-  setEditCycle(cycle,null);
-  // Pre-fill installment fields if parcelada
+  const bType=isSemanalBill?'semanal':(b.recurring?'recorrente':(b.installment&&b.installment.total>1?'parcelada':'avista'));
+  const typeElId=bType==='semanal'?'editTypeSemanal':bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista';
+  setEditType(bType,document.getElementById(typeElId));
+  // Semanal weekday
+  if(isSemanalBill){
+    _editWeekday=b.weeklyDay!==undefined?b.weeklyDay:1;
+    [0,1,2,3,4,5,6].forEach(i=>document.getElementById('ewd'+i)?.classList.toggle('sel',i===_editWeekday));
+  }
+  // Pre-fill installment fields
   const instEl=document.getElementById('editInstallments');
   const totalEl=document.getElementById('editAmountTotal');
   const instPrev=document.getElementById('editInstallPreview');
@@ -5220,18 +5321,35 @@ function openEditSheet(id,applyAll){
     if(instEl)instEl.value=n;
     if(totalEl)setCurVal(totalEl,total);
     if(instPrev){instPrev.textContent=`${n}× ${fmt(b.amount)} = Total ${fmt(total)}`;instPrev.style.display='block';}
+    // Detect parcelada freq from weeklyDay or cycle
+    if(b.weeklyDay!==undefined){
+      _editParcelaFreq='semanal';
+      _editParcelaWeekday=b.weeklyDay;
+      setEditParcelaFreq('semanal');
+      [0,1,2,3,4,5,6].forEach(i=>document.getElementById('epwd'+i)?.classList.toggle('sel',i===b.weeklyDay));
+    } else if(b.cycle==='diaria'||b.category==='diaria'){
+      _editParcelaFreq='diaria';
+      setEditParcelaFreq('diaria');
+    } else {
+      _editParcelaFreq='mensal';
+      setEditParcelaFreq('mensal');
+    }
   } else {
     if(instEl)instEl.value='';
     if(totalEl)setCurVal(totalEl,0);
     if(instPrev)instPrev.style.display='none';
+    _editParcelaFreq='mensal';
+    setEditParcelaFreq('mensal');
   }
   // Pay method buttons
   _editPayMethod=b.payMethod||'pix';
   document.querySelectorAll('#editPMpix,#editPMdinheiro,#editPMcartao,#editPMoutro').forEach(btn=>btn.classList.remove('sel'));
   const _pmBtn=document.getElementById('editPM'+_editPayMethod);
   if(_pmBtn)_pmBtn.classList.add('sel');
-  // Category grid
-  _editCat=b.category||'outro';
+  // Category grid — for semanal set to 'semanal' cat, else use bill cat
+  _editCat=(isSemanalBill&&b.category==='semanal')?'outro':(b.category||'outro');
+  if(isSemanalBill&&b.category!=='semanal')_editCat=b.category;
+  else if(!isSemanalBill)_editCat=b.category||'outro';
   renderEditCatGrid();
   // User buttons
   const _editUHidden=document.getElementById('editUser');
@@ -5252,7 +5370,7 @@ function openEditSheet(id,applyAll){
       <div style="background:rgba(59,79,212,.08);border:1.5px solid rgba(59,79,212,.2);border-radius:8px;padding:9px 12px;font-size:.78rem;font-weight:700;color:var(--g2)">
         ✓ Editar todas as <strong>${count}</strong> parcelas sem pagamento
       </div>`;
-  } else if(b.recurring){
+  } else if(b.recurring||isSemanalBill){
     recRow.style.display='block';
     recRow.innerHTML=`<div class="us-label">Conta recorrente</div>
       <div style="font-size:.75rem;color:var(--ink3);font-weight:700;padding:8px;background:#f7f9fc;border-radius:8px">
@@ -5278,13 +5396,12 @@ async function saveEditBill(){
   const userId=document.getElementById('editUser').value;
   const payMethod=_editPayMethod;
   const category=_editCat;
-  // Ciclo fixo por tipo de conta — sem escolha do usuário
-  const cycle=_editBillType==='avista'?'avista':'day';
   // Derive type fields from _editBillType
+  const cycle=_editBillType==='avista'?'avista':'day';
   const noDaily=_editBillType==='avista';
-  const newRecurring=_editBillType==='recorrente';
-  const newCategory=category;
-  const newWeeklyDay=undefined;
+  const newRecurring=_editBillType==='recorrente'||_editBillType==='semanal';
+  const newWeeklyDay=_editBillType==='semanal'?_editWeekday:undefined;
+  const newCategory=_editBillType==='semanal'?'semanal':category;
   if(!name){toast('Digite o nome');return;}
   if(!amount||amount<=0){toast('Valor inválido');return;}
   if(!day||day<1||day>31){toast('Dia inválido');return;}
@@ -5295,13 +5412,13 @@ async function saveEditBill(){
     const siblings=db.bills.filter(x=>x.templateId===tid&&!x.payments?.length);
     await Promise.all(siblings.map(s=>{
       const suffix=s.installment?` (${s.installment.index}/${s.installment.total})`:'';
-      const upd={name:name+suffix,amount,day,userId,payMethod,category:newCategory,noDaily,recurring:newRecurring,cycle,shared:newShared};
+      const upd={name:name+suffix,amount,day,userId,payMethod,category:newCategory,noDaily,recurring:newRecurring,cycle,shared:newShared,weeklyDay:newWeeklyDay};
       Object.assign(s,upd);
       return saveBillSupa(s);
     }));
     toast(`✓ ${siblings.length} parcela${siblings.length!==1?'s':''} atualizadas`);
   } else {
-    const upd={name,amount,day,month,userId,payMethod,category:newCategory,cycle,noDaily,recurring:newRecurring,shared:newShared};
+    const upd={name,amount,day,month,userId,payMethod,category:newCategory,cycle,noDaily,recurring:newRecurring,shared:newShared,weeklyDay:newWeeklyDay};
     Object.assign(b,upd);
     await saveBillSupa(b);
     toast('✓ Conta atualizada');
