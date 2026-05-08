@@ -1527,11 +1527,19 @@ function startBillsRealtime(){
     .subscribe((status,err)=>{
       console.log('[bills-rt] status:', status, err||'');
       if(status==='SUBSCRIBED'){
-        console.log('[bills-rt] canal bills inscrito com sucesso — aguardando mudanças...');
+        console.log('[bills-rt] ✅ canal bills inscrito com sucesso — aguardando mudanças em tempo real...');
         _setRtStatus('bills',true);
         clearTimeout(_billsReconnTimer);_billsReconnTimer=null;
       } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
-        console.error('[bills-rt] canal perdido:',status,err||'');
+        console.error('[bills-rt] ❌ canal perdido:',status, err||'');
+        if(err&&(String(err).includes('42501')||String(err).includes('permission')||String(err).includes('RLS'))){
+          console.error('[bills-rt] ⚠️ ERRO DE PERMISSÃO (RLS) — execute no Supabase: ALTER TABLE bills ENABLE ROW LEVEL SECURITY; e crie a policy de acesso.');
+        }
+        _setRtStatus('bills',false);
+        clearTimeout(_billsReconnTimer);
+        _billsReconnTimer=setTimeout(()=>{if(!curUser)return;stopBillsRealtime();startBillsRealtime();},5000);
+      } else if(status==='TIMED_OUT'){
+        console.warn('[bills-rt] ⏱ timeout na conexão Realtime — reconectando em 5s...');
         _setRtStatus('bills',false);
         clearTimeout(_billsReconnTimer);
         _billsReconnTimer=setTimeout(()=>{if(!curUser)return;stopBillsRealtime();startBillsRealtime();},5000);
@@ -1609,10 +1617,19 @@ function startProfilesRealtime(){
     .subscribe((status,err)=>{
       console.log('[profiles-rt] status:',status,err||'');
       if(status==='SUBSCRIBED'){
+        console.log('[profiles-rt] ✅ canal profiles inscrito com sucesso.');
         _setRtStatus('profiles',true);
         clearTimeout(_profilesReconnTimer);_profilesReconnTimer=null;
       } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
-        console.error('[profiles-rt] canal perdido:',status,err||'');
+        console.error('[profiles-rt] ❌ canal perdido:',status,err||'');
+        if(err&&(String(err).includes('42501')||String(err).includes('permission')||String(err).includes('RLS'))){
+          console.error('[profiles-rt] ⚠️ ERRO DE PERMISSÃO (RLS) na tabela profiles — verifique as policies no Supabase.');
+        }
+        _setRtStatus('profiles',false);
+        clearTimeout(_profilesReconnTimer);
+        _profilesReconnTimer=setTimeout(()=>{if(!curUser)return;stopProfilesRealtime();startProfilesRealtime();},5000);
+      } else if(status==='TIMED_OUT'){
+        console.warn('[profiles-rt] ⏱ timeout na conexão Realtime — reconectando em 5s...');
         _setRtStatus('profiles',false);
         clearTimeout(_profilesReconnTimer);
         _profilesReconnTimer=setTimeout(()=>{if(!curUser)return;stopProfilesRealtime();startProfilesRealtime();},5000);
@@ -1638,10 +1655,19 @@ function startAppSettingsRealtime(){
     .subscribe((status,err)=>{
       console.log('[settings-rt] status:',status,err||'');
       if(status==='SUBSCRIBED'){
+        console.log('[settings-rt] ✅ canal app_settings inscrito com sucesso.');
         _setRtStatus('settings',true);
         clearTimeout(_appSettingsReconnTimer);_appSettingsReconnTimer=null;
       } else if(status==='CHANNEL_ERROR'||status==='CLOSED'){
-        console.error('[settings-rt] canal perdido:',status,err||'');
+        console.error('[settings-rt] ❌ canal perdido:',status,err||'');
+        if(err&&(String(err).includes('42501')||String(err).includes('permission')||String(err).includes('RLS'))){
+          console.error('[settings-rt] ⚠️ ERRO DE PERMISSÃO (RLS) na tabela app_settings — verifique as policies no Supabase.');
+        }
+        _setRtStatus('settings',false);
+        clearTimeout(_appSettingsReconnTimer);
+        _appSettingsReconnTimer=setTimeout(()=>{if(!curUser)return;stopAppSettingsRealtime();startAppSettingsRealtime();},5000);
+      } else if(status==='TIMED_OUT'){
+        console.warn('[settings-rt] ⏱ timeout na conexão Realtime — reconectando em 5s...');
         _setRtStatus('settings',false);
         clearTimeout(_appSettingsReconnTimer);
         _appSettingsReconnTimer=setTimeout(()=>{if(!curUser)return;stopAppSettingsRealtime();startAppSettingsRealtime();},5000);
