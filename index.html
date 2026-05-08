@@ -912,6 +912,14 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
   <!-- View filter: Mine / All / Custom -->
   <div id="billsVfbar" style="display:flex;gap:5px;overflow-x:auto;padding:8px 14px 6px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
   <div id="billsCustomUsers" style="display:none;flex-wrap:nowrap;gap:5px;overflow-x:auto;padding:5px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
+  <!-- Cycle classification filter -->
+  <div class="fbar" id="billsCycleBar" style="border-bottom:none;padding-bottom:4px">
+    <button class="fc on" id="bcyc-all"    onclick="setCycle('all',this)">Todas</button>
+    <button class="fc"    id="bcyc-diaria" onclick="setCycle('diaria',this)">📆 Diária</button>
+    <button class="fc"    id="bcyc-semanal" onclick="setCycle('semanal',this)">📅 Semanal</button>
+    <button class="fc"    id="bcyc-mensal"  onclick="setCycle('mensal',this)">🗓️ Mensal</button>
+    <button class="fc"    id="bcyc-custom"  onclick="setCycle('custom',this)">⚙️ Personalizado</button>
+  </div>
   <!-- Status filter: all tabs in one scrollable row -->
   <div class="fbar">
     <button class="fc on" onclick="setF('all',this)">Todas</button>
@@ -2865,6 +2873,10 @@ function go(id){
   if(id==='sc-home')renderHome();
   else if(id==='sc-bills'){
     billsCY=CY;billsCM=CM;billsPeriod='single';
+    billsCycle='all';
+    document.querySelectorAll('#billsCycleBar .fc').forEach(b=>b.classList.remove('on'));
+    const cycleAll=document.getElementById('bcyc-all');
+    if(cycleAll)cycleAll.classList.add('on');
     const vfEl=document.getElementById('billsVfbar');
     if(vfEl)vfEl.innerHTML=''; // force re-render of view filter
     renderBills();
@@ -4262,6 +4274,7 @@ function periodLabel(){
   return`${MN[billsCM]} ${billsCY}`;
 }
 let activeF='all';
+let billsCycle='all'; // 'all'|'diaria'|'semanal'|'mensal'|'custom'
 let billsView='all'; // 'all'|'mine'|'custom'
 let billsSearch='';
 let billsCustomUids=[];
@@ -4304,7 +4317,14 @@ function toggleBillsUser(uid2,el){
 
 function setF(f,el){
   activeF=f;
-  document.querySelectorAll('.fbar .fc').forEach(b=>b.classList.remove('on'));
+  // Only reset 'on' in the status fbar (second .fbar, not the cycle bar)
+  document.querySelectorAll('.fbar:not(#billsCycleBar) .fc').forEach(b=>b.classList.remove('on'));
+  if(el)el.classList.add('on');
+  renderBills();
+}
+function setCycle(c,el){
+  billsCycle=c;
+  document.querySelectorAll('#billsCycleBar .fc').forEach(b=>b.classList.remove('on'));
   if(el)el.classList.add('on');
   renderBills();
 }
@@ -4457,8 +4477,19 @@ function renderBills(){
     if(u)allBills=allBills.filter(b=>b.userId===u.id);
   }
 
-  // Apply status filter
+  // Apply cycle classification filter
   let bills=[...allBills];
+  if(billsCycle==='diaria')bills=bills.filter(b=>b.cycle==='diaria'||b.category==='diaria');
+  else if(billsCycle==='semanal')bills=bills.filter(b=>b.weeklyDay!==undefined&&b.weeklyDay!==null||b.category==='semanal');
+  else if(billsCycle==='mensal')bills=bills.filter(b=>{
+    const isDiaria=b.cycle==='diaria'||b.category==='diaria';
+    const isSemanal=b.weeklyDay!==undefined&&b.weeklyDay!==null||b.category==='semanal';
+    const isCustom=!!b.installment||b.cycle==='avista'||b.noDaily;
+    return!isDiaria&&!isSemanal&&!isCustom&&b.recurring;
+  });
+  else if(billsCycle==='custom')bills=bills.filter(b=>!!b.installment||b.cycle==='avista'||b.noDaily);
+
+  // Apply status filter
   if(activeF==='paid')bills=bills.filter(b=>calc(b,td).st==='paid');
   else if(activeF==='pending')bills=bills.filter(b=>calc(b,td).st==='pending');
   else if(activeF==='late')bills=bills.filter(b=>calc(b,td).st==='late');
