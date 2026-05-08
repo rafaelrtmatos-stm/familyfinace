@@ -557,9 +557,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="gh-menu" id="syncBtn" onclick="syncData()" title="Sincronizar dados">
         <svg id="syncIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
       </button>
-      <button class="gh-menu" onclick="go('sc-dashboard')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      </button>
     </div>
     <!-- Balance widget -->
     <div style="position:relative;z-index:2">
@@ -660,6 +657,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     </div>
+    <button class="bni" id="bni-dashboard" onclick="go('sc-dashboard')">
+      <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+      <div class="bni-lbl">Painel</div>
+    </button>
     <button class="bni" id="bni-charts" onclick="go('sc-charts')">
       <div class="bni-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <div class="bni-lbl">Gráficos</div>
@@ -2848,7 +2849,7 @@ async function logout(){
 ══════════════════════════════════════════════════ */
 let curSc='sc-home';
 const navStack=[];  // navigation history stack
-const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts'};
+const BNAV_MAP={'sc-home':'bni-home','sc-bills':'bni-bills','sc-charts':'bni-charts','sc-dashboard':'bni-dashboard'};
 
 function go(id){
   if(id===curSc)return;
