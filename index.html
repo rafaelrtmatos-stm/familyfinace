@@ -5029,7 +5029,7 @@ function openPaySheet(){
   if(latePrev.length>0){
     psLinked.style.display='block';
     psLinked.innerHTML=`<div style="border-top:1.5px dashed rgba(231,76,60,.25);padding-top:10px">
-      <div style="font-size:.58rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:8px">⚠️ ${latePrev.length} mes${latePrev.length!==1?'es':'} anterior${latePrev.length!==1?'es':''} em atraso — quitar junto?</div>
+      <div style="font-size:.58rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:8px">⚠️ ${latePrev.length} mes${latePrev.length!==1?'es':''} anterior${latePrev.length!==1?'es':''} em atraso — quitar junto?</div>
       ${latePrev.map(x=>{
         const{y:xy,m:xm}=ymk(x.month);
         return`<div id="psAlsoRow_${x.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(231,76,60,.06);border-radius:10px;margin-bottom:6px;border:1.5px solid rgba(231,76,60,.18);transition:all .2s">
