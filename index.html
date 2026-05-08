@@ -160,7 +160,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 
 /* ── NUMPAD ── */
 .numpad{background:#f5f7fc;border-top:1px solid #e8eaf2;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;flex-shrink:0}
-.npk{padding:17px;text-align:center;font-size:1.18rem;font-weight:700;cursor:pointer;background:var(--white);color:var(--ink);border:none;transition:all .13s;font-family:'Nunito',sans-serif;-webkit-tap-highlight-color:transparent;user-select:none}
+.npk{padding:17px;text-align:center;font-size:1.18rem;font-weight:700;cursor:pointer;background:var(--white);color:var(--ink);border:none;transition:background .13s;font-family:'Nunito',sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
 .npk:active{background:#eef2ff}
 .npk.ok{background:var(--g2);color:#fff;font-size:.88rem;font-weight:900}
 .npk.ok:active{background:var(--g3)}
@@ -6290,6 +6290,8 @@ function initTheme(){
 
   phone.addEventListener('touchstart',e=>{
     if(!curUser)return;
+    // Do not activate PTR when tapping inside a numpad
+    if(e.target.closest('.numpad'))return;
     // Only trigger from top of scrollable content
     const scEl=document.querySelector('#sc-'+curSc.replace('sc-','')+' .sbody, #sc-home .sbody');
     const scrolled=scEl?scEl.scrollTop:0;
