@@ -5093,7 +5093,7 @@ function delBill(id){
 }
 
 function setEditCycle(c,el){
-  document.querySelectorAll('#editCycleDay,#editCycleSemanal,#editCycleFortnight,#editCycleMonth').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('#editCycleDay,#editCycleFortnight,#editCycleMonth').forEach(b=>b.classList.remove('sel'));
   if(el)el.classList.add('sel');
 }
 
@@ -5172,11 +5172,8 @@ function openEditSheet(id,applyAll){
   setEditType(bType,document.getElementById(
     bType==='recorrente'?'editTypeRecorrente':bType==='parcelada'?'editTypeParcelada':'editTypeAvista'
   ));
-  // Set cycle — semanal bills map to 'semanal' cycle
-  const cycle=isSemanalBill?'semanal':(b.cycle||'day');
-  setEditCycle(cycle,document.getElementById(
-    cycle==='semanal'?'editCycleSemanal':cycle==='fortnight'?'editCycleFortnight':cycle==='month'?'editCycleMonth':'editCycleDay'
-  ));
+  const cycle='day';
+  setEditCycle(cycle,null);
   // Pre-fill installment fields if parcelada
   const instEl=document.getElementById('editInstallments');
   const totalEl=document.getElementById('editAmountTotal');
