@@ -4020,16 +4020,16 @@ async function saveAdd(){
         }
       } else if(addParcelaFreq==='diaria'){
         let curD=new Date(y,m,billDay);
-        // Skip weekend for the very first day
-        while(curD.getDay()===0||curD.getDay()===6)curD.setDate(curD.getDate()+1);
+        // Skip Sundays only for the very first day
+        while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
         for(let i=0;i<n;i++){
           const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
           const amt=i===n-1?lastParcel:parcel;
           const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
           db.bills.push(bill);newBills.push(bill);
-          // Advance to next day, skipping weekends
+          // Advance to next day, skipping only Sundays
           curD.setDate(curD.getDate()+1);
-          while(curD.getDay()===0||curD.getDay()===6)curD.setDate(curD.getDate()+1);
+          while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
         }
       }
       for(const b of newBills)await insertBillSupa(b);
