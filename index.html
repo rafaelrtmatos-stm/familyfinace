@@ -825,12 +825,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="pm-chip" onclick="selPM(this,'cartao')">💳 Cartão</button>
       <button class="pm-chip" onclick="selPM(this,'outro')">💰 Outro</button>
     </div>
-    <div class="abl">Ciclo de cobrança (diária)</div>
-    <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
-      <button class="pm-chip sel" id="cycleDay" onclick="setCycle('day',this)">📅 Por dia</button>
-      <button class="pm-chip" id="cycleFortnight" onclick="setCycle('fortnight',this)">📅 Quinzenal</button>
-      <button class="pm-chip" id="cycleMonth" onclick="setCycle('month',this)">📅 Mensal</button>
-    </div>
   </div>
   <div style="padding:10px 16px 14px;background:var(--white);border-top:1px solid #eef0f5;flex-shrink:0">
     <button onclick="saveAdd()" style="width:100%;padding:14px;border-radius:var(--rs);border:none;background:var(--g2);color:#fff;font-family:'Nunito',sans-serif;font-size:.92rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(59,79,212,.3)">✓ Salvar conta</button>
@@ -1240,14 +1234,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip" id="editTypeRecorrente" onclick="setEditType('recorrente',this)">↺ Recorrente</button>
       </div>
       <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
-    </div>
-    <div class="us-field" id="editCycleRow"><div class="us-label">Ciclo de cobrança (diária)</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="pm-chip sel" id="editCycleDay" onclick="setEditCycle('day',this)">📅 Por dia</button>
-        <button class="pm-chip" id="editCycleSemanal" onclick="setEditCycle('semanal',this)">📅 Semanal</button>
-        <button class="pm-chip" id="editCycleFortnight" onclick="setEditCycle('fortnight',this)">📅 Quinzenal</button>
-        <button class="pm-chip" id="editCycleMonth" onclick="setEditCycle('month',this)">📅 Mensal</button>
-      </div>
     </div>
     <div class="us-field"><div class="us-label">Responsável</div>
       <select class="us-inp" id="editUser"></select>
@@ -2516,9 +2502,9 @@ function calc(b,ref){
   // For daily installments: use cascade-corrected date (no Sundays, no collisions)
   const dISO=b.installment?(b._dISO||adjustDueFwd(rawDueISO)):adjustDue(rawDueISO);
   let divisor=wd;
-  const cycle=b.cycle||'day';
-  if(cycle==='fortnight')divisor=15;
-  else if(cycle==='month'){const ps=piso(periodStart),pd=piso(rawDueISO);divisor=Math.round((pd-ps)/(864e5))+1;}
+  // Ciclo fixo por tipo — mensal sempre usa dias úteis
+  const cycle='day';
+  // fortnight e month removidos — toda conta mensal divide por dias úteis
   if(divisor<1)divisor=1;
   let daily=r2(b.amount/divisor);
   const refDate=piso(ref);
@@ -3870,6 +3856,7 @@ function setCycle(c,el){
   if(el)el.classList.add('sel');
 }
 
+
 const WD_NAMES=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let addWeekday=1;
 let addSemanalMode='recorrente';
@@ -4035,6 +4022,11 @@ async function saveAdd(){
     toast('⚠️ '+first.msg);
     return;
   }
+
+  // Ciclo fixo por tipo de conta — sem escolha do usuário
+  if(addType==='semanal'||addType==='parcelada') addCycle='day';
+  else if(addType==='diaria'||addCategory==='diaria') addCycle='diaria';
+  else addCycle='day';
 
   // ── Fechar form imediatamente para evitar piscar ──
   back();
@@ -5245,9 +5237,8 @@ async function saveEditBill(){
   const userId=document.getElementById('editUser').value;
   const payMethod=document.getElementById('editPayMethod').value;
   const category=document.getElementById('editCategory').value;
-  // Get selected cycle
-  const cycleEl=['editCycleDay','editCycleSemanal','editCycleFortnight','editCycleMonth'].find(id=>document.getElementById(id)?.classList.contains('sel'));
-  const cycle=_editBillType==='avista'?'avista':(cycleEl==='editCycleSemanal'?'semanal':cycleEl==='editCycleFortnight'?'fortnight':cycleEl==='editCycleMonth'?'month':'day');
+  // Ciclo fixo por tipo de conta — sem escolha do usuário
+  const cycle=_editBillType==='avista'?'avista':'day';
   // Derive type fields from _editBillType
   const noDaily=_editBillType==='avista';
   const newRecurring=_editBillType==='recorrente';
