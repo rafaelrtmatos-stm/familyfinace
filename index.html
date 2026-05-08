@@ -2070,18 +2070,24 @@ async function loadFromSupa(){
       console.error('[loadFromSupa] erro ao carregar contas:',billsLoadErr);toast('⚠️ Erro ao carregar contas: '+billsLoadErr.message);
     }
     if(bills){
-      db.bills=bills.map(b=>({
-        id:b.id, templateId:b.template_id, name:b.name,
-        amount:parseFloat(b.amount), day:b.day, month:b.month,
-        userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
-        cycle:b.cycle||'day', recurring:b.recurring||false,
-        noDaily:b.cycle==='avista'||b.no_daily||false,
-        installment:b.installment||null, payments:b.payments||[],
-        shared:b.shared||false,
-        _ownerId:b.user_id,
-        _createdAt:b.created_at||'',
-        _updatedAt:b.updated_at||b.created_at||''
-      })).filter(b=>!_pendingDeletes.has(b.id));
+      db.bills=bills.map(b=>{
+        const isSemanal=b.category==='semanal';
+        let weeklyDay=undefined;
+        if(isSemanal){const[yr,mo]=b.month.split('-').map(Number);weeklyDay=new Date(yr,mo,b.day).getDay();}
+        return{
+          id:b.id, templateId:b.template_id, name:b.name,
+          amount:parseFloat(b.amount), day:b.day, month:b.month,
+          userId:b.shared?'todos':b.user_id, payMethod:b.pay_method, category:b.category,
+          cycle:b.cycle||'day', recurring:b.recurring||false,
+          noDaily:b.cycle==='avista'||b.no_daily||false,
+          installment:b.installment||null, payments:b.payments||[],
+          shared:b.shared||false,
+          weeklyDay,
+          _ownerId:b.user_id,
+          _createdAt:b.created_at||'',
+          _updatedAt:b.updated_at||b.created_at||''
+        };
+      }).filter(b=>!_pendingDeletes.has(b.id));
       fixInstallmentDates();
     }
     // Load holidays
@@ -2437,23 +2443,29 @@ function calc(b,ref){
   const paid=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
   const mesAtual=mk(CY,CM);
   if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
-    const wd=6;
     const rawDueISO=iso(new Date(+y,+m,b.day));
-    const dueTs=piso(rawDueISO);
-    const startTs=new Date(dueTs);startTs.setDate(startTs.getDate()-6);
+    const dueDate=piso(rawDueISO);
+    // Period starts on Monday of the same week as the due date
+    const dueWeekDay=dueDate.getDay(); // 0=Sun,1=Mon,...,6=Sat
+    const daysFromMon=dueWeekDay===0?6:dueWeekDay-1;
+    const startTs=new Date(dueDate);startTs.setDate(startTs.getDate()-daysFromMon);
     const periodStart=iso(startTs);
     const dISO=adjustDue(rawDueISO);
     const refTs=piso(ref).getTime();
     const inicioTs=startTs.getTime();
-    const fimTs=piso(rawDueISO).getTime();
+    const fimTs=dueDate.getTime();
+    // Count working days from Monday to due day inclusive
+    const wd=wdBefore(periodStart,rawDueISO)+(isWD(dueDate,hols)?1:0)||1;
     const daily=r2(b.amount/wd);
     if(refTs<inicioTs){
       return{wd,daily:0,periodStart,rawDueISO,dISO,daysElapsed:0,daysLeft:wd,late:0,acc:0,accrued:0,upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
     }
     let daysElapsed,daysLeft,late,acc,accrued,st;
     if(refTs<=fimTs){
-      daysElapsed=wdBefore(periodStart,ref);
-      daysLeft=wd-daysElapsed;
+      // Include today if it's a workday (so Monday already counts as day 1)
+      const refDate=piso(ref);
+      daysElapsed=Math.min(wd,wdBefore(periodStart,ref)+(isWD(refDate,hols)?1:0));
+      daysLeft=Math.max(0,wd-daysElapsed);
       late=0;acc=0;
       accrued=r2(daily*daysElapsed);
       st=paid>=b.amount?'paid':paid>0&&paid<accrued?'partial':'pending';
@@ -2467,8 +2479,7 @@ function calc(b,ref){
     let monthShare=b.amount;
     const firstOfMonthISO=iso(new Date(+y,+m,1));
     if(periodStart<firstOfMonthISO){
-      const hs2=hset();
-      const daysInThisMonth=wdBefore(firstOfMonthISO,rawDueISO)+(isWD(piso(rawDueISO),hs2)?1:0);
+      const daysInThisMonth=wdBefore(firstOfMonthISO,rawDueISO)+(isWD(dueDate,hols)?1:0);
       monthShare=r2(Math.min(daysInThisMonth,wd)*daily);
     }
     return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd:r2(b.amount+acc),paid,bal,st,credit:Math.max(0,r2(paid-accrued)),monthShare};
