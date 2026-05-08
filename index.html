@@ -5133,19 +5133,19 @@ function setEditType(t,el){
   if(t==='avista'){
     note.style.display='block';
     note.textContent='💳 À vista: valor fixo, sem acréscimo de diária. Aparece como atrasada se não paga.';
-    cycleRow.style.display='none';
+    if(cycleRow)cycleRow.style.display='none';
     if(instRow)instRow.style.display='none';
     if(amtLbl)amtLbl.textContent='Valor (R$)';
   } else if(t==='parcelada'){
     note.style.display='block';
     note.textContent='📋 Parcelada: cada parcela acumula diária normalmente até o vencimento.';
-    cycleRow.style.display='block';
+    if(cycleRow)cycleRow.style.display='block';
     if(instRow)instRow.style.display='block';
     if(amtLbl)amtLbl.textContent='Por parcela (R$)';
   } else {
     note.style.display='block';
     note.textContent='↺ Recorrente: gera nova parcela todo mês e acumula diária normalmente.';
-    cycleRow.style.display='block';
+    if(cycleRow)cycleRow.style.display='block';
     if(instRow)instRow.style.display='none';
     if(amtLbl)amtLbl.textContent='Valor (R$)';
   }
