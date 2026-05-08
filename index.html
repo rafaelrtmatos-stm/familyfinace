@@ -4366,6 +4366,7 @@ function renderBills(){
     const isDiariaFixa=(b.recurring||isSemanal)&&!b.noDaily;
     const isActualCurMonth=b.month===mk(CY,CM);
     const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
+    const{y:by,m:bm}=ymk(b.month);
 
     // Contas atrasadas de meses anteriores do mesmo template (ordenadas do mais antigo)
     const latePrevBills=(b.recurring||isSemanal)&&b.templateId
@@ -4458,7 +4459,7 @@ function renderBills(){
           <div style="font-size:.63rem;font-weight:800;color:var(--ink3);margin-bottom:4px">Original</div>
           ${sectionBRows}
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:.7rem;font-weight:700;padding:3px 0;border-bottom:1px solid rgba(231,76,60,.08)">
-            <span style="color:var(--ink3)">${MNS[m]} ${y} <span style="font-size:.6rem;color:var(--g2);font-weight:800">(a vencer)</span></span>
+            <span style="color:var(--ink3)">${MNS[bm]} ${by} <span style="font-size:.6rem;color:var(--g2);font-weight:800">(a vencer)</span></span>
             <span style="color:var(--g2);font-weight:900">${fmtn(b.amount)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:900;margin-top:6px;padding-top:5px;border-top:1.5px solid rgba(231,76,60,.18)">
