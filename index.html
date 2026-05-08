@@ -993,18 +993,34 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div class="ps-handle"></div>
     <div class="ps-title">Registrar Pagamento</div>
     <div class="ps-info" id="psInfo"></div>
-    <div class="ps-field"><div class="ps-label">Valor pago (R$)</div><input type="text" inputmode="numeric" class="ps-inp" id="psVal" placeholder="0,00" oninput="currMask(this);upPayCalc()"/></div>
-    <div class="ps-row2">
-      <div class="ps-field" style="margin-bottom:0"><div class="ps-label">Data</div><input type="date" class="ps-inp" id="psDate"/></div>
-      <div class="ps-field" style="margin-bottom:0"><div class="ps-label">Forma</div>
-        <select class="ps-inp" id="psMethod" style="cursor:pointer">
-          <option value="pix">💸 Pix</option><option value="dinheiro">💵 Dinheiro</option><option value="cartao">💳 Cartão</option><option value="outro">💰 Outro</option>
-        </select>
+    <input type="hidden" id="psDate"/>
+    <div class="ps-field">
+      <div class="ps-label">Valor pago (R$)</div>
+      <input type="text" inputmode="numeric" class="ps-inp" id="psVal" placeholder="0,00" oninput="currMask(this);upPayCalc()"/>
+    </div>
+    <div class="ps-row2" style="margin-bottom:12px">
+      <div class="ps-field" style="margin-bottom:0">
+        <div class="ps-label">Dia</div>
+        <input type="number" class="ps-inp" id="psDay" min="1" max="31" placeholder="15" style="text-align:center;font-size:1.1rem;font-weight:900" oninput="_syncPayDate();upPayCalc()"/>
+      </div>
+      <div class="ps-field" style="margin-bottom:0">
+        <div class="ps-label">Mês</div>
+        <div style="display:flex;align-items:center;gap:3px;height:42px">
+          <button onclick="payMonthNav(-1)" style="background:#f0f2f8;border:none;border-radius:9px;width:34px;height:100%;cursor:pointer;font-size:1rem;font-weight:900;color:var(--ink2);touch-action:manipulation;flex-shrink:0">‹</button>
+          <div id="psMonLbl" style="flex:1;text-align:center;font-size:.8rem;font-weight:900;color:var(--ink);line-height:1.2"></div>
+          <button onclick="payMonthNav(1)" style="background:#f0f2f8;border:none;border-radius:9px;width:34px;height:100%;cursor:pointer;font-size:1rem;font-weight:900;color:var(--ink2);touch-action:manipulation;flex-shrink:0">›</button>
+        </div>
       </div>
     </div>
+    <div class="ps-field" style="margin-bottom:12px">
+      <div class="ps-label">Forma</div>
+      <select class="ps-inp" id="psMethod" style="cursor:pointer">
+        <option value="pix">💸 Pix</option><option value="dinheiro">💵 Dinheiro</option><option value="cartao">💳 Cartão</option><option value="outro">💰 Outro</option>
+      </select>
+    </div>
     <div class="ps-result" id="psResult"></div>
-    <button onclick="confirmPay()" style="width:100%;padding:14px;background:var(--g);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(92,107,192,.3);margin-top:12px">Confirmar Pagamento</button>
-    <button onclick="closePaySheet()" style="width:100%;padding:10px;background:transparent;color:var(--ink3);border:none;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;margin-top:5px">Cancelar</button>
+    <button onclick="confirmPay()" style="width:100%;padding:14px;background:var(--g);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(92,107,192,.3);margin-top:4px">Confirmar Pagamento</button>
+    <button onclick="closePaySheet()" style="width:100%;padding:10px;background:transparent;color:var(--ink3);border:none;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;margin-top:3px">Cancelar</button>
   </div>
 </div>
 
@@ -4677,16 +4693,41 @@ function ensureNext(bill){
 /* ══════════════════════════════════════════════════
    PAYMENT
 ══════════════════════════════════════════════════ */
+/* ── PAY SHEET DATE STATE ── */
+let _payYear=new Date().getFullYear();
+let _payMonth=new Date().getMonth(); // 0-indexed
+const _MON_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function _syncPayDate(){
+  const dayEl=document.getElementById('psDay');
+  let d=Math.min(31,Math.max(1,parseInt(dayEl.value)||1));
+  const maxD=new Date(_payYear,_payMonth+1,0).getDate();
+  if(d>maxD){d=maxD;dayEl.value=d;}
+  const iso=`${_payYear}-${String(_payMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  document.getElementById('psDate').value=iso;
+  document.getElementById('psMonLbl').textContent=`${_MON_PT[_payMonth]}\n${_payYear}`;
+}
+function payMonthNav(dir){
+  _payMonth+=dir;
+  if(_payMonth>11){_payMonth=0;_payYear++;}
+  if(_payMonth<0){_payMonth=11;_payYear--;}
+  _syncPayDate();upPayCalc();
+}
+
 function openPaySheet(){
   if(!hasPerm('canMarkPaid')){toast('Sem permissão para registrar pagamento');return;}
   const b=db.bills.find(x=>x.id===curBillId);if(!b)return;
   const td=today();const c=calc(b,td);
   if(c.st==='paid'){toast('Esta conta já está quitada. Use ✏️ Editar para corrigir se necessário.');return;}
-  // Pre-fill with original bill amount (user pays the face value)
+  // Init date to today
+  const now=new Date();
+  _payYear=now.getFullYear();_payMonth=now.getMonth();
+  document.getElementById('psDay').value=now.getDate();
+  _syncPayDate();
+  // Pre-fill value
   const suggestedVal=r2(b.amount);
   const psValEl=document.getElementById('psVal');
   if(suggestedVal>0)setCurVal(psValEl,suggestedVal);else{psValEl.value='';psValEl.dataset.cents='0';}
-  document.getElementById('psDate').value=td;
   document.getElementById('psMethod').value=b.payMethod||'pix';
   document.getElementById('psResult').style.display='none';
   document.getElementById('psInfo').innerHTML=`
@@ -4695,7 +4736,6 @@ function openPaySheet(){
     ${c.acc>0?`<div class="psi-row"><span class="psi-lbl">Diárias (${c.late}d × ${fmt(c.daily)})</span><span class="psi-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
     ${c.paid>0?`<div class="psi-row"><span class="psi-lbl">Já pago</span><span class="psi-val" style="color:var(--teal)">− ${fmt(c.paid)}</span></div>`:''}
     <div class="psi-row" style="border-bottom:none;padding-top:6px"><span class="psi-lbl" style="font-weight:800;color:var(--ink)">Saldo a pagar</span><span class="psi-val" style="color:var(--g2);font-weight:900;font-size:.95rem">${fmt(suggestedVal)}</span></div>`;
-  // Trigger the calc preview immediately
   upPayCalc();
   document.getElementById('payOverlay').style.display='flex';
 }
