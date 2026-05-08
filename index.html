@@ -1236,20 +1236,23 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <div id="editTypeNote" style="font-size:.72rem;font-weight:700;color:var(--ink3);margin-top:7px;padding:7px 10px;background:#f7f9fc;border-radius:8px;display:none"></div>
     </div>
     <div class="us-field"><div class="us-label">Responsável</div>
-      <select class="us-inp" id="editUser"></select>
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button class="pm-chip" id="editUserRafa" onclick="setEditUser('rafa',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👤 Rafa</button>
+        <button class="pm-chip" id="editUserGuigui" onclick="setEditUser('guigui',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👤 Guigui</button>
+        <button class="pm-chip" id="editUserTodos" onclick="setEditUser('todos',this)" style="flex:1;padding:14px 0;font-size:.9rem;font-weight:900;border-radius:14px">👥 Todos</button>
+      </div>
+      <input type="hidden" id="editUser" value=""/>
     </div>
     <div class="us-field"><div class="us-label">Forma de pagamento</div>
-      <select class="us-inp" id="editPayMethod">
-        <option value="pix">💸 Pix</option>
-        <option value="dinheiro">💵 Dinheiro</option>
-        <option value="cartao">💳 Cartão</option>
-        <option value="outro">💰 Outro</option>
-      </select>
+      <div class="pm-row" style="margin-bottom:4px">
+        <button class="pm-chip" id="editPMpix" onclick="setEditPM(this,'pix')">💸 Pix</button>
+        <button class="pm-chip" id="editPMdinheiro" onclick="setEditPM(this,'dinheiro')">💵 Dinheiro</button>
+        <button class="pm-chip" id="editPMcartao" onclick="setEditPM(this,'cartao')">💳 Cartão</button>
+        <button class="pm-chip" id="editPMoutro" onclick="setEditPM(this,'outro')">💰 Outro</button>
+      </div>
     </div>
     <div class="us-field"><div class="us-label">Categoria</div>
-      <select class="us-inp" id="editCategory">
-        ${CATS?CATS.map(c=>`<option value="${c.id}">${c.ico} ${c.lbl}</option>`).join(''):''}
-      </select>
+      <div class="cat-grid" id="editCatGrid"></div>
     </div>
     <div id="editRecurringRow" class="us-field" style="display:none">
       <div class="us-label">Esta é uma conta recorrente</div>
@@ -5122,6 +5125,39 @@ function _editInstCalc(src){
 }
 
 let _editBillType='avista';
+let _editPayMethod='pix';
+let _editCat='outro';
+
+function setEditUser(val,el){
+  document.querySelectorAll('#editUserRafa,#editUserGuigui,#editUserTodos').forEach(b=>b.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+  const hidden=document.getElementById('editUser');
+  if(val==='todos'){if(hidden)hidden.value='todos';return;}
+  const raId=db.users.find(u=>u.name==='Rafael'||u.name==='Rafa')?.id;
+  const guId=db.users.find(u=>u.name==='Ingrid'||u.name==='Guigui')?.id;
+  if(hidden)hidden.value=(val==='rafa'?raId:guId)||'';
+}
+
+function setEditPM(el,m){
+  _editPayMethod=m;
+  document.querySelectorAll('#editPMpix,#editPMdinheiro,#editPMcartao,#editPMoutro').forEach(b=>b.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+}
+
+function selEditCat(id){
+  _editCat=id;
+  renderEditCatGrid();
+}
+
+function renderEditCatGrid(){
+  const grid=document.getElementById('editCatGrid');
+  if(!grid)return;
+  grid.innerHTML=CATS.map(c=>`<div class="cg-item ${c.id===_editCat?'sel':''}" onclick="selEditCat('${c.id}')">
+    <div class="cg-ico">${c.ico}</div>
+    <div class="cg-lbl" style="color:${c.id===_editCat?'var(--g2)':''}">${c.lbl}</div>
+  </div>`).join('');
+}
+
 function setEditType(t,el){
   _editBillType=t;
   document.querySelectorAll('#editTypeAvista,#editTypeParcelada,#editTypeRecorrente').forEach(b=>b.classList.remove('sel'));
@@ -5189,15 +5225,23 @@ function openEditSheet(id,applyAll){
     if(totalEl)setCurVal(totalEl,0);
     if(instPrev)instPrev.style.display='none';
   }
-  document.getElementById('editPayMethod').value=b.payMethod||'pix';
-  const catSel=document.getElementById('editCategory');
-  catSel.innerHTML=CATS.map(c=>`<option value="${c.id}">${c.ico} ${c.lbl}</option>`).join('');
-  catSel.value=b.category||'outro';
-  const uSel=document.getElementById('editUser');
-  uSel.innerHTML='<option value="">— Sem responsável —</option>'+
-    '<option value="todos">👥 Todos</option>'+
-    db.users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
-  uSel.value=b.userId||'';
+  // Pay method buttons
+  _editPayMethod=b.payMethod||'pix';
+  document.querySelectorAll('#editPMpix,#editPMdinheiro,#editPMcartao,#editPMoutro').forEach(btn=>btn.classList.remove('sel'));
+  const _pmBtn=document.getElementById('editPM'+_editPayMethod);
+  if(_pmBtn)_pmBtn.classList.add('sel');
+  // Category grid
+  _editCat=b.category||'outro';
+  renderEditCatGrid();
+  // User buttons
+  const _editUHidden=document.getElementById('editUser');
+  if(_editUHidden)_editUHidden.value=b.shared?'todos':(b.userId||'');
+  const _raId=db.users.find(u=>u.name==='Rafael'||u.name==='Rafa')?.id;
+  const _guId=db.users.find(u=>u.name==='Ingrid'||u.name==='Guigui')?.id;
+  document.querySelectorAll('#editUserRafa,#editUserGuigui,#editUserTodos').forEach(btn=>btn.classList.remove('sel'));
+  if(b.shared||b.userId==='todos')document.getElementById('editUserTodos')?.classList.add('sel');
+  else if(b.userId===_raId)document.getElementById('editUserRafa')?.classList.add('sel');
+  else if(b.userId===_guId)document.getElementById('editUserGuigui')?.classList.add('sel');
   const recRow=document.getElementById('editRecurringRow');
   const isMulti=(b.recurring||b.installment)&&_editAll;
   if(isMulti){
@@ -5232,8 +5276,8 @@ async function saveEditBill(){
   const day=parseInt(document.getElementById('editDay').value);
   const month=document.getElementById('editMonth').value;
   const userId=document.getElementById('editUser').value;
-  const payMethod=document.getElementById('editPayMethod').value;
-  const category=document.getElementById('editCategory').value;
+  const payMethod=_editPayMethod;
+  const category=_editCat;
   // Ciclo fixo por tipo de conta — sem escolha do usuário
   const cycle=_editBillType==='avista'?'avista':'day';
   // Derive type fields from _editBillType
