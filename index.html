@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -1000,7 +1001,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </div>
     </div>
   </div>
-  <div style="padding:0 14px 8px">
+  <div style="padding:0 14px 8px;display:flex;flex-direction:column;gap:8px">
+    <button id="notifToggleBtn" onclick="toggleNotifications()" style="width:100%;padding:11px;background:linear-gradient(135deg,#1e7e34,#27ae60);color:#fff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+      🔔 Ativar notificações de vencimento
+    </button>
     <button onclick="go('sc-diag')" style="width:100%;padding:11px;background:linear-gradient(135deg,#1a1060,#3d2db5);color:#fff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
       <span id="diagBtnDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#aaa"></span>
       📡 Diagnóstico de Sincronização
@@ -7722,6 +7726,158 @@ function stopChatPoll(){
   stopChatRealtime();
 }
 
+/* ══════════════════════════════════════════════════
+   NOTIFICAÇÕES PUSH — Service Worker + Notification API
+══════════════════════════════════════════════════ */
+let _swReg=null;
+
+async function initNotifications(){
+  if(!('serviceWorker' in navigator)||!('Notification' in window))return;
+  try{
+    _swReg=await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+    await navigator.serviceWorker.ready;
+    const perm=Notification.permission;
+    if(perm==='default'){
+      setTimeout(askNotifPermission,3000);
+    }
+  }catch(e){
+    console.warn('[notif] SW register falhou:',e.message);
+  }
+}
+
+async function askNotifPermission(){
+  if(Notification.permission!=='default')return;
+  const granted=await Notification.requestPermission();
+  if(granted==='granted'){
+    toast('🔔 Notificações ativadas!');
+    scheduleNotificationsToday();
+  }
+}
+
+function _isoToday(){
+  const n=new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+function _isoTomorrow(){
+  const n=new Date();n.setDate(n.getDate()+1);
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+
+function scheduleNotificationsToday(){
+  if(Notification.permission!=='granted')return;
+  if(!_swReg)return;
+  const sw=_swReg.active||_swReg.waiting||_swReg.installing;
+  if(!sw)return;
+  if(!db||!db.bills||!db.bills.length)return;
+
+  const todayStr=_isoToday();
+  const tomorrowStr=_isoTomorrow();
+  const ref=new Date();
+
+  const toNotify=[];
+  const seen=new Set();
+
+  db.bills.forEach(b=>{
+    try{
+      const c=calc(b,ref);
+      if(!c||c.status==='paid')return;
+      const due=c.dISO;
+      if(!due)return;
+      if(seen.has(b.id))return;
+
+      if(due===todayStr){
+        seen.add(b.id);
+        const who=_billOwnerName(b);
+        toNotify.push({
+          id:b.id,
+          tag:'due-today-'+b.id,
+          title:'📅 Vence hoje — '+b.name,
+          body:(who?who+' · ':'')+fmt(c.amount)+(b.payMethod?' · '+_pmLabel(b.payMethod):''),
+          delayMs:100,
+        });
+      } else if(due===tomorrowStr){
+        seen.add(b.id);
+        const who=_billOwnerName(b);
+        toNotify.push({
+          id:b.id,
+          tag:'due-tomorrow-'+b.id,
+          title:'⏰ Vence amanhã — '+b.name,
+          body:(who?who+' · ':'')+fmt(c.amount),
+          delayMs:600,
+        });
+      }
+    }catch(_){}
+  });
+
+  if(!toNotify.length)return;
+  sw.postMessage({type:'SCHEDULE_NOTIFICATIONS',bills:toNotify,todayStr});
+}
+
+function _billOwnerName(b){
+  if(!b.userId||b.userId==='todos')return'Todos';
+  const u=db.users.find(x=>x.id===b.userId);
+  return u?u.name.split(' ')[0]:'';
+}
+function _pmLabel(pm){
+  return{pix:'Pix',dinheiro:'Dinheiro',cartao:'Cartão',outro:'Outro'}[pm]||pm;
+}
+
+function _updateNotifBtn(){
+  const btn=document.getElementById('notifToggleBtn');
+  if(!btn)return;
+  if(!('Notification' in window)){
+    btn.style.display='none';return;
+  }
+  const p=Notification.permission;
+  if(p==='granted'){
+    btn.textContent='🔔 Notificações ativas';
+    btn.style.background='linear-gradient(135deg,#1a5c2e,#1e8449)';
+    btn.style.opacity='0.7';
+    btn.style.cursor='default';
+  } else if(p==='denied'){
+    btn.textContent='🔕 Notificações bloqueadas (ative nas config. do browser)';
+    btn.style.background='linear-gradient(135deg,#7f0000,#c0392b)';
+    btn.style.opacity='0.85';
+  } else {
+    btn.textContent='🔔 Ativar notificações de vencimento';
+    btn.style.background='linear-gradient(135deg,#1e7e34,#27ae60)';
+    btn.style.opacity='1';
+    btn.style.cursor='pointer';
+  }
+}
+
+async function toggleNotifications(){
+  if(!('Notification' in window)){toast('Seu browser não suporta notificações');return;}
+  if(Notification.permission==='granted'){
+    scheduleNotificationsToday();
+    toast('🔔 Notificações já estão ativas!');
+    return;
+  }
+  if(Notification.permission==='denied'){
+    toast('🔕 Bloqueado — libere nas configurações do browser');
+    return;
+  }
+  const result=await Notification.requestPermission();
+  _updateNotifBtn();
+  if(result==='granted'){
+    toast('🔔 Notificações ativadas!');
+    await initNotifications();
+    scheduleNotificationsToday();
+  } else {
+    toast('Notificações não autorizadas');
+  }
+}
+
+// Inicia SW imediatamente na carga da página
+initNotifications().then(_updateNotifBtn);
+
+// Reagenda notificações sempre que os dados mudam (após carregamento do Supabase)
+const _origLoadFromSupa=loadFromSupa;
+loadFromSupa=async function(){
+  const r=await _origLoadFromSupa.apply(this,arguments);
+  setTimeout(scheduleNotificationsToday,500);
+  return r;
+};
 
 </script>
 </body>
