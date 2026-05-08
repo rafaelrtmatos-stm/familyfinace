@@ -2376,6 +2376,12 @@ function adjustDue(dISO){
   while(!isWD(d,hs)){d.setDate(d.getDate()-1);}
   return iso(d);
 }
+// Adjust a due date forward: if it falls on Sunday, move forward to Monday
+function adjustDueFwd(dISO){
+  const d=piso(dISO);
+  while(d.getDay()===0){d.setDate(d.getDate()+1);}
+  return iso(d);
+}
 
 // Count workdays from startISO up to (NOT including) endISO
 function wdBefore(startISO,endISO){
@@ -2458,8 +2464,8 @@ function calc(b,ref){
   periodStart=iso(new Date(py,pm,b.day));
   rawDueISO=iso(new Date(+y,+m,b.day));
   wd=wdBefore(periodStart,rawDueISO)+1;
-  // For daily installments: use exact stored date (no backward adjustment)
-  const dISO=b.installment?rawDueISO:adjustDue(rawDueISO);
+  // For daily installments: skip Sundays forward to Monday
+  const dISO=b.installment?adjustDueFwd(rawDueISO):adjustDue(rawDueISO);
   let divisor=wd;
   const cycle=b.cycle||'day';
   if(cycle==='fortnight')divisor=15;
