@@ -4306,23 +4306,32 @@ function renderBills(){
       <div class="sum-cell"><div class="sum-lbl">Saldo 🐷</div><div class="sum-val">${fmtn(cofreTotal)}</div></div>
     </div>`;
 
+  // ── Absorver contas de meses anteriores na Seção B do card do mês atual ──
+  const suppressedIds=new Set();
+  bills.filter(b=>b.month===mk(CY,CM)&&(b.recurring||b.category==='semanal')&&b.templateId&&calc(b,td).st!=='paid')
+    .forEach(b=>{
+      db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
+        .forEach(x=>suppressedIds.add(x.id));
+    });
+
   document.getElementById('billsList').innerHTML=bills.length?bills.map(b=>{
+    if(suppressedIds.has(b.id))return '';
     const c=calc(b,td);const cat=catBy(b.category);
     const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
     const isInstallment=!!b.installment;
     const isSemanal=b.category==='semanal';
     const isDiariaFixa=(b.recurring||isSemanal)&&!b.noDaily;
-    // Identifica se este card é do mês atual real (hoje) para lógica de transição
     const isActualCurMonth=b.month===mk(CY,CM);
-    // Identifica se é conta de mês anterior em atraso
     const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
 
-    // Saldo anterior: overdue balance from previous months of the same recurring template
-    const prevSaldo=(b.recurring||isSemanal)&&b.templateId
-      ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
-          .reduce((s,x)=>s+calc(x,td).bal,0))
-      :0;
+    // Contas atrasadas de meses anteriores do mesmo template (ordenadas do mais antigo)
+    const latePrevBills=(b.recurring||isSemanal)&&b.templateId
+      ?db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
+          .sort((a,z)=>a.month.localeCompare(z.month))
+      :[];
+    const prevSaldo=r2(latePrevBills.reduce((s,x)=>s+x.amount,0));
     const totalWithPrev=r2(c.bal+prevSaldo);
+    const totalAPagar=r2(c.accrued+prevSaldo);
 
     // ── Valor principal: sempre o valor ORIGINAL da conta ──
     const isPaid=c.st==='paid';
@@ -4360,7 +4369,57 @@ function renderBills(){
       ?`<span style="font-size:.62rem;font-weight:700;color:var(--ink3)">Este mês: ${fmt(c.monthShare)}</span>`
       :'';
 
-    // ── Card de mês anterior em atraso ──
+    // ── Caso 2/3: conta recorrente do mês atual com meses anteriores em atraso ──
+    if(isActualCurMonth&&(b.recurring||isSemanal)&&!isPaid&&latePrevBills.length>0){
+      const sectionBRows=latePrevBills.map(x=>{
+        const{y:xy,m:xm}=ymk(x.month);
+        return`<div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700;padding:2px 0">
+          <span style="color:var(--ink3)">${MNS[xm]} ${xy}</span>
+          <span style="color:var(--red);font-weight:800">${fmtn(x.amount)}</span>
+        </div>`;
+      }).join('');
+      return`<div class="bc late">
+        <div style="display:flex;align-items:flex-start;gap:10px;cursor:pointer" onclick="openDet('${b.id}')">
+          <div class="bc-ico" style="background:${cat.bg};flex-shrink:0">${cat.ico}</div>
+          <div style="flex:1;min-width:0">
+            <div class="bc-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}<span class="rec-badge"> ↺</span>${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
+            <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
+            <div style="margin-top:2px;font-size:.67rem;font-weight:800;color:var(--ink3)">${c.daysElapsed>0?c.daysElapsed+'× · ':''}${fmtn(c.daily)}/dia</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:1.05rem;font-weight:900;color:var(--red);letter-spacing:-.01em">${fmtn(totalAPagar)}</div>
+            <div class="bc-st late">⚠️ c/ atraso</div>
+          </div>
+        </div>
+        <div style="margin-top:9px;padding:7px 9px;background:rgba(59,79,212,.05);border-radius:9px;border-left:3px solid var(--g2)">
+          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--g2);margin-bottom:5px;letter-spacing:.04em">Seção A · Mês atual</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:.67rem;font-weight:700;color:var(--ink3)">
+            <span>Valor: <b style="color:var(--ink)">${fmtn(b.amount)}</b></span>
+            <span>Diária: <b style="color:var(--g2)">${fmtn(c.daily)}/dia</b></span>
+            <span>Dias: <b style="color:var(--ink)">${c.daysElapsed} de ${c.wd}</b></span>
+            <span>Acumulado: <b style="color:var(--g2)">${fmtn(c.accrued)}</b></span>
+          </div>
+        </div>
+        <div style="margin-top:6px;padding:7px 9px;background:rgba(231,76,60,.05);border-radius:9px;border-left:3px solid var(--red)">
+          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:5px;letter-spacing:.04em">⚠️ Seção B · Dívida anterior${latePrevBills.length>1?' ('+latePrevBills.length+' meses)':''}</div>
+          ${sectionBRows}
+          <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:900;border-top:1px solid rgba(231,76,60,.15);margin-top:4px;padding-top:4px">
+            <span style="color:var(--red)">Total em atraso</span>
+            <span style="color:var(--red)">${fmtn(prevSaldo)}</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;padding:6px 0 0;border-top:1px solid rgba(231,76,60,.2);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.64rem;font-weight:800;color:var(--red)">⚠️ Anterior: ${fmtn(prevSaldo)}</span>
+          <span style="font-size:.7rem;font-weight:900;color:var(--red)">TOTAL: ${fmtn(totalAPagar)}</span>
+        </div>
+        ${b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
+          <button onclick="openInstallmentEdit('${b.id}')" style="flex:1;padding:7px;background:rgba(52,152,219,.08);border:1.5px solid rgba(52,152,219,.2);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar</button>
+          <button onclick="openInstallmentDelete('${b.id}')" style="flex:1;padding:7px;background:rgba(231,76,60,.08);border:1.5px solid rgba(231,76,60,.2);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--red);cursor:pointer">🗑 Excluir</button>
+        </div>`:''}
+      </div>`;
+    }
+
+    // ── Card de mês anterior em atraso (não absorvido) ──
     if(isPastOverdue){
       return`<div class="bc late" style="opacity:.92">
         <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openDet('${b.id}')">
@@ -4378,7 +4437,7 @@ function renderBills(){
       </div>`;
     }
 
-    // ── Card normal ──
+    // ── Card normal (Caso 1) ──
     const dailyLine=c.daysElapsed>0
       ?`${c.daysElapsed}× · ${fmtn(c.daily)}/dia`
       :`${fmtn(c.daily)}/dia`;
