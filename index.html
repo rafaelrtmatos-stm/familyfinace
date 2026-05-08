@@ -4368,7 +4368,7 @@ function renderBills(){
       :[];
     const prevSaldo=r2(latePrevBills.reduce((s,x)=>s+x.amount,0));
     const totalWithPrev=r2(c.bal+prevSaldo);
-    const totalAPagar=r2(b.amount+prevSaldo);
+    const totalAPagar=r2(c.accrued+prevSaldo);
 
     // ── Valor principal: sempre o valor ORIGINAL da conta ──
     const isPaid=c.st==='paid';
@@ -4408,11 +4408,17 @@ function renderBills(){
 
     // ── Caso 2/3: conta recorrente do mês atual com meses anteriores em atraso ──
     if(isActualCurMonth&&(b.recurring||isSemanal)&&!isPaid&&latePrevBills.length>0){
+      // Due date string
+      const{y:dby,m:dbm}=ymk(b.month);
+      const dueDateStr=`${String(b.day).padStart(2,'0')}/${String(dbm+1).padStart(2,'0')}/${dby}`;
+      // Prazo string
+      const prazoStr=c.daysLeft>0?`${c.daysLeft} dias para vencer`:c.late>0?`${c.late} dias em atraso`:'Vence hoje';
+      // Seção B rows — each previous month shows its original amount only
       const sectionBRows=latePrevBills.map(x=>{
         const{y:xy,m:xm}=ymk(x.month);
-        return`<div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700;padding:2px 0">
+        return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:.7rem;font-weight:700;padding:3px 0;border-bottom:1px solid rgba(231,76,60,.08)">
           <span style="color:var(--ink3)">${MNS[xm]} ${xy}</span>
-          <span style="color:var(--red);font-weight:800">${fmtn(x.amount)}</span>
+          <span style="color:var(--red);font-weight:900">${fmtn(x.amount)}</span>
         </div>`;
       }).join('');
       return`<div class="bc late">
@@ -4424,30 +4430,38 @@ function renderBills(){
             <div style="margin-top:2px;font-size:.67rem;font-weight:800;color:var(--ink3)">${c.daysElapsed>0?c.daysElapsed+'× · ':''}${fmtn(c.daily)}/dia</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:1.05rem;font-weight:900;color:var(--red);letter-spacing:-.01em">${fmtn(totalAPagar)}</div>
-            <div class="bc-st late">⚠️ c/ atraso</div>
+            <div style="font-size:1.05rem;font-weight:900;color:var(--red);letter-spacing:-.01em">${fmtn(b.amount)}</div>
+            ${stDisplay}
           </div>
         </div>
-        <div style="margin-top:9px;padding:7px 9px;background:rgba(59,79,212,.05);border-radius:9px;border-left:3px solid var(--g2)">
-          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--g2);margin-bottom:5px;letter-spacing:.04em">Seção A · Mês atual</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:.67rem;font-weight:700;color:var(--ink3)">
-            <span>Valor: <b style="color:var(--ink)">${fmtn(b.amount)}</b></span>
-            <span>Diária: <b style="color:var(--g2)">${fmtn(c.daily)}/dia</b></span>
-            <span>Dias: <b style="color:var(--ink)">${c.daysElapsed} de ${c.wd}</b></span>
-            <span>Acumulado: <b style="color:var(--g2)">${fmtn(c.accrued)}</b></span>
+        <div style="margin-top:9px;padding:8px 10px;background:rgba(59,79,212,.05);border-radius:10px;border-left:3px solid var(--g2)">
+          <div style="font-size:.57rem;font-weight:900;text-transform:uppercase;color:var(--g2);margin-bottom:6px;letter-spacing:.05em">Seção A — Diárias do Mês Atual</div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700"><span style="color:var(--ink3)">Vencimento</span><span style="color:var(--ink);font-weight:800">${dueDateStr}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700"><span style="color:var(--ink3)">Prazo</span><span style="color:${c.late>0?'var(--red)':'var(--g2)'};font-weight:800">${prazoStr}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700"><span style="color:var(--ink3)">Valor original</span><span style="color:var(--ink);font-weight:800">${fmtn(b.amount)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700"><span style="color:var(--ink3)">Diária fixa</span><span style="color:var(--g2);font-weight:800">${fmtn(c.daily)}/dia</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:700"><span style="color:var(--ink3)">Dias decorridos</span><span style="color:var(--ink);font-weight:800">${c.daysElapsed} de ${c.wd} dias úteis</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:.68rem;border-top:1px solid rgba(59,79,212,.12);margin-top:3px;padding-top:4px"><span style="color:var(--ink3);font-weight:700">Saldo atual (este mês)</span><span style="color:var(--g2);font-weight:900">${fmtn(c.accrued)}</span></div>
           </div>
         </div>
-        <div style="margin-top:6px;padding:7px 9px;background:rgba(231,76,60,.05);border-radius:9px;border-left:3px solid var(--red)">
-          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--red);margin-bottom:5px;letter-spacing:.04em">⚠️ Seção B · Dívida anterior${latePrevBills.length>1?' ('+latePrevBills.length+' meses)':''}</div>
+        <div style="margin-top:6px;padding:7px 10px;background:rgba(231,76,60,.05);border-radius:10px;border:1px solid rgba(231,76,60,.18)">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.68rem;font-weight:800;padding-bottom:5px;border-bottom:1px solid rgba(231,76,60,.15)">
+            <span style="color:var(--red)">⚠️ Meses anteriores em atraso</span>
+            <span style="color:var(--red);font-weight:900">${fmtn(prevSaldo)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.72rem;font-weight:900;padding-top:5px">
+            <span style="color:var(--ink)">TOTAL A PAGAR</span>
+            <span style="color:var(--red);font-size:.78rem">${fmtn(totalAPagar)}</span>
+          </div>
+        </div>
+        <div style="margin-top:6px;padding:8px 10px;background:rgba(231,76,60,.04);border-radius:10px;border-left:3px solid var(--red)">
+          <div style="font-size:.57rem;font-weight:900;text-transform:uppercase;color:var(--red);margin-bottom:5px;letter-spacing:.05em">⚠️ Seção B — Dívida de Meses Anteriores${latePrevBills.length>1?' ('+latePrevBills.length+' meses)':''}</div>
           ${sectionBRows}
-          <div style="display:flex;justify-content:space-between;font-size:.68rem;font-weight:900;border-top:1px solid rgba(231,76,60,.15);margin-top:4px;padding-top:4px">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.7rem;font-weight:900;margin-top:4px;padding-top:4px">
             <span style="color:var(--red)">Total em atraso</span>
             <span style="color:var(--red)">${fmtn(prevSaldo)}</span>
           </div>
-        </div>
-        <div style="margin-top:8px;padding:6px 0 0;border-top:1px solid rgba(231,76,60,.2);display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.64rem;font-weight:800;color:var(--red)">⚠️ Anterior: ${fmtn(prevSaldo)}</span>
-          <span style="font-size:.7rem;font-weight:900;color:var(--red)">TOTAL: ${fmtn(totalAPagar)}</span>
         </div>
         ${b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
           <button onclick="openInstallmentEdit('${b.id}')" style="flex:1;padding:7px;background:rgba(52,152,219,.08);border:1.5px solid rgba(52,152,219,.2);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar</button>
