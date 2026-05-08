@@ -4368,7 +4368,7 @@ function renderBills(){
       :[];
     const prevSaldo=r2(latePrevBills.reduce((s,x)=>s+x.amount,0));
     const totalWithPrev=r2(c.bal+prevSaldo);
-    const totalAPagar=r2(c.accrued+prevSaldo);
+    const totalAPagar=r2(b.amount+prevSaldo);
 
     // ── Valor principal: sempre o valor ORIGINAL da conta ──
     const isPaid=c.st==='paid';
