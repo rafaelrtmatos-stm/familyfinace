@@ -4914,13 +4914,13 @@ function refreshDet(id){
 
   const pays=(b.payments||[]).map((p,idx)=>`
     <div class="pay-item" data-pay-idx="${idx}"
-         style="cursor:pointer;transition:background .15s"
+         style="cursor:pointer;transition:background .15s;${p.autoCredit?'background:rgba(39,174,96,.05);border-left:3px solid rgba(39,174,96,.4);':''}"
          onmouseenter="this.style.background='rgba(231,76,60,.06)'"
-         onmouseleave="this.style.background=''">
-      <div class="pi-ico">${pmico(p.method)}</div>
-      <div style="flex:1"><div class="pi-method">${pmlbl(p.method)}</div><div class="pi-date">${fmtdate(p.date)}${p.time?` · ${p.time}`:''}</div></div>
-      <div class="pi-val">+ ${fmt(p.amount)}</div>
-      <div style="color:var(--red);font-size:.78rem;font-weight:900;margin-left:8px;opacity:.7;flex-shrink:0">✕</div>
+         onmouseleave="this.style.background='${p.autoCredit?'rgba(39,174,96,.05)':''}'">
+      <div class="pi-ico">${p.autoCredit?'💳':pmico(p.method)}</div>
+      <div style="flex:1"><div class="pi-method" style="${p.autoCredit?'color:var(--teal)':''}">${p.autoCredit?'Crédito automático':pmlbl(p.method)}</div><div class="pi-date">${p.autoCredit?'Adiantado da parcela anterior':''}${!p.autoCredit?fmtdate(p.date):''}${!p.autoCredit&&p.time?` · ${p.time}`:''}</div></div>
+      <div class="pi-val" style="${p.autoCredit?'color:var(--teal)':''}">− ${fmt(p.amount)}</div>
+      <div style="color:var(--red);font-size:.78rem;font-weight:900;margin-left:8px;opacity:.7;flex-shrink:0">${p.autoCredit?'':' ✕'}</div>
     </div>`).join('');
 
   let infoCard='';
@@ -5453,18 +5453,20 @@ function openPaySheet(){
   _payYear=now.getFullYear();_payMonth=now.getMonth();
   document.getElementById('psDay').value=now.getDate();
   _syncPayDate();
-  // Pre-fill value
-  const suggestedVal=r2(b.amount);
+  // Pre-fill value — use actual remaining balance (already accounts for auto-credits)
+  const suggestedVal=r2(Math.max(0,c.bal));
   const psValEl=document.getElementById('psVal');
   if(suggestedVal>0)setCurVal(psValEl,suggestedVal);else{psValEl.value='';psValEl.dataset.cents='0';}
   document.getElementById('psMethod').value=b.payMethod||'pix';
   document.getElementById('psResult').style.display='none';
+  const autoCredits=r2((b.payments||[]).filter(p=>p.autoCredit).reduce((s,p)=>s+p.amount,0));
   document.getElementById('psInfo').innerHTML=`
     <div class="psi-row"><span class="psi-lbl">Conta</span><span class="psi-val">${esc(b.name)}</span></div>
     <div class="psi-row"><span class="psi-lbl">Original</span><span class="psi-val">${fmt(b.amount)}</span></div>
+    ${autoCredits>0?`<div class="psi-row"><span class="psi-lbl">💳 Crédito adiantado</span><span class="psi-val" style="color:var(--teal)">− ${fmt(autoCredits)}</span></div>`:''}
     ${c.acc>0?`<div class="psi-row"><span class="psi-lbl">Diárias (${c.late}d × ${fmt(c.daily)})</span><span class="psi-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
-    ${c.paid>0?`<div class="psi-row"><span class="psi-lbl">Já pago</span><span class="psi-val" style="color:var(--teal)">− ${fmt(c.paid)}</span></div>`:''}
-    <div class="psi-row" style="border-bottom:none;padding-top:6px"><span class="psi-lbl" style="font-weight:800;color:var(--ink)">Saldo a pagar</span><span class="psi-val" style="color:var(--g2);font-weight:900;font-size:.95rem">${fmt(suggestedVal)}</span></div>`;
+    ${c.paid>autoCredits?`<div class="psi-row"><span class="psi-lbl">Já pago</span><span class="psi-val" style="color:var(--teal)">− ${fmt(r2(c.paid-autoCredits))}</span></div>`:''}
+    <div class="psi-row" style="border-bottom:none;padding-top:6px"><span class="psi-lbl" style="font-weight:800;color:var(--ink)">Saldo a pagar</span><span class="psi-val" style="color:${suggestedVal===0?'var(--teal)':'var(--g2)'};font-weight:900;font-size:.95rem">${suggestedVal===0?'✓ Quitado por crédito':fmt(suggestedVal)}</span></div>`;
   // ── Meses anteriores em atraso (contas vinculadas) ──
   _payAlsoPrevIds=new Set();
   const tid=b.templateId||b.id;
@@ -5520,12 +5522,34 @@ function upPayCalc(){
   const pd=document.getElementById('psDate').value||today();
   if(!pv){document.getElementById('psResult').style.display='none';return;}
   const c=calc(b,pd);const nb=Math.max(0,r2(c.bal-pv));
+  const surplus=r2(Math.max(0,pv-c.bal));
+  const hasNext=!!(b.installment?.templateId||b.recurring);
   document.getElementById('psResult').style.display='block';
   document.getElementById('psResult').innerHTML=`
     <div class="psi-row"><span class="psi-lbl">Saldo atual</span><span class="psi-val">${fmt(c.bal)}</span></div>
     <div class="psi-row"><span class="psi-lbl">Pagamento</span><span class="psi-val" style="color:var(--teal)">− ${fmt(pv)}</span></div>
-    <div class="psi-row"><span class="psi-lbl">Restante</span><span class="psi-val" style="color:${nb===0?'var(--teal)':'var(--orange)'}">${nb===0?'✓ Quitado':fmt(nb)}</span></div>`;
+    <div class="psi-row"><span class="psi-lbl">Restante</span><span class="psi-val" style="color:${nb===0?'var(--teal)':'var(--orange)'}">${nb===0?'✓ Quitado':fmt(nb)}</span></div>
+    ${surplus>0&&hasNext?`<div class="psi-row" style="background:rgba(39,174,96,.07);border-radius:8px;padding:6px 8px;margin-top:4px"><span class="psi-lbl" style="color:var(--teal)">💳 Crédito p/ próxima</span><span class="psi-val" style="color:var(--teal);font-weight:900">− ${fmt(surplus)}</span></div>`:''}`;
 }
+function applyOverpayToNext(b,surplus,date,method,time){
+  if(surplus<=0)return null;
+  let nextBill=null;
+  if(b.installment&&b.installment.templateId){
+    const nextIdx=(b.installment.index||0)+1;
+    nextBill=db.bills.find(x=>x.installment&&x.installment.templateId===b.installment.templateId&&x.installment.index===nextIdx);
+  }else if(b.recurring&&b.templateId){
+    const{y,m}=ymk(b.month);
+    let ny=+y,nm=+m+1;if(nm>11){nm=0;ny++;}
+    const nextMonth=mk(ny,nm);
+    nextBill=db.bills.find(x=>x.templateId===b.templateId&&x.month===nextMonth);
+  }
+  if(!nextBill)return null;
+  if(!nextBill.payments)nextBill.payments=[];
+  nextBill.payments.push({id:uid(),amount:surplus,date,method,time,autoCredit:true});
+  sdb();saveBillSupa(nextBill);
+  return nextBill;
+}
+
 function confirmPay(){
   const b=db.bills.find(x=>x.id===curBillId);if(!b)return;
   const amount=parseCur(document.getElementById('psVal'));
@@ -5541,6 +5565,10 @@ function confirmPay(){
   sdb();saveBillSupa(b);
   const c=calc(b,date);
   const fullyPaid=c.bal<=0;
+  // ── Carry-over de excedente para próxima parcela ──
+  const totalPaidNow=r2((b.payments||[]).reduce((s,p)=>s+p.amount,0));
+  const surplus=r2(Math.max(0,totalPaidNow-b.amount));
+  const nextCredited=surplus>0&&(b.installment||b.recurring)?applyOverpayToNext(b,surplus,date,method,time):null;
   if(fullyPaid&&b.recurring)ensureNext(b);
   // ── Pagar contas anteriores vinculadas ──
   let prevPaidCount=0;
@@ -5561,15 +5589,16 @@ function confirmPay(){
   const payerName=curUser?.name||'?';
   const emoji=fullyPaid?'✅':'💰';
   const prevSuffix=prevPaidCount>0?` + ${prevPaidCount} anterior${prevPaidCount!==1?'es':''} quitada${prevPaidCount!==1?'s':''}!`:'';
+  const creditSuffix=nextCredited?` · 💳 ${fmt(surplus)} adiantado p/ próxima`:'';
   if(fullyPaid&&b.recurring){
-    toast(`✓ Pago! Próxima parcela criada.${prevSuffix}`);
-    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado! Próxima parcela criada.${prevPaidCount>0?' ('+prevPaidCount+' mes anterior quitado também)':''}`);
+    toast(`✓ Pago! Próxima parcela criada.${prevSuffix}${creditSuffix}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado! Próxima parcela criada.${nextCredited?' ('+fmt(surplus)+' adiantado para próxima)':''}${prevPaidCount>0?' ('+prevPaidCount+' mes anterior quitado também)':''}`);
   } else if(fullyPaid){
-    toast(`✓ Conta quitada!${prevSuffix}`);
-    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado!${prevPaidCount>0?' ('+prevPaidCount+' mes anterior quitado também)':''}`);
+    toast(`✓ Conta quitada!${prevSuffix}${creditSuffix}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado!${nextCredited?' ('+fmt(surplus)+' adiantado para próxima)':''}${prevPaidCount>0?' ('+prevPaidCount+' mes anterior quitado também)':''}`);
   } else {
-    toast(`Pagamento de ${fmt(amount)} registrado. Saldo: ${fmt(c.bal)}${prevSuffix}`);
-    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}". Saldo restante: ${fmt(c.bal)}${prevPaidCount>0?'. '+prevPaidCount+' mes anterior quitado também.':''}`);
+    toast(`Pagamento de ${fmt(amount)} registrado. Saldo: ${fmt(c.bal)}${prevSuffix}${creditSuffix}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}". Saldo restante: ${fmt(c.bal)}${nextCredited?'. '+fmt(surplus)+' adiantado para próxima parcela.':''}${prevPaidCount>0?'. '+prevPaidCount+' mes anterior quitado também.':''}`);
   }
 }
 
