@@ -4280,6 +4280,12 @@ function renderBills(){
     const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
     const isInstallment=!!b.installment;
     const isSemanal=b.category==='semanal';
+    const isDiariaFixa=(b.recurring||isSemanal)&&!b.noDaily;
+    // Identifica se este card é do mês atual real (hoje) para lógica de transição
+    const isActualCurMonth=b.month===mk(CY,CM);
+    // Identifica se é conta de mês anterior em atraso
+    const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
+
     // Saldo anterior: overdue balance from previous months of the same recurring template
     const prevSaldo=(b.recurring||isSemanal)&&b.templateId
       ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
@@ -4287,25 +4293,74 @@ function renderBills(){
       :0;
     const totalWithPrev=r2(c.bal+prevSaldo);
 
-    // Regra 1: Acumulado necessário para contas semanais
-    const acumuladoTag=isSemanal&&c.daysElapsed>0&&c.st!=='paid'
-      ?`<span style="font-size:.66rem;font-weight:800;color:#27ae60;background:rgba(39,174,96,.12);padding:2px 7px;border-radius:100px">📊 Acum: ${fmt(c.accrued)}</span>`
+    // ── Valor principal: sempre o valor ORIGINAL da conta ──
+    const isPaid=c.st==='paid';
+    const mainValColor=isPaid?'var(--teal)':(c.late>0||prevSaldo>0)?'var(--red)':'var(--ink)';
+    const mainVal=fmt(b.amount);
+    // Status secundário no canto
+    const stDisplay=isPaid
+      ?`<div class="bc-st paid" style="color:var(--teal)">✓ Pago</div>`
+      :prevSaldo>0
+        ?`<div class="bc-st late">⚠️ c/ atraso</div>`
+        :`<div class="bc-st ${c.st}">${stLbl[c.st]}</div>`;
+
+    // ── Regra de transição: 3 linhas no mês atual quando há atraso anterior ──
+    const curMonthName=MN[CM].slice(0,3);
+    const breakdownHTML=isActualCurMonth&&prevSaldo>0&&!isPaid
+      ?`<div style="margin-top:7px;padding:7px 9px;background:#f8fafc;border-radius:10px;border-left:3px solid var(--g2);display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:700">
+            <span style="color:var(--g2)">📊 Acumulado ${curMonthName}</span>
+            <span style="color:var(--g2);font-weight:900">${fmt(c.accrued)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:700">
+            <span style="color:var(--ink3)">📋 Valor ${curMonthName}</span>
+            <span style="color:var(--ink);font-weight:800">${fmt(b.amount)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.73rem;font-weight:800;margin-top:1px">
+            <span style="color:var(--red)">⚠️ Atraso anterior</span>
+            <span style="color:var(--red)">${fmt(prevSaldo)}</span>
+          </div>
+        </div>`
       :'';
 
-    // Regra 1: Aviso de corte mensal (semana span de mês)
+    // ── Equação da Calculadora de Provisão ──
+    // Mostra: [Valor Base] + [Diárias acumuladas] = [Total próxima fatura]
+    const totalEquacao=r2(b.amount+c.accrued);
+    const equacaoHTML=isDiariaFixa&&c.daysElapsed>0&&!isPaid&&isActualCurMonth
+      ?`<div style="margin-top:6px;padding:6px 10px;background:rgba(59,79,212,.06);border:1px solid rgba(59,79,212,.12);border-radius:9px;font-size:.66rem;font-weight:800;color:var(--g2);text-align:center;letter-spacing:.01em">
+          ${fmtn(b.amount)} <span style="color:var(--ink3);font-weight:700">+</span> ${fmtn(c.accrued)} <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">(diárias)</span> <span style="color:var(--ink3);font-weight:700">=</span> <span style="color:var(--orange);font-weight:900">${fmtn(totalEquacao)}</span> <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">para próxima fatura</span>
+        </div>`
+      :'';
+
+    // ── Chip de crédito por pagamento excedente ──
+    const creditTag=c.credit>0&&!isPaid
+      ?`<span style="font-size:.62rem;font-weight:800;color:#27ae60;background:rgba(39,174,96,.1);padding:2px 7px;border-radius:100px">✅ Desc. ${fmt(c.credit)}</span>`
+      :'';
+    // ── Chip corte mensal semanal ──
     const monthShareTag=isSemanal&&c.monthShare<b.amount
       ?`<span style="font-size:.62rem;font-weight:700;color:var(--ink3)">Este mês: ${fmt(c.monthShare)}</span>`
       :'';
 
-    // Regra 2: Nota de abatimento por pagamento excedente
-    const creditTag=c.credit>0&&c.st!=='paid'
-      ?`<span style="font-size:.62rem;font-weight:800;color:#27ae60;background:rgba(39,174,96,.1);padding:2px 7px;border-radius:100px">✅ Desc. ${fmt(c.credit)}</span>`
-      :'';
-
-    // Regra 3: ícone ⚠️ no card fechado quando há dívida de meses anteriores
-    const prevWarning=prevSaldo>0
-      ?`<span style="font-size:.66rem;font-weight:800;color:var(--red);background:rgba(231,76,60,.1);padding:2px 7px;border-radius:100px">⚠️ Anterior: ${fmt(prevSaldo)}</span>`
-      :'';
+    // ── Card de mês anterior em atraso: layout simples ──
+    if(isPastOverdue){
+      return`<div class="bc late" style="opacity:.9">
+        <div style="display:flex;align-items:center;gap:11px;cursor:pointer" onclick="openDet('${b.id}')">
+          <div class="bc-ico" style="background:${cat.bg}">${cat.ico}</div>
+          <div style="flex:1">
+            <div class="bc-name">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}</div>
+            <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
+            <div style="display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:.66rem;font-weight:800;color:var(--red);background:rgba(231,76,60,.1);padding:2px 8px;border-radius:100px">🔴 EM ATRASO</span>
+              <span style="font-size:.66rem;font-weight:700;color:var(--ink3)">${fmt(c.daily)}/dia · ${c.late}d atraso</span>
+            </div>
+          </div>
+          <div class="bc-right">
+            <div class="bc-val" style="color:var(--red)">${fmt(b.amount)}</div>
+            <div class="bc-st late">Em Atraso</div>
+          </div>
+        </div>
+      </div>`;
+    }
 
     return`<div class="bc ${c.st}">
       <div style="display:flex;align-items:center;gap:11px;cursor:pointer" onclick="openDet('${b.id}')">
@@ -4315,13 +4370,14 @@ function renderBills(){
           <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
           <div style="display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap">
             <span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia${b.noDaily&&c.daysLeft>0?` · ${c.daysLeft}d restante${c.daysLeft!==1?'s':''}`:''}</span>
-            ${isSemanal?'':`<span style="font-size:.66rem;font-weight:700;color:var(--ink3)">Mês: ${fmt(b.amount)}</span>`}
-            ${acumuladoTag}${monthShareTag}${creditTag}${prevWarning}
+            ${creditTag}${monthShareTag}
           </div>
+          ${breakdownHTML}
+          ${equacaoHTML}
         </div>
         <div class="bc-right">
-          <div class="bc-val" style="${prevSaldo>0?'color:var(--red)':''}">${prevSaldo>0?fmt(totalWithPrev):fmt(c.bal)}</div>
-          <div class="bc-st ${c.st}">${prevSaldo>0?'⚠️ c/ atraso':stLbl[c.st]}</div>
+          <div class="bc-val" style="color:${mainValColor}">${mainVal}</div>
+          ${stDisplay}
         </div>
       </div>
       ${isInstallment||b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
