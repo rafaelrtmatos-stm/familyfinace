@@ -1033,7 +1033,8 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       </select>
     </div>
     <div class="ps-result" id="psResult"></div>
-    <button onclick="confirmPay()" style="width:100%;padding:14px;background:var(--g);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(92,107,192,.3);margin-top:4px">Confirmar Pagamento</button>
+    <div id="psLinked" style="display:none;margin-bottom:12px"></div>
+    <button onclick="confirmPay()" style="width:100%;padding:14px;background:var(--g);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(92,107,192,.3);margin-top:4px" id="psConfirmBtn">Confirmar Pagamento</button>
     <button onclick="closePaySheet()" style="width:100%;padding:10px;background:transparent;color:var(--ink3);border:none;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;margin-top:3px">Cancelar</button>
   </div>
 </div>
@@ -4976,6 +4977,7 @@ function ensureNext(bill){
 /* ── PAY SHEET DATE STATE ── */
 let _payYear=new Date().getFullYear();
 let _payMonth=new Date().getMonth(); // 0-indexed
+let _payAlsoPrevIds=new Set(); // IDs de contas anteriores selecionadas para quitar junto
 const _MON_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
 function _syncPayDate(){
@@ -5016,8 +5018,53 @@ function openPaySheet(){
     ${c.acc>0?`<div class="psi-row"><span class="psi-lbl">Diárias (${c.late}d × ${fmt(c.daily)})</span><span class="psi-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
     ${c.paid>0?`<div class="psi-row"><span class="psi-lbl">Já pago</span><span class="psi-val" style="color:var(--teal)">− ${fmt(c.paid)}</span></div>`:''}
     <div class="psi-row" style="border-bottom:none;padding-top:6px"><span class="psi-lbl" style="font-weight:800;color:var(--ink)">Saldo a pagar</span><span class="psi-val" style="color:var(--g2);font-weight:900;font-size:.95rem">${fmt(suggestedVal)}</span></div>`;
+  // ── Meses anteriores em atraso (contas vinculadas) ──
+  _payAlsoPrevIds=new Set();
+  const tid=b.templateId||b.id;
+  const latePrev=(b.recurring||(b.installment&&b.installment.templateId))&&tid
+    ?db.bills.filter(x=>(x.templateId===tid||x.id===tid)&&x.id!==b.id&&x.month<b.month&&calc(x,td).st!=='paid')
+        .sort((a,z)=>a.month.localeCompare(z.month))
+    :[];
+  const psLinked=document.getElementById('psLinked');
+  if(latePrev.length>0){
+    psLinked.style.display='block';
+    psLinked.innerHTML=`<div style="border-top:1.5px dashed rgba(231,76,60,.25);padding-top:10px">
+      <div style="font-size:.58rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:8px">⚠️ ${latePrev.length} mes${latePrev.length!==1?'es':'} anterior${latePrev.length!==1?'es':''} em atraso — quitar junto?</div>
+      ${latePrev.map(x=>{
+        const{y:xy,m:xm}=ymk(x.month);
+        return`<div id="psAlsoRow_${x.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(231,76,60,.06);border-radius:10px;margin-bottom:6px;border:1.5px solid rgba(231,76,60,.18);transition:all .2s">
+          <div>
+            <div style="font-size:.73rem;font-weight:900;color:var(--ink)">${MNS[xm]} ${xy}</div>
+            <div style="font-size:.65rem;font-weight:700;color:var(--ink3)">${esc(x.name)} · ${fmt(x.amount)}</div>
+          </div>
+          <button id="psAlsoBtn_${x.id}" onclick="togglePayAlso('${x.id}')" style="padding:6px 12px;border-radius:8px;border:1.5px solid rgba(231,76,60,.3);background:rgba(231,76,60,.08);font-family:'Nunito',sans-serif;font-size:.68rem;font-weight:900;color:var(--red);cursor:pointer;transition:all .2s;white-space:nowrap">Quitar junto</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  } else {
+    psLinked.style.display='none';
+    psLinked.innerHTML='';
+  }
   upPayCalc();
   document.getElementById('payOverlay').style.display='flex';
+}
+function togglePayAlso(id){
+  const btn=document.getElementById('psAlsoBtn_'+id);
+  const row=document.getElementById('psAlsoRow_'+id);
+  if(!btn||!row)return;
+  if(_payAlsoPrevIds.has(id)){
+    _payAlsoPrevIds.delete(id);
+    btn.textContent='Quitar junto';
+    btn.style.cssText='padding:6px 12px;border-radius:8px;border:1.5px solid rgba(231,76,60,.3);background:rgba(231,76,60,.08);font-family:\'Nunito\',sans-serif;font-size:.68rem;font-weight:900;color:var(--red);cursor:pointer;transition:all .2s;white-space:nowrap';
+    row.style.borderColor='rgba(231,76,60,.18)';
+    row.style.background='rgba(231,76,60,.06)';
+  } else {
+    _payAlsoPrevIds.add(id);
+    btn.textContent='✓ Será quitada';
+    btn.style.cssText='padding:6px 12px;border-radius:8px;border:1.5px solid rgba(39,174,96,.4);background:rgba(39,174,96,.15);font-family:\'Nunito\',sans-serif;font-size:.68rem;font-weight:900;color:var(--teal);cursor:pointer;transition:all .2s;white-space:nowrap';
+    row.style.borderColor='rgba(39,174,96,.35)';
+    row.style.background='rgba(39,174,96,.06)';
+  }
 }
 function closePaySheet(){document.getElementById('payOverlay').style.display='none';}
 function upPayCalc(){
@@ -5039,28 +5086,43 @@ function confirmPay(){
   const method=document.getElementById('psMethod').value;
   if(!amount||amount<=0){toast('Digite o valor');return;}
   if(!date){toast('Selecione a data');return;}
-  if(!b.payments)b.payments=[];
   const now=new Date();
   const time=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  // ── Pagar conta principal ──
+  if(!b.payments)b.payments=[];
   b.payments.push({id:uid(),amount,date,method,time});
   sdb();saveBillSupa(b);
   const c=calc(b,date);
   const fullyPaid=c.bal<=0;
   if(fullyPaid&&b.recurring)ensureNext(b);
+  // ── Pagar contas anteriores vinculadas ──
+  let prevPaidCount=0;
+  for(const prevId of _payAlsoPrevIds){
+    const px=db.bills.find(x=>x.id===prevId);if(!px)continue;
+    if(!px.payments)px.payments=[];
+    const prevPay=r2(origBal(px));
+    if(prevPay<=0)continue;
+    px.payments.push({id:uid(),amount:prevPay,date,method,time});
+    sdb();saveBillSupa(px);
+    const pc=calc(px,date);
+    if(pc.bal<=0&&px.recurring)ensureNext(px);
+    prevPaidCount++;
+  }
+  _payAlsoPrevIds=new Set();
   closePaySheet();
-  // Refresh detail content without triggering go() navigation (stay on current screen)
   refreshDet(curBillId);
   const payerName=curUser?.name||'?';
   const emoji=fullyPaid?'✅':'💰';
+  const prevSuffix=prevPaidCount>0?` + ${prevPaidCount} anterior${prevPaidCount!==1?'es':''} quitada${prevPaidCount!==1?'s':''}!`:'';
   if(fullyPaid&&b.recurring){
-    toast('✓ Pago! Próxima parcela criada.');
-    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado! Próxima parcela criada.`);
+    toast(`✓ Pago! Próxima parcela criada.${prevSuffix}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado! Próxima parcela criada.${prevPaidCount>0?' ('+prevPaidCount+' mes anterior quitado também)':''}`);
   } else if(fullyPaid){
-    toast('✓ Conta quitada!');
-    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado!`);
+    toast(`✓ Conta quitada!${prevSuffix}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}" — Quitado!${prevPaidCount>0?' ('+prevPaidCount+' mes anterior quitado também)':''}`);
   } else {
-    toast(`Pagamento de ${fmt(amount)} registrado. Saldo: ${fmt(c.bal)}`);
-    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}". Saldo restante: ${fmt(c.bal)}`);
+    toast(`Pagamento de ${fmt(amount)} registrado. Saldo: ${fmt(c.bal)}${prevSuffix}`);
+    sendSystemChatMsg(`${emoji} ${payerName} pagou ${fmt(amount)} em "${b.name}". Saldo restante: ${fmt(c.bal)}${prevPaidCount>0?'. '+prevPaidCount+' mes anterior quitado também.':''}`);
   }
 }
 
