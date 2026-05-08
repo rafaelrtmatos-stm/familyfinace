@@ -4354,23 +4354,21 @@ function renderBills(){
         </div>`
       :'';
 
-    // ── Equação da Calculadora de Provisão ──
-    // Mostra: [Valor Base] + [Diárias acumuladas] = [Total próxima fatura]
-    const totalEquacao=r2(b.amount+c.accrued);
-    const equacaoHTML=isDiariaFixa&&c.daysElapsed>0&&!isPaid&&isActualCurMonth
-      ?`<div style="margin-top:6px;padding:6px 10px;background:rgba(59,79,212,.06);border:1px solid rgba(59,79,212,.12);border-radius:9px;font-size:.66rem;font-weight:800;color:var(--g2);text-align:center;letter-spacing:.01em">
-          ${fmtn(b.amount)} <span style="color:var(--ink3);font-weight:700">+</span> ${fmtn(c.accrued)} <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">(diárias)</span> <span style="color:var(--ink3);font-weight:700">=</span> <span style="color:var(--orange);font-weight:900">${fmtn(totalEquacao)}</span> <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">para próxima fatura</span>
-        </div>`
-      :'';
-
-    // ── Equação de Fatura com Atraso Anterior ──
-    // Mostra: [Valor Base] + [Saldo de meses anteriores] = [Total próxima fatura]
+    // ── Footer: Equação de Provisão (largura total do card) ──
     const totalEquacaoPrev=r2(b.amount+prevSaldo);
-    const prevEquacaoHTML=prevSaldo>0&&!isPaid&&isActualCurMonth
-      ?`<div style="margin-top:6px;padding:6px 10px;background:rgba(231,76,60,.05);border:1px solid rgba(231,76,60,.18);border-radius:9px;font-size:.66rem;font-weight:800;color:var(--red);text-align:center;letter-spacing:.01em">
-          ${fmtn(b.amount)} <span style="color:var(--ink3);font-weight:700">+</span> ${fmtn(prevSaldo)} <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">(diárias)</span> <span style="color:var(--ink3);font-weight:700">=</span> <span style="color:var(--red);font-weight:900">${fmtn(totalEquacaoPrev)}</span> <span style="font-size:.6rem;font-weight:700;color:var(--ink3)">para próxima fatura</span>
-        </div>`
-      :'';
+    let footerHTML='';
+    if(!isPaid&&isActualCurMonth){
+      if(prevSaldo>0){
+        footerHTML=`<div style="border-top:1px solid rgba(231,76,60,.2);margin-top:8px;padding:5px 12px;background:rgba(231,76,60,.04);display:flex;justify-content:center;align-items:center;gap:5px;font-size:.65rem;font-weight:800;flex-wrap:wrap">
+          <span style="color:var(--ink)">⚠️ ${fmtn(b.amount)}</span><span style="color:var(--ink3);font-weight:600">+</span><span style="color:var(--red)">${fmtn(prevSaldo)} <span style="color:var(--ink3);font-weight:600">(diárias)</span></span><span style="color:var(--ink3);font-weight:600">=</span><span style="color:var(--red);font-weight:900">${fmtn(totalEquacaoPrev)}</span><span style="color:var(--ink3);font-weight:600">para próxima fatura</span>
+        </div>`;
+      }else if(c.accrued>0){
+        footerHTML=`<div style="border-top:1px solid #f0f2f5;margin-top:8px;padding:5px 12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.65rem;font-weight:800;color:var(--g2)">${fmtn(c.accrued)} <span style="font-weight:600;color:var(--ink3)">(diárias)</span></span>
+          <span style="font-size:.65rem;font-weight:800;color:var(--ink)">${fmtn(c.bal)} <span style="font-weight:600;color:var(--ink3)">(restante)</span></span>
+        </div>`;
+      }
+    }
 
     // ── Chip de crédito por pagamento excedente ──
     const creditTag=c.credit>0&&!isPaid
@@ -4413,14 +4411,13 @@ function renderBills(){
             ${creditTag}${monthShareTag}
           </div>
           ${breakdownHTML}
-          ${equacaoHTML}
-          ${prevEquacaoHTML}
         </div>
         <div class="bc-right">
           <div class="bc-val" style="color:${mainValColor}">${mainVal}</div>
           ${stDisplay}
         </div>
       </div>
+      ${footerHTML}
       ${isInstallment||b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
         <button onclick="openInstallmentEdit('${b.id}')" style="flex:1;padding:7px;background:rgba(52,152,219,.08);border:1.5px solid rgba(52,152,219,.2);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--blue);cursor:pointer">✏️ Editar</button>
         <button onclick="openInstallmentDelete('${b.id}')" style="flex:1;padding:7px;background:rgba(231,76,60,.08);border:1.5px solid rgba(231,76,60,.2);border-radius:8px;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--red);cursor:pointer">🗑 Excluir</button>
