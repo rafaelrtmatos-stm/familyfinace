@@ -903,6 +903,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="fc" onclick="setF('late',this)">Atrasadas</button>
     <button class="fc" onclick="setF('partial',this)">Parciais</button>
     <button class="fc" onclick="setF('recurring',this)">Recorrentes</button>
+    <button class="fc" onclick="setF('semanal',this)">📅 Semanais</button>
   </div>
   <div class="bills-scroll" id="billsList"></div>
 </div>
@@ -2417,7 +2418,21 @@ function calc(b,ref){
   else if(late>0)st='late';
   else st='pending';
 
-  return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd,paid,bal,st};
+  // Overpayment credit: how much paid exceeds what has accrued so far
+  const credit=Math.max(0,r2(paid-accrued));
+
+  // Monthly share for weekly bills that span a month boundary (Regra 1: corte mensal)
+  let monthShare=b.amount;
+  if(b.weeklyDay!==undefined&&b.weeklyDay!==null){
+    const firstOfMonthISO=iso(new Date(y,m,1));
+    if(periodStart<firstOfMonthISO){
+      const hs2=hset();
+      const daysInThisMonth=wdBefore(firstOfMonthISO,rawDueISO)+(isWD(piso(rawDueISO),hs2)?1:0);
+      monthShare=r2(Math.min(daysInThisMonth,wd)*daily);
+    }
+  }
+
+  return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd,paid,bal,st,credit,monthShare};
 }
 
 /* ══════════════════════════════════════════════════
@@ -2432,6 +2447,7 @@ const DEFAULT_CATS=[
   {id:'educacao',lbl:'Educação',ico:'📚',color:'#3498db',bg:'rgba(52,152,219,.14)'},
   {id:'lazer',lbl:'Lazer',ico:'🎮',color:'#7c83e0',bg:'rgba(92,107,192,.14)'},
   {id:'cafe',lbl:'Café',ico:'☕',color:'#e67e22',bg:'rgba(230,126,34,.14)'},
+  {id:'semanal',lbl:'Conta Semanal',ico:'📅',color:'#27ae60',bg:'rgba(39,174,96,.14)'},
   {id:'outro',lbl:'Outro',ico:'📌',color:'#7f8c8d',bg:'rgba(127,140,141,.14)'},
 ];
 function getCats(){return(db.cats&&db.cats.length)?db.cats:DEFAULT_CATS;}
@@ -4241,6 +4257,7 @@ function renderBills(){
   else if(activeF==='late')bills=bills.filter(b=>calc(b,td).st==='late');
   else if(activeF==='partial')bills=bills.filter(b=>calc(b,td).st==='partial');
   else if(activeF==='recurring')bills=bills.filter(b=>b.recurring);
+  else if(activeF==='semanal')bills=bills.filter(b=>b.category==='semanal');
 
   let tot=0,paid=0,bal=0,daily=0;
   allBills.forEach(b=>{
@@ -4262,27 +4279,49 @@ function renderBills(){
     const c=calc(b,td);const cat=catBy(b.category);
     const uname=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
     const isInstallment=!!b.installment;
+    const isSemanal=b.category==='semanal';
     // Saldo anterior: overdue balance from previous months of the same recurring template
-    const prevSaldo=b.recurring&&b.templateId
+    const prevSaldo=(b.recurring||isSemanal)&&b.templateId
       ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
           .reduce((s,x)=>s+calc(x,td).bal,0))
       :0;
     const totalWithPrev=r2(c.bal+prevSaldo);
+
+    // Regra 1: Acumulado necessário para contas semanais
+    const acumuladoTag=isSemanal&&c.daysElapsed>0&&c.st!=='paid'
+      ?`<span style="font-size:.66rem;font-weight:800;color:#27ae60;background:rgba(39,174,96,.12);padding:2px 7px;border-radius:100px">📊 Acum: ${fmt(c.accrued)}</span>`
+      :'';
+
+    // Regra 1: Aviso de corte mensal (semana span de mês)
+    const monthShareTag=isSemanal&&c.monthShare<b.amount
+      ?`<span style="font-size:.62rem;font-weight:700;color:var(--ink3)">Este mês: ${fmt(c.monthShare)}</span>`
+      :'';
+
+    // Regra 2: Nota de abatimento por pagamento excedente
+    const creditTag=c.credit>0&&c.st!=='paid'
+      ?`<span style="font-size:.62rem;font-weight:800;color:#27ae60;background:rgba(39,174,96,.1);padding:2px 7px;border-radius:100px">✅ Desc. ${fmt(c.credit)}</span>`
+      :'';
+
+    // Regra 3: ícone ⚠️ no card fechado quando há dívida de meses anteriores
+    const prevWarning=prevSaldo>0
+      ?`<span style="font-size:.66rem;font-weight:800;color:var(--red);background:rgba(231,76,60,.1);padding:2px 7px;border-radius:100px">⚠️ Anterior: ${fmt(prevSaldo)}</span>`
+      :'';
+
     return`<div class="bc ${c.st}">
       <div style="display:flex;align-items:center;gap:11px;cursor:pointer" onclick="openDet('${b.id}')">
         <div class="bc-ico" style="background:${cat.bg}">${cat.ico}</div>
         <div style="flex:1">
           <div class="bc-name">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${b.noDaily?'<span class="rec-badge" style="background:rgba(127,140,141,.1);color:#7f8c8d"> 💳 fixo</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
           <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
-          <div style="display:flex;gap:8px;margin-top:3px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap">
             <span style="font-size:.66rem;font-weight:800;color:var(--g2);background:rgba(59,79,212,.1);padding:2px 7px;border-radius:100px">📅 ${fmt(c.daily)}/dia${b.noDaily&&c.daysLeft>0?` · ${c.daysLeft}d restante${c.daysLeft!==1?'s':''}`:''}</span>
-            <span style="font-size:.66rem;font-weight:700;color:var(--ink3)">Mês: ${fmt(b.amount)}</span>
-            ${prevSaldo>0?`<span style="font-size:.66rem;font-weight:800;color:var(--red);background:rgba(231,76,60,.1);padding:2px 7px;border-radius:100px">⚠️ Anterior: ${fmt(prevSaldo)}</span>`:''}
+            ${isSemanal?'':`<span style="font-size:.66rem;font-weight:700;color:var(--ink3)">Mês: ${fmt(b.amount)}</span>`}
+            ${acumuladoTag}${monthShareTag}${creditTag}${prevWarning}
           </div>
         </div>
         <div class="bc-right">
           <div class="bc-val" style="${prevSaldo>0?'color:var(--red)':''}">${prevSaldo>0?fmt(totalWithPrev):fmt(c.bal)}</div>
-          <div class="bc-st ${c.st}">${prevSaldo>0?'Total c/ atraso':stLbl[c.st]}</div>
+          <div class="bc-st ${c.st}">${prevSaldo>0?'⚠️ c/ atraso':stLbl[c.st]}</div>
         </div>
       </div>
       ${isInstallment||b.recurring?`<div style="display:flex;gap:6px;padding:8px 0 2px;border-top:1px solid #f2f4f8;margin-top:8px">
@@ -4381,29 +4420,61 @@ function refreshDet(id){
       :c.late>0
         ?`<span style="color:var(--red);font-weight:800">${c.late} dia${c.late!==1?'s úteis':' útil'} em atraso</span>`
         :`<span style="color:var(--orange);font-weight:800">Vence hoje</span>`;
+    // ── Seção B: dívida de meses anteriores detalhada por mês ──
+    const prevMonthBillsDetail=(b.recurring||b.category==='semanal')&&b.templateId
+      ?db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
+          .sort((a,z)=>a.month.localeCompare(z.month))
+      :[];
+    const secBHTML=prevMonthBillsDetail.length
+      ?`<div style="margin:10px 0 0;border-top:2px dashed rgba(231,76,60,.25);padding-top:10px">
+          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:7px">⚠️ Seção B — Dívida de Meses Anteriores</div>
+          ${prevMonthBillsDetail.map(x=>{const cx=calc(x,td);const{y:xy,m:xm}=ymk(x.month);return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f2f4f8"><span style="font-size:.74rem;font-weight:700;color:var(--ink3)">${MN[xm].slice(0,3)} ${xy}</span><span style="font-size:.8rem;font-weight:900;color:var(--red)">${fmt(cx.bal)}</span></div>`;}).join('')}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;margin-top:2px"><span style="font-size:.74rem;font-weight:900;color:var(--red)">Total em atraso</span><span style="font-size:.9rem;font-weight:900;color:var(--red)">${fmt(detPrevSaldo)}</span></div>
+        </div>`
+      :'';
+
+    // ── Seção C: histórico de descontos por pagamento excedente ──
+    const secCHTML=c.credit>0
+      ?`<div style="margin:10px 0 0;border-top:2px dashed rgba(39,174,96,.25);padding-top:10px;background:rgba(39,174,96,.05);border-radius:8px;padding:10px">
+          <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#27ae60;margin-bottom:5px">✅ Seção C — Desconto por Pagamento Excedente</div>
+          <div style="font-size:.76rem;font-weight:700;color:#27ae60">Nota: ${fmt(c.credit)} de desconto aplicado via pagamento excedente anterior. Esse valor será abatido das próximas diárias automaticamente.</div>
+        </div>`
+      :'';
+
+    // ── Seção A: diárias do mês atual ──
+    const isSemanal=b.category==='semanal';
+    const semanalMonthShareRow=isSemanal&&c.monthShare<b.amount
+      ?`<div class="ir"><span class="ir-lbl">📅 Competência deste mês</span><span class="ir-val green">${fmt(c.monthShare)} de ${fmt(b.amount)}</span></div>`
+      :'';
+
     infoCard=`<div class="info-card">
+      <div style="font-size:.56rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--g2);margin-bottom:6px;padding:0 2px">Seção A — ${isSemanal?'Provisão Semanal':'Diárias do Mês Atual'}</div>
       <div class="ir"><span class="ir-lbl">Vencimento</span><span class="ir-val">${dueLabel}</span></div>
       <div class="ir"><span class="ir-lbl">Prazo</span><span class="ir-val">${daysLeftLabel}</span></div>
       <div class="ir"><span class="ir-lbl">Valor original</span><span class="ir-val blue">${fmt(b.amount)}</span></div>
-      <div class="ir"><span class="ir-lbl">Dias úteis/mês</span><span class="ir-val">${c.wd}</span></div>
-      <div class="ir"><span class="ir-lbl">Diária</span><span class="ir-val orange">${fmt(c.daily)}/dia</span></div>
+      <div class="ir"><span class="ir-lbl">Dias úteis/ciclo</span><span class="ir-val">${c.wd}</span></div>
+      <div class="ir"><span class="ir-lbl">Diária fixa</span><span class="ir-val orange">${fmt(c.daily)}/dia</span></div>
       <div class="ir"><span class="ir-lbl">Dias decorridos</span><span class="ir-val">${c.daysElapsed} de ${c.wd} dias úteis</span></div>
+      ${semanalMonthShareRow}
       ${c.late>0?`<div class="ir"><span class="ir-lbl">Dias em atraso</span><span class="ir-val red">${c.late}d úteis</span></div>`:''}
       ${c.acc>0?`<div class="ir"><span class="ir-lbl">Multa de atraso</span><span class="ir-val red">+ ${fmt(c.acc)}</span></div>`:''}
       ${c.paid>0?`<div class="ir"><span class="ir-lbl">Já pago</span><span class="ir-val green">${fmt(c.paid)}</span></div>`:''}
-      <div class="ir" ${detPrevSaldo>0?'':'style="border-bottom:none"'}><span class="ir-lbl">Saldo atual (este mês)</span><span class="ir-val orange" style="font-size:.95rem;font-weight:900">${fmt(c.bal)}</span></div>
+      <div class="ir" style="${detPrevSaldo>0||c.credit>0?'':'border-bottom:none'}"><span class="ir-lbl">Saldo atual (este mês)</span><span class="ir-val orange" style="font-size:.95rem;font-weight:900">${fmt(c.bal)}</span></div>
       ${detPrevSaldo>0?`<div class="ir"><span class="ir-lbl">⚠️ Meses anteriores em atraso</span><span class="ir-val red">${fmt(detPrevSaldo)}</span></div>
       <div class="ir" style="border-bottom:none;background:rgba(231,76,60,.06);border-radius:8px;padding:8px 6px;margin-top:2px"><span class="ir-lbl" style="font-weight:900">TOTAL A PAGAR</span><span class="ir-val red" style="font-size:1rem;font-weight:900">${fmt(r2(c.bal+detPrevSaldo))}</span></div>`:''}
+      ${secBHTML}${secCHTML}
     </div>
     <div class="calc-box">
+      <div style="font-size:.56rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:6px">Seção A — Cálculo do Mês</div>
       <div class="calc-row"><span class="calc-lbl">Original</span><span class="calc-val">${fmt(b.amount)}</span></div>
       ${b.noDaily
         ?`<div class="calc-row"><span class="calc-lbl">Valor fixo (${c.daysLeft>0?c.daysLeft+' dia'+(c.daysLeft!==1?'s úteis restantes':'útil restante'):'vencida'} · ${fmt(c.daily)}/dia)</span><span class="calc-val">${fmt(c.accrued)}</span></div>`
         :`<div class="calc-row"><span class="calc-lbl">${c.daysElapsed} diárias × ${fmt(c.daily)}</span><span class="calc-val">${fmt(c.accrued)}</span></div>`}
       ${c.acc>0?`<div class="calc-row"><span class="calc-lbl">Atraso (${c.late}d)</span><span class="calc-val" style="color:var(--red)">+ ${fmt(c.acc)}</span></div>`:''}
       ${c.paid>0?`<div class="calc-row"><span class="calc-lbl">Já pago</span><span class="calc-val" style="color:var(--teal)">− ${fmt(c.paid)}</span></div>`:''}
-      <div class="calc-row"><span class="calc-lbl" style="font-weight:800">Saldo (este mês)</span><span class="calc-val" style="color:var(--orange);font-weight:900">${fmt(c.bal)}</span></div>
-      ${detPrevSaldo>0?`<div class="calc-row"><span class="calc-lbl">+ Meses anteriores</span><span class="calc-val" style="color:var(--red)">+ ${fmt(detPrevSaldo)}</span></div>
+      ${c.credit>0?`<div class="calc-row"><span class="calc-lbl" style="color:#27ae60">✅ Crédito (excedente pago)</span><span class="calc-val" style="color:#27ae60">− ${fmt(c.credit)}</span></div>`:''}
+      <div class="calc-row ${detPrevSaldo>0?'':'last'}"><span class="calc-lbl" style="font-weight:800">Saldo (este mês)</span><span class="calc-val" style="color:var(--orange);font-weight:900">${fmt(c.bal)}</span></div>
+      ${detPrevSaldo>0?`<div class="calc-row"><span class="calc-lbl" style="color:var(--red)">⚠️ Meses anteriores</span><span class="calc-val" style="color:var(--red)">+ ${fmt(detPrevSaldo)}</span></div>
       <div class="calc-row" style="border-top:2px solid rgba(231,76,60,.25);margin-top:4px;padding-top:6px"><span class="calc-lbl" style="font-weight:900;color:var(--red)">Total a pagar</span><span class="calc-val" style="color:var(--red);font-weight:900">${fmt(r2(c.bal+detPrevSaldo))}</span></div>`:''}
     </div>`;
   }
