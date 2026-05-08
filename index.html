@@ -1236,12 +1236,23 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <input type="text" class="us-inp" id="editName" placeholder="Ex: Aluguel…"/>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px">
-      <div class="us-field" style="margin-bottom:0"><div class="us-label">Valor (R$)</div>
-        <input type="text" inputmode="numeric" class="us-inp" id="editAmount" placeholder="0,00" oninput="currMask(this)"/>
+      <div class="us-field" style="margin-bottom:0"><div class="us-label" id="editAmountLabel">Valor (R$)</div>
+        <input type="text" inputmode="numeric" class="us-inp" id="editAmount" placeholder="0,00" oninput="currMask(this);_editInstCalc('parcela')"/>
       </div>
       <div class="us-field" style="margin-bottom:0"><div class="us-label">Dia vencimento</div>
         <input type="number" class="us-inp" id="editDay" inputmode="numeric" pattern="[0-9]*" min="1" max="31" placeholder="Ex: 20"/>
       </div>
+    </div>
+    <div id="editInstallmentRow" style="display:none;margin-bottom:11px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div class="us-field" style="margin-bottom:0"><div class="us-label">Nº de parcelas</div>
+          <input type="number" class="us-inp" id="editInstallments" inputmode="numeric" min="2" max="60" placeholder="Ex: 10" oninput="_editInstCalc('n')"/>
+        </div>
+        <div class="us-field" style="margin-bottom:0"><div class="us-label">Total (R$)</div>
+          <input type="text" inputmode="numeric" class="us-inp" id="editAmountTotal" placeholder="0,00" oninput="currMask(this);_editInstCalc('total')"/>
+        </div>
+      </div>
+      <div id="editInstallPreview" style="font-size:.76rem;font-weight:800;color:var(--g2);padding:7px 12px;background:rgba(59,79,212,.07);border-radius:8px;display:none;text-align:center"></div>
     </div>
     <div class="us-field"><div class="us-label">Mês de referência</div>
       <div style="position:relative;display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1.5px solid #dde2ec;border-radius:var(--rs);padding:10px 12px;cursor:pointer" onclick="try{document.getElementById('editMonth').showPicker();}catch(e){document.getElementById('editMonth').focus()}">
@@ -5137,6 +5148,30 @@ function setEditCycle(c,el){
   if(el)el.classList.add('sel');
 }
 
+function _editInstCalc(src){
+  const nEl=document.getElementById('editInstallments');
+  const totalEl=document.getElementById('editAmountTotal');
+  const parcelaEl=document.getElementById('editAmount');
+  const prev=document.getElementById('editInstallPreview');
+  const n=parseInt(nEl?.value)||0;
+  if(!n){if(prev)prev.style.display='none';return;}
+  if(src==='parcela'){
+    const p=parseCur(parcelaEl);
+    if(p>0){setCurVal(totalEl,r2(p*n));if(prev){prev.textContent=`${n}× ${fmt(p)} = Total ${fmt(r2(p*n))}`;prev.style.display='block';}}
+    else if(prev)prev.style.display='none';
+  } else if(src==='total'){
+    const t=parseCur(totalEl);
+    if(t>0){setCurVal(parcelaEl,r2(t/n));if(prev){prev.textContent=`${fmt(t)} ÷ ${n}× = ${fmt(r2(t/n))} por parcela`;prev.style.display='block';}}
+    else if(prev)prev.style.display='none';
+  } else if(src==='n'){
+    const t=parseCur(totalEl);
+    const p=parseCur(parcelaEl);
+    if(t>0){setCurVal(parcelaEl,r2(t/n));if(prev){prev.textContent=`${fmt(t)} ÷ ${n}× = ${fmt(r2(t/n))} por parcela`;prev.style.display='block';}}
+    else if(p>0){setCurVal(totalEl,r2(p*n));if(prev){prev.textContent=`${n}× ${fmt(p)} = Total ${fmt(r2(p*n))}`;prev.style.display='block';}}
+    else if(prev)prev.style.display='none';
+  }
+}
+
 let _editBillType='avista';
 function setEditType(t,el){
   _editBillType=t;
@@ -5144,18 +5179,26 @@ function setEditType(t,el){
   if(el)el.classList.add('sel');
   const note=document.getElementById('editTypeNote');
   const cycleRow=document.getElementById('editCycleRow');
+  const instRow=document.getElementById('editInstallmentRow');
+  const amtLbl=document.getElementById('editAmountLabel');
   if(t==='avista'){
     note.style.display='block';
     note.textContent='💳 À vista: valor fixo, sem acréscimo de diária. Aparece como atrasada se não paga.';
     cycleRow.style.display='none';
+    if(instRow)instRow.style.display='none';
+    if(amtLbl)amtLbl.textContent='Valor (R$)';
   } else if(t==='parcelada'){
     note.style.display='block';
     note.textContent='📋 Parcelada: cada parcela acumula diária normalmente até o vencimento.';
     cycleRow.style.display='block';
+    if(instRow)instRow.style.display='block';
+    if(amtLbl)amtLbl.textContent='Por parcela (R$)';
   } else {
     note.style.display='block';
     note.textContent='↺ Recorrente: gera nova parcela todo mês e acumula diária normalmente.';
     cycleRow.style.display='block';
+    if(instRow)instRow.style.display='none';
+    if(amtLbl)amtLbl.textContent='Valor (R$)';
   }
 }
 
@@ -5185,6 +5228,21 @@ function openEditSheet(id,applyAll){
   setEditCycle(cycle,document.getElementById(
     cycle==='semanal'?'editCycleSemanal':cycle==='fortnight'?'editCycleFortnight':cycle==='month'?'editCycleMonth':'editCycleDay'
   ));
+  // Pre-fill installment fields if parcelada
+  const instEl=document.getElementById('editInstallments');
+  const totalEl=document.getElementById('editAmountTotal');
+  const instPrev=document.getElementById('editInstallPreview');
+  if(b.installment&&b.installment.total>1){
+    const n=b.installment.total;
+    const total=r2(b.amount*n);
+    if(instEl)instEl.value=n;
+    if(totalEl)setCurVal(totalEl,total);
+    if(instPrev){instPrev.textContent=`${n}× ${fmt(b.amount)} = Total ${fmt(total)}`;instPrev.style.display='block';}
+  } else {
+    if(instEl)instEl.value='';
+    if(totalEl)setCurVal(totalEl,0);
+    if(instPrev)instPrev.style.display='none';
+  }
   document.getElementById('editPayMethod').value=b.payMethod||'pix';
   const catSel=document.getElementById('editCategory');
   catSel.innerHTML=CATS.map(c=>`<option value="${c.id}">${c.ico} ${c.lbl}</option>`).join('');
