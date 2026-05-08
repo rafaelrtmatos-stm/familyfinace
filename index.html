@@ -126,12 +126,14 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .atab.active{background:rgba(255,255,255,.2);color:#fff}
 
 /* ── AMOUNT DISPLAY ── */
-.amt-display{text-align:center;padding:16px 20px 8px;background:linear-gradient(160deg,var(--g3),var(--g2),var(--g));flex-shrink:0;position:relative}
-.amt-line{width:100px;height:2px;background:rgba(255,255,255,.45);margin:0 auto 5px;border-radius:1px;position:relative;overflow:visible}
-.amt-line::after{content:'';position:absolute;right:-1px;top:-3px;width:2px;height:8px;background:#fff;border-radius:1px;animation:blink 1s step-end infinite}
+.amt-display{text-align:center;background:linear-gradient(160deg,var(--g3),var(--g2),var(--g));flex-shrink:0;position:relative}
+.amt-line{width:160px;height:2.5px;background:rgba(255,255,255,.35);margin:12px auto 0;border-radius:2px;position:relative;overflow:visible}
+.amt-line::after{content:'';position:absolute;right:-1px;top:-3px;width:2.5px;height:9px;background:#fff;border-radius:2px;animation:blink 1s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-.amt-val{font-size:2.2rem;font-weight:900;color:#fff;letter-spacing:-.03em}
-.amt-cur{font-size:.85rem;font-weight:700;color:rgba(255,255,255,.8);margin-right:4px;vertical-align:.15em}
+.amt-val{font-size:3.4rem;font-weight:900;color:#fff;letter-spacing:-.04em;line-height:1}
+.amt-cur{font-size:1.5rem;font-weight:800;color:rgba(255,255,255,.65);padding-bottom:6px;line-height:1;align-self:flex-end}
+.qamt-btn{background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.28);color:#fff;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;padding:7px 15px;border-radius:100px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .13s;white-space:nowrap}
+.qamt-btn:active{background:rgba(255,255,255,.3)}
 
 /* ── ADD BODY ── */
 .add-body{flex:1;overflow-y:auto;background:var(--white);padding:14px 16px}
@@ -647,10 +649,19 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 
   <!-- ── STEP 0: Value (numpad) ── -->
   <div id="addStep0" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-    <div class="amt-display" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div class="amt-display" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 24px">
+      <div style="font-size:.62rem;font-weight:800;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.16em;margin-bottom:18px">Valor da conta</div>
+      <div style="display:flex;align-items:flex-end;gap:6px">
+        <span class="amt-cur">R$</span>
+        <span class="amt-val" id="addAmt">0,00</span>
+      </div>
       <div class="amt-line"></div>
-      <div><span class="amt-cur">BRL</span><span class="amt-val" id="addAmt">0</span></div>
-      <div style="font-size:.68rem;font-weight:700;color:rgba(255,255,255,.55);margin-top:10px">Digite o valor e toque em →</div>
+      <div style="display:flex;gap:8px;margin-top:22px;flex-wrap:wrap;justify-content:center">
+        <button class="qamt-btn" onclick="npSet('5000')">R$ 50</button>
+        <button class="qamt-btn" onclick="npSet('10000')">R$ 100</button>
+        <button class="qamt-btn" onclick="npSet('20000')">R$ 200</button>
+        <button class="qamt-btn" onclick="npSet('50000')">R$ 500</button>
+      </div>
     </div>
     <div class="numpad">
       <button class="npk" onclick="np('1')">1</button><button class="npk" onclick="np('2')">2</button><button class="npk" onclick="np('3')">3</button>
@@ -707,12 +718,30 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         </div>
       </div>
       <div id="parcelaWrap" style="display:none;margin-bottom:10px">
+        <div class="abl" style="margin-bottom:6px">Frequência das parcelas</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="pm-chip sel" id="pfreqMensal" onclick="setParcelaFreq('mensal')" style="flex:1">📅 Mensal</button>
+          <button class="pm-chip" id="pfreqSemanal" onclick="setParcelaFreq('semanal')" style="flex:1">📆 Semanal</button>
+          <button class="pm-chip" id="pfreqDiaria" onclick="setParcelaFreq('diaria')" style="flex:1">🗓️ Diária</button>
+        </div>
+        <div id="pfreqSemanalWrap" style="display:none;margin-bottom:8px">
+          <div class="abl" style="margin-bottom:4px">Dia da semana</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+            <button class="pm-chip" id="pwd0" onclick="setParcelaWeekday(0,this)">Dom</button>
+            <button class="pm-chip sel" id="pwd1" onclick="setParcelaWeekday(1,this)">Seg</button>
+            <button class="pm-chip" id="pwd2" onclick="setParcelaWeekday(2,this)">Ter</button>
+            <button class="pm-chip" id="pwd3" onclick="setParcelaWeekday(3,this)">Qua</button>
+            <button class="pm-chip" id="pwd4" onclick="setParcelaWeekday(4,this)">Qui</button>
+            <button class="pm-chip" id="pwd5" onclick="setParcelaWeekday(5,this)">Sex</button>
+            <button class="pm-chip" id="pwd6" onclick="setParcelaWeekday(6,this)">Sáb</button>
+          </div>
+        </div>
         <div class="af-val" style="align-items:center;gap:10px">
           <span style="font-size:.82rem;font-weight:700;color:var(--ink2);white-space:nowrap">Nº de parcelas</span>
           <input type="number" id="addParcelas" min="2" max="60" value="2"
             style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:var(--g2);width:60px;outline:none;text-align:center"
             oninput="updateParcelaPreview()"/>
-          <span style="font-size:.76rem;color:var(--ink3);font-weight:700">× meses</span>
+          <span style="font-size:.76rem;color:var(--ink3);font-weight:700" id="parcelaUnit">× meses</span>
         </div>
         <div id="parcelaPreview" style="font-size:.76rem;color:var(--ink3);font-weight:700;padding:6px 12px;background:rgba(59,79,212,.07);border-radius:8px;margin-top:6px"></div>
       </div>
@@ -3262,6 +3291,11 @@ function npDel(){
   document.getElementById('addAmt').textContent=centsDisp(numStr);
   if(addType==='parcelada')updateParcelaPreview();
 }
+function npSet(v){
+  numStr=v;
+  document.getElementById('addAmt').textContent=centsDisp(numStr);
+  if(addType==='parcelada')updateParcelaPreview();
+}
 function selPM(el,m){
   selPMethod=m;
   const row=el.closest('.pm-row');
@@ -3357,7 +3391,26 @@ let addCycle='day';
 let addShared=false;
 let addStep=0;
 let addUserId='';
+let addParcelaFreq='mensal';
+let addParcelaWeekday=1;
 const ADD_STEP_TITLES=['Valor da conta','Categoria e tipo','Detalhes finais'];
+
+function setParcelaFreq(f){
+  addParcelaFreq=f;
+  ['mensal','semanal','diaria'].forEach(v=>{
+    document.getElementById('pfreq'+v.charAt(0).toUpperCase()+v.slice(1))?.classList.toggle('sel',v===f);
+  });
+  const sw=document.getElementById('pfreqSemanalWrap');
+  if(sw)sw.style.display=f==='semanal'?'block':'none';
+  const unit=document.getElementById('parcelaUnit');
+  if(unit)unit.textContent=f==='mensal'?'× meses':f==='semanal'?'× semanas':'× dias';
+  updateParcelaPreview();
+}
+function setParcelaWeekday(d,el){
+  addParcelaWeekday=d;
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('pwd'+i)?.classList.toggle('sel',i===d));
+  updateParcelaPreview();
+}
 
 function goAddStep(s){
   addStep=s;
@@ -3477,11 +3530,32 @@ function updateParcelaPreview(){
   const total=(parseInt(numStr)||0)/100;
   const parcel=total>0?r2(total/n):0;
   const{y,m}=ymk(document.getElementById('addMonth').value||mk(CY,CM));
-  let ey=y,em=m+(n-1);while(em>11){em-=12;ey++;}
-  document.getElementById('parcelaPreview').textContent=
-    total>0
+  const prev=document.getElementById('parcelaPreview');
+  if(!prev)return;
+  if(addParcelaFreq==='mensal'){
+    let ey=y,em=m+(n-1);while(em>11){em-=12;ey++;}
+    prev.textContent=total>0
       ?`${n}× de ${fmt(parcel)} · ${MN[m].slice(0,3)}/${y} até ${MN[em].slice(0,3)}/${ey}`
       :`${n} parcelas · Digite o valor total`;
+  } else if(addParcelaFreq==='semanal'){
+    const firstDate=getDatesOfWeekday(y,m,addParcelaWeekday)[0];
+    if(firstDate){
+      const lastD=new Date(y,m,firstDate);lastD.setDate(lastD.getDate()+7*(n-1));
+      const wdName=WD_NAMES[addParcelaWeekday];
+      prev.textContent=total>0
+        ?`${n}× de ${fmt(parcel)} · toda ${wdName} · até ${lastD.getDate()}/${lastD.getMonth()+1}/${lastD.getFullYear()}`
+        :`${n} semanas (toda ${wdName}) · Digite o valor`;
+    } else {
+      prev.textContent='Sem ocorrências neste mês para esse dia da semana';
+    }
+  } else if(addParcelaFreq==='diaria'){
+    const startDay=parseInt(document.getElementById('addDay')?.value)||1;
+    const startD=new Date(y,m,startDay);
+    const endD=new Date(startD);endD.setDate(endD.getDate()+(n-1));
+    prev.textContent=total>0
+      ?`${n}× de ${fmt(parcel)} por dia · ${startD.getDate()}/${startD.getMonth()+1} até ${endD.getDate()}/${endD.getMonth()+1}/${endD.getFullYear()}`
+      :`${n} dias consecutivos · Digite o valor`;
+  }
 }
 
 function resetAddForm(){
@@ -3491,14 +3565,16 @@ function resetAddForm(){
   document.getElementById('addDay').value='';
   document.getElementById('addMonth').value=mk(CY,CM);
   onAddMonthChange(mk(CY,CM));
-  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente';
+  selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente'; addParcelaFreq='mensal'; addParcelaWeekday=1;
   renderAddCatGrid();
   const pmRow=document.querySelector('#addStep2 .pm-row');
   if(pmRow){pmRow.querySelectorAll('.pm-chip').forEach((b,i)=>b.classList.toggle('sel',i===0));}
   document.querySelectorAll('#addStep2 .qd').forEach(b=>b.classList.toggle('on',b.dataset.opt==='current'));
   [0,1,2,3,4,5,6].forEach(i=>document.getElementById('wd'+i)?.classList.toggle('sel',i===1));
+  [0,1,2,3,4,5,6].forEach(i=>document.getElementById('pwd'+i)?.classList.toggle('sel',i===1));
   setType('avista');
   setCycle('day',document.getElementById('cycleDay'));
+  setParcelaFreq('mensal');
   const np=document.getElementById('addParcelas');if(np)np.value=2;
   addShared=false;
   goAddStep(0);
@@ -3516,7 +3592,8 @@ async function saveAdd(){
   const errors=[];
   if(!total||total<=0)      errors.push({id:'addAmt',     msg:'Digite o valor da conta'});
   if(!name)                 errors.push({id:'addName',    msg:'Digite o nome da conta'});
-  if(addType!=='semanal'&&(!day||day<1||day>31))errors.push({id:'addDay',msg:'Digite o dia de vencimento (1-31)'});
+  const skipDay=addType==='semanal'||(addType==='parcelada'&&addParcelaFreq==='semanal');
+  if(!skipDay&&(!day||day<1||day>31))errors.push({id:'addDay',msg:'Digite o dia de vencimento (1-31)'});
   if(!startMonth)           errors.push({id:'addMonthLabel',msg:'Selecione o mês de início'});
   if(!userId)errors.push({id:'addUser',msg:'Selecione o responsável'});
 
@@ -3559,22 +3636,37 @@ async function saveAdd(){
     const tid=uid();
     const{y,m}=ymk(billMonth);
     const newBills=[];
-    for(let i=0;i<n;i++){
-      let cy=y,cm=m+i;while(cm>11){cm-=12;cy++;}
-      const amt=i===n-1?lastParcel:parcel;
-      const bill={
-        id:uid(),templateId:tid,
-        name:`${billName} (${i+1}/${n})`,
-        amount:amt,day:billDay,month:mk(cy,cm),
-        userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
-        recurring:false,
-        installment:{index:i+1,total:n,originalTotal:total,templateId:tid},
-        payments:[],shared:addShared
-      };
-      db.bills.push(bill);newBills.push(bill);
+    if(addParcelaFreq==='mensal'){
+      for(let i=0;i<n;i++){
+        let cy=y,cm=m+i;while(cm>11){cm-=12;cy++;}
+        const amt=i===n-1?lastParcel:parcel;
+        const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:billDay,month:mk(cy,cm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+        db.bills.push(bill);newBills.push(bill);
+      }
+    } else if(addParcelaFreq==='semanal'){
+      const firstDate=getDatesOfWeekday(y,m,addParcelaWeekday)[0];
+      if(!firstDate){toast('⚠️ Dia da semana não ocorre neste mês');return;}
+      let curD=new Date(y,m,firstDate);
+      for(let i=0;i<n;i++){
+        const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
+        const amt=i===n-1?lastParcel:parcel;
+        const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,weeklyDay:addParcelaWeekday,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+        db.bills.push(bill);newBills.push(bill);
+        curD.setDate(curD.getDate()+7);
+      }
+    } else if(addParcelaFreq==='diaria'){
+      let curD=new Date(y,m,billDay);
+      for(let i=0;i<n;i++){
+        const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
+        const amt=i===n-1?lastParcel:parcel;
+        const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+        db.bills.push(bill);newBills.push(bill);
+        curD.setDate(curD.getDate()+1);
+      }
     }
     for(const b of newBills)await insertBillSupa(b);
-    toast(`✓ ${n} parcelas de ${fmt(parcel)} criadas`);
+    const freqLabel=addParcelaFreq==='mensal'?'meses':addParcelaFreq==='semanal'?'semanas':'dias';
+    toast(`✓ ${n} parcelas de ${fmt(parcel)} (${freqLabel}) criadas`);
 
   } else if(addType==='recorrente'){
     const tid=uid();
