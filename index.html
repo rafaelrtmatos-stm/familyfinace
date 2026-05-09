@@ -2580,15 +2580,11 @@ function calc(b,ref){
     return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd:r2(b.amount+acc),paid,bal,st,credit:Math.max(0,r2(paid-accrued)),monthShare};
   }
   // ── CONTA DIÁRIA — cada parcela é um dia fixo, valor inteiro, sem divisão ──
-  // Parcela diária: cycle==='diaria' OU (tem installment com cycle='day' e cada parcela tem seu próprio month)
-  const isDiariaInst=b.installment&&(b.cycle==='diaria'||(b.cycle==='day'&&b.installment));
-  if(b.cycle==='diaria'||b.category==='diaria'||isDiariaInst){
-    // Para cycle==='diaria': prioriza b._dISO (calculado por fixInstallmentDates com
-    // avanço de 1 dia por parcela, pulando domingos), pois no Supabase todas as parcelas
-    // podem ter o mesmo day/month se foram criadas pelo caminho mensal.
-    // Para mensais (cycle==='day') que caem aqui via isDiariaInst: usa b.day/b.month direto.
+  // Parcela diária: SOMENTE cycle==='diaria' ou category==='diaria'
+  // NÃO captura mensais parceladas (cycle==='day') para evitar duplicação
+  if(b.cycle==='diaria'||b.category==='diaria'){
     const rawISO=iso(new Date(+y,+m,b.day));
-    const dISO=(b.cycle==='diaria'||b.category==='diaria')?(b._dISO||rawISO):rawISO;
+    const dISO=b._dISO||rawISO; // _dISO tem a data sequencial correta
     const dueDate=piso(dISO);
     dueDate.setHours(0,0,0,0);
     const dueDateTs=dueDate.getTime();
