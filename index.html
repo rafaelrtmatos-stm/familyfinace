@@ -2576,12 +2576,16 @@ function calc(b,ref){
   // Parcela diária: cycle==='diaria' OU (tem installment com cycle='day' e cada parcela tem seu próprio month)
   const isDiariaInst=b.installment&&(b.cycle==='diaria'||(b.cycle==='day'&&b.installment));
   if(b.cycle==='diaria'||b.category==='diaria'||isDiariaInst){
-    // Cada parcela usa seu próprio b.month e b.day (já salvos corretamente na criação)
-    const dueDate=new Date(+y,+m,b.day);
+    // Para cycle==='diaria': prioriza b._dISO (calculado por fixInstallmentDates com
+    // avanço de 1 dia por parcela, pulando domingos), pois no Supabase todas as parcelas
+    // podem ter o mesmo day/month se foram criadas pelo caminho mensal.
+    // Para mensais (cycle==='day') que caem aqui via isDiariaInst: usa b.day/b.month direto.
+    const rawISO=iso(new Date(+y,+m,b.day));
+    const dISO=(b.cycle==='diaria'||b.category==='diaria')?(b._dISO||rawISO):rawISO;
+    const dueDate=piso(dISO);
     dueDate.setHours(0,0,0,0);
     const dueDateTs=dueDate.getTime();
     const refTs=piso(ref).getTime();
-    const dISO=iso(dueDate);
     if(dueDateTs>refTs){
       // Parcela futura — invisível, não entra no contador
       return{wd:1,daily:0,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:0,daysLeft:1,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
