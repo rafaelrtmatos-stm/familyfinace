@@ -2125,7 +2125,7 @@ function fixWeeklyBills(){
   // Se um templateId tem 2+ contas no mesmo mês → todas são semanais. Deriva weeklyDay da data.
   const groups={};
   db.bills.forEach(b=>{
-    if(!b.templateId||b.weeklyDay!==undefined)return;
+    if(!b.templateId||b.weeklyDay!==undefined||b.installment)return;
     const key=b.templateId+':'+b.month;
     if(!groups[key])groups[key]=[];
     groups[key].push(b);
@@ -2548,7 +2548,7 @@ function calc(b,ref){
     const fimTs=dueDate.getTime();
     // Count working days from Monday to due day inclusive
     const wd=wdBefore(periodStart,rawDueISO)+(isWD(dueDate,hols)?1:0)||1;
-    const daily=r2(b.amount/wd);
+    const daily=r2(b.amount/6);
     if(refTs<inicioTs){
       return{wd,daily:0,periodStart,rawDueISO,dISO,daysElapsed:0,daysLeft:wd,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
     }
