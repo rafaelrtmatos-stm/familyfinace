@@ -4774,6 +4774,7 @@ function renderHist(){
 }
 
 function renderBills(){
+  fixInstallmentDates(); // garante _dISO correto para todas as parcelas
   updateBillsMonLabel();
 
   // Populate view filter bar
@@ -5053,6 +5054,7 @@ function renderBills(){
 ══════════════════════════════════════════════════ */
 let curBillId=null;
 function openDet(id){
+  fixInstallmentDates(); // garante _dISO correto para todas as parcelas
   refreshDet(id);
   go('sc-detail');
 }
