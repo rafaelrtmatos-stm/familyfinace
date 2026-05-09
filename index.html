@@ -4164,7 +4164,8 @@ async function saveAdd(){
   const name=document.getElementById('addName').value.trim();
   const day=parseInt(document.getElementById('addDay').value);
   const startMonth=document.getElementById('addMonth').value;
-  const userId=addUserId||document.getElementById('addUser').value;
+  // userId: usa addUserId, depois input hidden, depois usuário logado como fallback
+  const userId=addUserId||document.getElementById('addUser').value||curUser?.id||'';
 
   // ── Validação ──
   const errors=[];
