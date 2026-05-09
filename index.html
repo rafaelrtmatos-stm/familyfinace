@@ -2107,14 +2107,25 @@ function fixInstallmentDates(){
     const{y,m}=ymk(first.month);
     let curD=new Date(+y,+m,first.day);
     while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
-    const isDiaria=first.cycle==='diaria'||first.category==='diaria';
-    console.log('[fixInst] grupo',first.installment?.templateId,'isDiaria',isDiaria,'qtd',group.length,'first.day',first.day,'first.month',first.month);
+    // isDiaria: parcelas criadas com cycle='diaria' OU cycle='day' com todas no mesmo mês/dia
+    // (caso de parcelas antigas salvas antes da correção do cycle)
+    const isDiaria=first.cycle==='diaria'||first.category==='diaria'
+      ||(first.installment&&group.every(x=>x.day===first.day&&x.month===first.month));
+    console.log('[fixInst] grupo',first.installment?.templateId,'isDiaria',isDiaria,'qtd',group.length,'first.day',first.day,'first.month',first.month,'cycle',first.cycle);
     group.forEach((b,i)=>{
       b._dISO=iso(new Date(curD));
-      if(isDiaria)console.log('[fixInst] parcela',b.installment?.index,'_dISO',b._dISO,'day',b.day);
-      if(i<group.length-1){
-        curD.setDate(curD.getDate()+1);
-        while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
+      if(isDiaria){
+        console.log('[fixInst] parcela',b.installment?.index,'_dISO',b._dISO);
+        // Avança só para parcelas diárias (todas no mesmo dia/mês = diária antiga)
+        if(i<group.length-1){
+          curD.setDate(curD.getDate()+1);
+          while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
+        }
+      } else {
+        if(i<group.length-1){
+          curD.setDate(curD.getDate()+1);
+          while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
+        }
       }
     });
   });
@@ -2578,9 +2589,10 @@ function calc(b,ref){
   // ── CONTA DIÁRIA — cada parcela é um dia fixo, valor inteiro, sem divisão ──
   // Parcela diária: SOMENTE cycle==='diaria' ou category==='diaria'
   // NÃO captura mensais parceladas (cycle==='day') para evitar duplicação
-  if(b.cycle==='diaria'||b.category==='diaria'){
+  // Trata como diária se cycle=diaria OU se tem _dISO calculado pelo fixInstallmentDates
+  if(b.cycle==='diaria'||b.category==='diaria'||b._dISO){
     const rawISO=iso(new Date(+y,+m,b.day));
-    const dISO=b._dISO||rawISO; // _dISO tem a data sequencial correta
+    const dISO=b._dISO||rawISO;
     const dueDate=piso(dISO);
     dueDate.setHours(0,0,0,0);
     const dueDateTs=dueDate.getTime();
