@@ -4138,6 +4138,12 @@ function resetAddForm(){
   document.getElementById('addMonth').value=mk(CY,CM);
   onAddMonthChange(mk(CY,CM));
   selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente'; addParcelaFreq='mensal'; addParcelaWeekday=1; addRecorrenteFreq='mensal'; addRecorrenteWeekday=1;
+  // Pré-selecionar usuário atual
+  if(!addUserId&&curUser){
+    addUserId=curUser.id;
+    const hidden=document.getElementById('addUser');
+    if(hidden)hidden.value=addUserId;
+  }
   renderAddCatGrid();
   const ai=document.getElementById('addAmtInput');if(ai){ai.value='';ai.dataset.cents='0';}
   const pmRow=document.querySelector('#addForm .pm-row');
