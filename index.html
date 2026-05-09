@@ -2107,15 +2107,11 @@ function fixInstallmentDates(){
     const{y,m}=ymk(first.month);
     let curD=new Date(+y,+m,first.day);
     while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
+    const isDiaria=first.cycle==='diaria'||first.category==='diaria';
+    console.log('[fixInst] grupo',first.installment?.templateId,'isDiaria',isDiaria,'qtd',group.length,'first.day',first.day,'first.month',first.month);
     group.forEach((b,i)=>{
       b._dISO=iso(new Date(curD));
-      // Para parcelas diárias: atualiza b.day e b.month em memória com a data sequencial
-      // correta (sem alterar o Supabase). Isso garante que todo o app (calc, filtros, display)
-      // use a data certa, mesmo que todas as parcelas tenham day=9,month=YYYY-MM no Supabase.
-      if(b.cycle==='diaria'||b.category==='diaria'){
-        b.day=curD.getDate();
-        b.month=mk(curD.getFullYear(),curD.getMonth());
-      }
+      if(isDiaria)console.log('[fixInst] parcela',b.installment?.index,'_dISO',b._dISO,'day',b.day);
       if(i<group.length-1){
         curD.setDate(curD.getDate()+1);
         while(curD.getDay()===0)curD.setDate(curD.getDate()+1);
