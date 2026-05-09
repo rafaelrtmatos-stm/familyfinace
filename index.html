@@ -2625,8 +2625,18 @@ function calc(b,ref){
   let daysElapsed,daysLeft,late,acc,accrued;
   if(b.noDaily||b.cycle==='avista'){
     acc=0;
-    if(refDate>piso(dISO)){late=wdb(dISO,ref);daysElapsed=wd;daysLeft=0;daily=b.amount;}
-    else{late=0;daysElapsed=wdBefore(periodStart,ref);daysLeft=wdBefore(ref,dISO)+(isWD(dueDate,hols)?1:0);daily=r2(b.amount/Math.max(1,wd));}
+    // À vista: periodStart = data de criação (ou hoje se não tiver), não mês anterior
+    const avistaPeriodStart=b._createdAt?b._createdAt.slice(0,10):today();
+    const avistaWd=Math.max(1,wdBefore(avistaPeriodStart,rawDueISO)+(isWD(dueDate,hols)?1:0));
+    if(refDate>piso(dISO)){
+      late=wdb(dISO,ref);daysElapsed=avistaWd;daysLeft=0;daily=b.amount;
+    } else {
+      late=0;
+      daysLeft=Math.max(0,wdBefore(ref,dISO)+(isWD(dueDate,hols)?1:0));
+      const avistaElapsed=Math.max(0,wdBefore(avistaPeriodStart,ref));
+      daysElapsed=avistaElapsed;
+      daily=r2(b.amount/Math.max(1,avistaWd));
+    }
     accrued=b.amount;
   }else if(b.month<mesAtual){
     daysElapsed=wd;daysLeft=0;
