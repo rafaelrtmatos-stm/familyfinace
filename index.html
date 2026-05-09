@@ -2573,9 +2573,11 @@ function calc(b,ref){
     return{wd,daily,periodStart,rawDueISO,dISO,daysElapsed,daysLeft,late,acc,accrued,upd:r2(b.amount+acc),paid,bal,st,credit:Math.max(0,r2(paid-accrued)),monthShare};
   }
   // ── CONTA DIÁRIA — cada parcela é um dia fixo, valor inteiro, sem divisão ──
-  if(b.cycle==='diaria'||b.category==='diaria'){
-    // Usa b._dISO (data real da parcela) se disponível, senão usa b.day
-    const dueDate=b._dISO?piso(b._dISO):new Date(+y,+m,b.day);
+  // Parcela diária: cycle==='diaria' OU (tem installment com cycle='day' e cada parcela tem seu próprio month)
+  const isDiariaInst=b.installment&&(b.cycle==='diaria'||(b.cycle==='day'&&b.installment));
+  if(b.cycle==='diaria'||b.category==='diaria'||isDiariaInst){
+    // Cada parcela usa seu próprio b.month e b.day (já salvos corretamente na criação)
+    const dueDate=new Date(+y,+m,b.day);
     dueDate.setHours(0,0,0,0);
     const dueDateTs=dueDate.getTime();
     const refTs=piso(ref).getTime();
@@ -4233,7 +4235,7 @@ async function saveAdd(){
         for(let i=0;i<n;i++){
           const by=curD.getFullYear(),bm=curD.getMonth(),bd=curD.getDate();
           const amt=i===n-1?lastParcel:parcel;
-          const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:addCycle,recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
+          const bill={id:uid(),templateId:tid,name:`${billName} (${i+1}/${n})`,amount:amt,day:bd,month:mk(by,bm),userId,payMethod:selPMethod,category:selCat,cycle:'diaria',recurring:false,installment:{index:i+1,total:n,originalTotal:total,templateId:tid},payments:[],shared:addShared};
           db.bills.push(bill);newBills.push(bill);
           // Advance to next day, skipping only Sundays
           curD.setDate(curD.getDate()+1);
