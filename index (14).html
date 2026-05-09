@@ -4888,6 +4888,9 @@ function renderBills(){
     const isActualCurMonth=b.month===mk(CY,CM);
     const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
     // futuras aparecem no card mas sem diária — não esconder
+    const isFuture=c.st==='future'&&!b.noDaily;
+    // Data de vencimento correta: cada parcela usa sua própria data
+    const dueDateDisp=c.dISO?fmtdate(c.dISO):(b.day?String(b.day).padStart(2,'0')+'/'+String(+ymk(b.month).m+1).padStart(2,'0')+'/'+ymk(b.month).y:'—');
     const{y:by,m:bm}=ymk(b.month);
 
     // Contas atrasadas de meses anteriores do mesmo template (ordenadas do mais antigo)
@@ -4951,7 +4954,7 @@ function renderBills(){
           <div class="bc-ico" style="background:${cat.bg};flex-shrink:0">${cat.ico}</div>
           <div style="flex:1;min-width:0">
             <div class="bc-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}<span class="rec-badge"> ↺</span>${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
-            <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
+            <div class="bc-meta">${uname?uname+' · ':''} ${dueDateDisp} · ${pmlbl(b.payMethod)}</div>
             <div style="margin-top:2px;font-size:.67rem;font-weight:800;color:var(--ink3)">${c.daysElapsed>0?c.daysElapsed+'× · ':''}${fmtn(c.daily)}/dia</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
@@ -5022,17 +5025,17 @@ function renderBills(){
     const dailyLine=c.daysElapsed>0
       ?`${c.daysElapsed}× · ${fmtn(c.daily)}/dia`
       :`${fmtn(c.daily)}/dia`;
-    return`<div class="bc ${c.st}">
+    return`<div class="bc ${c.st}" style="${isFuture?'opacity:0.55;':''}">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openDet('${b.id}')">
         <div class="bc-ico" style="background:${cat.bg};flex-shrink:0">${cat.ico}</div>
         <div style="flex:1;min-width:0">
-          <div class="bc-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${b.noDaily?'<span class="rec-badge" style="background:rgba(127,140,141,.1);color:#7f8c8d"> 💳</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
+          <div class="bc-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}${b.recurring?'<span class="rec-badge"> ↺</span>':''}${b.noDaily?'<span class="rec-badge" style="background:rgba(127,140,141,.1);color:#7f8c8d"> 💳</span>':''}${isFuture?'<span class="rec-badge" style="background:rgba(150,150,150,.15);color:#999"> 🕐 Futuro</span>':''}${isInstallment?`<span class="rec-badge" style="background:rgba(52,152,219,.12);color:var(--blue)"> ${b.installment.index}/${b.installment.total}</span>`:''}</div>
           <div class="bc-meta">${uname?uname+' · ':''}Dia ${b.day} · ${pmlbl(b.payMethod)}</div>
-          <div style="margin-top:3px;font-size:.67rem;font-weight:800;color:var(--ink3)">${dailyLine}${creditTag?' · '+creditTag:''}${monthShareTag?' · '+monthShareTag:''}</div>
+          <div style="margin-top:3px;font-size:.67rem;font-weight:800;color:var(--ink3)">${isFuture?'—':dailyLine}${!isFuture&&creditTag?' · '+creditTag:''}${!isFuture&&monthShareTag?' · '+monthShareTag:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.01em;color:${mainValColor}">${fmtn(b.amount)}</div>
-          ${stDisplay}
+          <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.01em;color:${isFuture?'#bbb':mainValColor}">${fmtn(b.amount)}</div>
+          ${isFuture?'<div style="font-size:.65rem;color:#bbb;font-weight:700">A vencer</div>':stDisplay}
         </div>
       </div>
       ${footerHTML}
