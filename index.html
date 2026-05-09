@@ -4164,7 +4164,7 @@ async function saveAdd(){
   const errors=[];
   if(!total||total<=0)      errors.push({id:'addAmtInput', msg:'Digite o valor da conta'});
   if(!name)                 errors.push({id:'addName',    msg:'Digite o nome da conta'});
-  const skipDay=addType==='semanal'||(addType==='parcelada'&&addParcelaFreq==='semanal');
+  const skipDay=addType==='semanal'||(addType==='parcelada'&&addParcelaFreq==='semanal')||(addType==='recorrente'&&addRecorrenteFreq==='semanal')||(addType==='recorrente'&&addRecorrenteFreq==='diaria');
   if(!skipDay&&(!day||day<1||day>31))errors.push({id:'addDay',msg:'Digite o dia de vencimento (1-31)'});
   if(!startMonth)           errors.push({id:'addMonthLabel',msg:'Selecione o mês de início'});
   if(!userId)errors.push({id:'addUser',msg:'Selecione o responsável'});
