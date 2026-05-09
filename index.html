@@ -3585,25 +3585,75 @@ function renderHome(){
       const ca=calc(a,td2),cb2=calc(b,td2);
       return ca.daysLeft-cb2.daysLeft;
     });
+
+    // Contas que vencem hoje (daysLeft===0 e late===0) ou em atraso
+    const todayStr=today();
+    const todayBills=sorted2.filter(b=>{
+      const cc=calc(b,td2);
+      // Mensal/semanal: daysLeft===0
+      if(cc.daysLeft===0&&cc.late===0)return true;
+      // Diária: vencimento é hoje
+      if((b.cycle==='diaria'||b.category==='diaria')&&cc.dISO===todayStr)return true;
+      // Atrasadas
+      if(cc.late>0)return true;
+      return false;
+    });
     const next=sorted2[0];
     const cn=calc(next,td2);
-    const uname=next.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===next.userId)?.name||'');
-    const cat=catBy(next.category);
-    const daysMsg=cn.daysLeft>0?`${cn.daysLeft} dia${cn.daysLeft!==1?'s úteis':' útil'} para vencer`:
-                  cn.late>0?`${cn.late}d em atraso`:'Vence hoje';
-    const urgColor=cn.late>0?'var(--red)':cn.daysLeft<=3?'var(--orange)':'var(--g2)';
-    nextDueHTML=`<div style="background:var(--white);border-radius:14px;padding:13px;box-shadow:var(--sh);margin-bottom:10px;display:flex;align-items:center;gap:11px">
-      <div style="width:42px;height:42px;border-radius:50%;background:${cat.bg};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${cat.ico}</div>
-      <div style="flex:1">
-        <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:2px">⏰ Próxima conta</div>
-        <div style="font-size:.88rem;font-weight:800;color:var(--ink)">${esc(next.name)}${uname?` · ${uname}`:''}</div>
-        <div style="font-size:.68rem;font-weight:700;color:${urgColor};margin-top:2px">${daysMsg}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:.88rem;font-weight:900;color:var(--ink)">${fmt(cn.bal)}</div>
-        <div style="font-size:.64rem;font-weight:700;color:${urgColor}">Dia ${next.day}</div>
-      </div>
-    </div>`;
+
+    if(todayBills.length>0){
+      // Widget expansível — contas do dia
+      const listId='nextDueList_'+Date.now();
+      nextDueHTML=`<div style="background:var(--white);border-radius:14px;box-shadow:var(--sh);margin-bottom:10px;overflow:hidden">
+        <div onclick="const el=document.getElementById('${listId}');const ico=document.getElementById('${listId}_ico');if(el.style.display==='none'){el.style.display='block';ico.textContent='▲';}else{el.style.display='none';ico.textContent='▼';}" style="padding:13px;display:flex;align-items:center;gap:11px;cursor:pointer">
+          <div style="width:42px;height:42px;border-radius:50%;background:rgba(231,76,60,.12);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">⏰</div>
+          <div style="flex:1">
+            <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--red);margin-bottom:2px">Vence hoje</div>
+            <div style="font-size:.88rem;font-weight:800;color:var(--ink)">${todayBills.length} conta${todayBills.length!==1?'s':''} para pagar</div>
+          </div>
+          <div style="font-size:.9rem;color:var(--ink3);font-weight:800" id="${listId}_ico">▼</div>
+        </div>
+        <div id="${listId}" style="display:none;border-top:1px solid #f0f2f8">
+          ${todayBills.map(b=>{
+            const cc=calc(b,td2);
+            const uu=b.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
+            const ct=catBy(b.category);
+            const urgC=cc.late>0?'var(--red)':'var(--orange)';
+            const msg=cc.late>0?`${cc.late}d em atraso`:'Vence hoje';
+            return`<div onclick="openDet('${b.id}')" style="padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid #f7f9fc">
+              <div style="width:36px;height:36px;border-radius:50%;background:${ct.bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${ct.ico}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:.82rem;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}${uu?' · '+uu:''}</div>
+                <div style="font-size:.64rem;font-weight:700;color:${urgC};margin-top:1px">${msg}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:.84rem;font-weight:900;color:${urgC}">${fmt(cc.bal)}</div>
+                <div style="font-size:.6rem;color:var(--ink3);font-weight:700">→ Pagar</div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    } else {
+      // Só mostra a próxima conta (nenhuma vence hoje)
+      const uname=next.userId==='todos'?'👥 Todos':(db.users.find(u=>u.id===next.userId)?.name||'');
+      const cat=catBy(next.category);
+      const daysMsg=cn.daysLeft>0?`${cn.daysLeft} dia${cn.daysLeft!==1?'s úteis':' útil'} para vencer`:
+                    cn.late>0?`${cn.late}d em atraso`:'Vence hoje';
+      const urgColor=cn.late>0?'var(--red)':cn.daysLeft<=3?'var(--orange)':'var(--g2)';
+      nextDueHTML=`<div onclick="openDet('${next.id}')" style="background:var(--white);border-radius:14px;padding:13px;box-shadow:var(--sh);margin-bottom:10px;display:flex;align-items:center;gap:11px;cursor:pointer">
+        <div style="width:42px;height:42px;border-radius:50%;background:${cat.bg};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${cat.ico}</div>
+        <div style="flex:1">
+          <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:2px">⏰ Próxima conta</div>
+          <div style="font-size:.88rem;font-weight:800;color:var(--ink)">${esc(next.name)}${uname?` · ${uname}`:''}</div>
+          <div style="font-size:.68rem;font-weight:700;color:${urgColor};margin-top:2px">${daysMsg}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:.88rem;font-weight:900;color:var(--ink)">${fmt(cn.bal)}</div>
+          <div style="font-size:.64rem;font-weight:700;color:${urgColor}">Dia ${next.day}</div>
+        </div>
+      </div>`;
+    }
   }
 
   // Daily + late widgets
@@ -6017,17 +6067,87 @@ function calcSummary(bills){
 /* ════ DASHBOARD MONTH NAV ════ */
 let dashCY=new Date().getFullYear();
 let dashCM=new Date().getMonth();
+let dashNavMode='mes'; // 'dia'|'semana'|'mes'|'periodo'
+let dashDay=new Date().getDate();
+let dashPeriodStart='';
+let dashPeriodEnd='';
 
-function chDashMon(d){
-  dashCM+=d;
-  if(dashCM>11){dashCM=0;dashCY++;}
-  if(dashCM<0){dashCM=11;dashCY--;}
+function setDashNavMode(m){
+  dashNavMode=m;
+  ['dia','semana','mes','periodo'].forEach(v=>{
+    const el=document.getElementById('dashNav_'+v);
+    if(el)el.classList.toggle('sel',v===m);
+  });
   renderDash();
 }
 
+function chDashMon(d){
+  if(dashNavMode==='dia'){
+    const dt=new Date(dashCY,dashCM,dashDay);
+    dt.setDate(dt.getDate()+d);
+    dashDay=dt.getDate();dashCM=dt.getMonth();dashCY=dt.getFullYear();
+  } else if(dashNavMode==='semana'){
+    const dt=new Date(dashCY,dashCM,dashDay);
+    dt.setDate(dt.getDate()+d*7);
+    dashDay=dt.getDate();dashCM=dt.getMonth();dashCY=dt.getFullYear();
+  } else {
+    dashCM+=d;
+    if(dashCM>11){dashCM=0;dashCY++;}
+    if(dashCM<0){dashCM=11;dashCY--;}
+  }
+  renderDash();
+}
+
+function getDashPeriodLabel(){
+  const MN2=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  if(dashNavMode==='dia'){
+    const dt=new Date(dashCY,dashCM,dashDay);
+    return`${String(dashDay).padStart(2,'0')} ${MN2[dashCM]} ${dashCY}`;
+  } else if(dashNavMode==='semana'){
+    const dt=new Date(dashCY,dashCM,dashDay);
+    const dow=dt.getDay();
+    const seg=new Date(dt);seg.setDate(dt.getDate()-(dow===0?6:dow-1));
+    const sab=new Date(seg);sab.setDate(seg.getDate()+6);
+    return`${String(seg.getDate()).padStart(2,'0')}/${MN2[seg.getMonth()]} – ${String(sab.getDate()).padStart(2,'0')}/${MN2[sab.getMonth()]}`;
+  } else if(dashNavMode==='periodo'&&dashPeriodStart&&dashPeriodEnd){
+    return`${fmtdate(dashPeriodStart)} – ${fmtdate(dashPeriodEnd)}`;
+  }
+  return`${MN2[dashCM]} ${dashCY}`;
+}
+
 function getBillsForDash(view){
-  ensureRecurringForMonth(mk(dashCY,dashCM));
-  let bills=db.bills.filter(b=>b.month===mk(dashCY,dashCM));
+  const MK=mk(dashCY,dashCM);
+  ensureRecurringForMonth(MK);
+  let bills=[];
+  if(dashNavMode==='dia'){
+    const dtStr=iso(new Date(dashCY,dashCM,dashDay));
+    bills=db.bills.filter(b=>{
+      const cc=calc(b,today());
+      return cc.dISO===dtStr&&cc.st!=='paid';
+    });
+  } else if(dashNavMode==='semana'){
+    const dt=new Date(dashCY,dashCM,dashDay);
+    const dow=dt.getDay();
+    const seg=new Date(dt);seg.setDate(dt.getDate()-(dow===0?6:dow-1));
+    const sab=new Date(seg);sab.setDate(seg.getDate()+6);
+    const segTs=seg.getTime(),sabTs=sab.getTime();
+    bills=db.bills.filter(b=>{
+      const cc=calc(b,today());
+      if(!cc.dISO)return false;
+      const dTs=piso(cc.dISO).getTime();
+      return dTs>=segTs&&dTs<=sabTs;
+    });
+  } else if(dashNavMode==='periodo'&&dashPeriodStart&&dashPeriodEnd){
+    const s=piso(dashPeriodStart).getTime(),e=piso(dashPeriodEnd).getTime();
+    bills=db.bills.filter(b=>{
+      const cc=calc(b,today());
+      if(!cc.dISO)return false;
+      const dTs=piso(cc.dISO).getTime();
+      return dTs>=s&&dTs<=e;
+    });
+  } else {
+    bills=db.bills.filter(b=>b.month===MK);
+  }
   if(view==='rafael'||view==='ingrid'){
     const u=db.users.find(x=>view==='rafael'?x.role==='admin':x.role!=='admin');
     if(u)bills=bills.filter(b=>b.userId===u.id);
@@ -6113,12 +6233,15 @@ function renderDash(){
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
       <div style="text-align:center">
-        <div style="font-size:.88rem;font-weight:900;color:var(--ink)">${MN[dashCM]} ${dashCY}</div>
+        <div style="font-size:.88rem;font-weight:900;color:var(--ink)">${getDashPeriodLabel()}</div>
         <div style="font-size:.66rem;color:var(--ink3);font-weight:700">${bills.length} conta${bills.length!==1?'s':''} · ${viewLbl}</div>
       </div>
       <button onclick="chDashMon(1)" style="background:none;border:1.5px solid #dde2ec;border-radius:8px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink2)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
+    </div>
+    <div style="display:flex;gap:4px;padding:8px 14px 0;background:var(--white);border-bottom:1px solid #eef0f5">
+      ${['dia','semana','mes','periodo'].map(m=>`<button id="dashNav_${m}" onclick="setDashNavMode('${m}')" style="flex:1;padding:7px 0;border:none;border-bottom:2px solid ${dashNavMode===m?'var(--g2)':'transparent'};background:transparent;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;cursor:pointer;color:${dashNavMode===m?'var(--g2)':'var(--ink3)'};">${m==='dia'?'Dia':m==='semana'?'Semana':m==='mes'?'Mês':'Período'}</button>`).join('')}
     </div>
     <div style="padding:14px">
       <!-- KPI Grid — all fields always visible -->
