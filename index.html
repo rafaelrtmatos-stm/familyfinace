@@ -2546,7 +2546,7 @@ function calc(b,ref){
     const wd=wdBefore(periodStart,rawDueISO)+(isWD(dueDate,hols)?1:0)||1;
     const daily=r2(b.amount/wd);
     if(refTs<inicioTs){
-      return{wd,daily:0,periodStart,rawDueISO,dISO,daysElapsed:0,daysLeft:wd,late:0,acc:0,accrued:0,upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
+      return{wd,daily:0,periodStart,rawDueISO,dISO,daysElapsed:0,daysLeft:wd,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
     }
     let daysElapsed,daysLeft,late,acc,accrued,st;
     if(refTs<=fimTs){
@@ -2581,7 +2581,7 @@ function calc(b,ref){
     const dISO=iso(dueDate);
     if(dueDateTs>refTs){
       // Parcela futura — invisível, não entra no contador
-      return{wd:1,daily:0,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:0,daysLeft:1,late:0,acc:0,accrued:0,upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
+      return{wd:1,daily:0,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:0,daysLeft:1,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
     }
     const accrued=b.amount;
     const late=dueDateTs<refTs?Math.round((refTs-dueDateTs)/86400000):0;
@@ -2593,7 +2593,7 @@ function calc(b,ref){
     return{wd:1,daily:b.amount,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:1,daysLeft:0,late,acc:0,accrued,upd:b.amount,paid,bal,st,credit:Math.max(0,r2(paid-accrued)),monthShare:b.amount};
   }
   if(b.month>mesAtual){
-    return{wd:0,daily:0,periodStart:'',rawDueISO:'',dISO:'',daysElapsed:0,daysLeft:0,late:0,acc:0,accrued:0,upd:0,paid,bal:0,st:'future',credit:0,monthShare:0};
+    return{wd:0,daily:0,periodStart:'',rawDueISO:'',dISO:'',daysElapsed:0,daysLeft:0,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
   }
   let periodStart,rawDueISO,wd;
   let py=+y,pm=+m-1;if(pm<0){pm=11;py--;}
@@ -3196,6 +3196,7 @@ function updateCaixa(){
   let totalDailies=0,totalDaily=0,totalBal=0,totalPaid=0,totalOrig=0;
   bills.forEach(b=>{
     const c=calc(b,td);
+    if(c.st==='future'){totalBal=r2(totalBal+c.bal);totalOrig=r2(totalOrig+b.amount);return;}
     totalDailies=r2(totalDailies+c.acc);
     totalDaily  =r2(totalDaily+c.daily);
     totalBal    =r2(totalBal+c.bal);
@@ -3387,6 +3388,7 @@ function renderHome(){
   bills.forEach(b=>{
     const c=calc(b,td);
     catT[b.category]=r2((catT[b.category]||0)+c.bal);
+    if(c.st==='future'){totalBal=r2(totalBal+c.bal);totalOrig=r2(totalOrig+b.amount);return;}
     totalDailies=r2(totalDailies+c.acc);
     totalDaily  =r2(totalDaily+c.daily);
     totalBal    =r2(totalBal+c.bal);
@@ -4885,7 +4887,7 @@ function renderBills(){
     const isDiariaFixa=(b.recurring||isSemanal)&&!b.noDaily;
     const isActualCurMonth=b.month===mk(CY,CM);
     const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
-    if(c.st==='future')return''; // ciclo futuro — invisível, não renderiza
+    // futuras aparecem no card mas sem diária — não esconder
     const{y:by,m:bm}=ymk(b.month);
 
     // Contas atrasadas de meses anteriores do mesmo template (ordenadas do mais antigo)

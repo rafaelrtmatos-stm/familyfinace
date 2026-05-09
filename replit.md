@@ -17,7 +17,7 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 
 ## Where things live
 
-- `index.html` — entire app (HTML + CSS + JS, ~6100 lines)
+- `index.html` — entire app (HTML + CSS + JS, ~8260 lines)
 - `package.json` — dependencies and start script
 - `logo.png` — transparent logo for in-app display
 - `apple-touch-icon.png` — icon with background for iPhone home screen
@@ -51,7 +51,10 @@ A Portuguese-language personal finance tracking app (mobile-first) that lets use
 - Pull-to-refresh: swipe down from top reloads data from Supabase
 - Three visual themes: Padrão (blue/green), Rosa, Dark — picker in Usuários screen
 - Late bills from previous months are summed into the daily ("diária") value; tapping it opens a detail modal
-- Edit bill sheet supports changing bill type (À vista / Parcelada / Recorrente)
+- Edit bill sheet supports changing bill type (À vista / Parcelada / Recorrente / Semanal), with frequency picker (Mensal/Semanal/Diária) for Recorrente and Parcelada
+- **Future bills (`st==='future'`) now show `bal: b.amount`** (full amount) instead of `bal: 0`; they are included in total balance sums in `updateCaixa()` and `renderHome()`, and are visible in the bills list (not hidden)
+- Home "Contas" widget has sort chips: 🕐 Recentes / ⏳ Antigas / ⬆️ Maior / ⬇️ Menor — persisted in `localStorage` as `cpro4_homeRecentSort`
+- Histórico screen "Contas Adicionadas" tab has sort bar (Recentes/Antigas/Maior valor/Menor valor); filters out `_pendingDeletes`
 
 ## Gotchas
 
