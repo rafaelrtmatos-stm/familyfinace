@@ -1079,12 +1079,18 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         </div>
       </div>
     </div>
-    <div class="ps-field" style="margin-bottom:12px">
-      <div class="ps-label">Forma</div>
-      <select class="ps-inp" id="psMethod" style="cursor:pointer">
-        <option value="pix">💸 Pix</option><option value="dinheiro">💵 Dinheiro</option><option value="cartao">💳 Cartão</option><option value="outro">💰 Outro</option>
-      </select>
+    <div class="ps-field" style="margin-bottom:8px">
+      <div class="ps-label">Forma de pagamento</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px">
+        <button id="pmBtn_pix" onclick="selPayMethod('pix')" style="padding:10px;border:1.5px solid rgba(59,79,212,.3);border-radius:10px;background:rgba(59,79,212,.08);font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--g2);cursor:pointer">💸 Pix</button>
+        <button id="pmBtn_dinheiro" onclick="selPayMethod('dinheiro')" style="padding:10px;border:1.5px solid #dde2ec;border-radius:10px;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--ink3);cursor:pointer">💵 Dinheiro</button>
+        <button id="pmBtn_cartao" onclick="selPayMethod('cartao')" style="padding:10px;border:1.5px solid #dde2ec;border-radius:10px;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--ink3);cursor:pointer">💳 Cartão</button>
+        <button id="pmBtn_outro" onclick="selPayMethod('outro')" style="padding:10px;border:1.5px solid #dde2ec;border-radius:10px;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--ink3);cursor:pointer">💰 Outro</button>
+      </div>
+      <input type="hidden" id="psMethod" value="pix"/>
     </div>
+    <div id="psParcelasExtra" style="margin-bottom:8px"></div>
+    <button onclick="addPayPart()" style="width:100%;padding:8px;background:rgba(59,79,212,.06);border:1.5px dashed rgba(59,79,212,.25);border-radius:10px;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;color:var(--g2);cursor:pointer;margin-bottom:8px">+ Adicionar outro método de pagamento</button>
     <div class="ps-result" id="psResult"></div>
     <div id="psLinked" style="display:none;margin-bottom:12px"></div>
     <button onclick="confirmPay()" style="width:100%;padding:14px;background:var(--g);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(92,107,192,.3);margin-top:4px" id="psConfirmBtn">Confirmar Pagamento</button>
@@ -5911,6 +5917,9 @@ function openPaySheet(){
     psLinked.style.display='none';
     psLinked.innerHTML='';
   }
+  _payParts=[];
+  renderPayParts();
+  selPayMethod(b.payMethod||'pix');
   upPayCalc();
   document.getElementById('payOverlay').style.display='flex';
 }
@@ -5932,7 +5941,64 @@ function togglePayAlso(id){
     row.style.background='rgba(39,174,96,.06)';
   }
 }
-function closePaySheet(){document.getElementById('payOverlay').style.display='none';}
+function selPayMethod(m){
+  document.getElementById('psMethod').value=m;
+  ['pix','dinheiro','cartao','outro'].forEach(v=>{
+    const btn=document.getElementById('pmBtn_'+v);
+    if(!btn)return;
+    const sel=v===m;
+    btn.style.border=sel?'1.5px solid rgba(59,79,212,.5)':'1.5px solid #dde2ec';
+    btn.style.background=sel?'rgba(59,79,212,.12)':'#f7f9fc';
+    btn.style.color=sel?'var(--g2)':'var(--ink3)';
+  });
+}
+
+let _payParts=[]; // partes extras de pagamento {val, method}
+
+function addPayPart(){
+  const idx=_payParts.length;
+  _payParts.push({val:0,method:'pix'});
+  renderPayParts();
+}
+
+function removePayPart(idx){
+  _payParts.splice(idx,1);
+  renderPayParts();
+  upPayCalc();
+}
+
+function renderPayParts(){
+  const el=document.getElementById('psParcelasExtra');
+  if(!el)return;
+  if(_payParts.length===0){el.innerHTML='';return;}
+  el.innerHTML=_payParts.map((p,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:#f7f9fc;border-radius:10px;padding:8px 10px">
+      <div style="flex:1">
+        <div style="font-size:.62rem;font-weight:800;color:var(--ink3);margin-bottom:3px">Valor (R$)</div>
+        <input type="text" inputmode="numeric" id="psPartVal_${i}" value="${p.val>0?fmtCurInput(p.val):''}" placeholder="0,00" oninput="currMask(this);_payParts[${i}].val=parseCur(this);upPayCalc()" style="width:100%;border:1.5px solid #dde2ec;border-radius:8px;padding:7px 10px;font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:800;color:var(--ink);outline:none"/>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:.62rem;font-weight:800;color:var(--ink3);margin-bottom:3px">Forma</div>
+        <select id="psPartMeth_${i}" onchange="_payParts[${i}].method=this.value" style="width:100%;border:1.5px solid #dde2ec;border-radius:8px;padding:7px 8px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:var(--ink);outline:none;cursor:pointer">
+          <option value="pix"${p.method==='pix'?' selected':''}>💸 Pix</option>
+          <option value="dinheiro"${p.method==='dinheiro'?' selected':''}>💵 Dinheiro</option>
+          <option value="cartao"${p.method==='cartao'?' selected':''}>💳 Cartão</option>
+          <option value="outro"${p.method==='outro'?' selected':''}>💰 Outro</option>
+        </select>
+      </div>
+      <button onclick="removePayPart(${i})" style="padding:6px 8px;background:rgba(231,76,60,.08);border:1.5px solid rgba(231,76,60,.2);border-radius:8px;font-size:.8rem;cursor:pointer;color:var(--red);flex-shrink:0;font-weight:900">✕</button>
+    </div>`).join('');
+}
+
+function fmtCurInput(v){
+  return v.toFixed(2).replace('.',',');
+}
+
+function closePaySheet(){
+  document.getElementById('payOverlay').style.display='none';
+  _payParts=[];
+  renderPayParts();
+}
 function upPayCalc(){
   const b=db.bills.find(x=>x.id===curBillId);if(!b)return;
   const pv=parseCur(document.getElementById('psVal'));
@@ -5976,9 +6042,35 @@ function confirmPay(){
   if(!date){toast('Selecione a data');return;}
   const now=new Date();
   const time=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+
+  // ── Total pago incluindo partes extras ──
+  const partsTotal=r2(_payParts.reduce((s,p)=>s+(p.val||0),0));
+  const totalPagando=r2(amount+partsTotal);
+
+  // ── Descontar do cofre o valor pago ──
+  const cofreAtual=getCofreVal();
+  if(cofreAtual>0&&totalPagando>0){
+    const desconto=Math.min(totalPagando,cofreAtual);
+    // Desconta proporcionalmente do pix e dinheiro
+    const cofPix=getCofreFormVal('pix');
+    const cofDin=getCofreFormVal('dinheiro');
+    const total=r2(cofPix+cofDin);
+    if(total>0){
+      let restDesc=desconto;
+      if(cofPix>0){const d=Math.min(cofPix,r2(restDesc*(cofPix/total)));setCofreFormVal('pix',r2(cofPix-d));restDesc=r2(restDesc-d);}
+      if(cofDin>0&&restDesc>0){setCofreFormVal('dinheiro',r2(Math.max(0,cofDin-restDesc)));}
+      saveCofreSupa();
+    }
+  }
+
   // ── Pagar conta principal ──
   if(!b.payments)b.payments=[];
   b.payments.push({id:uid(),amount,date,method,time});
+  // ── Registrar partes extras ──
+  for(const p of _payParts){
+    if(p.val>0)b.payments.push({id:uid(),amount:p.val,date,method:p.method,time});
+  }
+  _payParts=[];renderPayParts();
   sdb();saveBillSupa(b);
   const c=calc(b,date);
   const fullyPaid=c.bal<=0;
