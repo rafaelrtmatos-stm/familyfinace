@@ -6548,14 +6548,33 @@ function renderCofreWidget(saldoPendente){
 }
 
 function renderEmergencyWidget(bills){
-  // Emergency daily = for each unpaid bill: how much per workday remaining until due
-  // given current caixa balance covers part of it
   const td=today();
-  const cofre=getCofreVal(); // total caixa
-  const totalBal=bills.reduce((s,b)=>s+calc(b,td).bal,0);
-  if(totalBal<=0)return''; // everything paid
+  const tdISO=today();
 
-  // How much short are we?
+  // ── FILTRO: só contas do ciclo ATIVO de hoje ──
+  // Mensal → só mês atual
+  // Semanal → só semana atual (não futuras)
+  // Diária → só a parcela de hoje (não futuras)
+  // À vista → sempre entra
+  const activeBills=bills.filter(b=>{
+    const c=calc(b,td);
+    if(c.st==='paid')return false;
+    if(c.bal<=0)return false;
+    // À vista: sempre entra
+    if(b.noDaily||b.cycle==='avista')return true;
+    // Futura: não entra no emergencial
+    if(c.st==='future')return false;
+    // Semanal futura: ciclo ainda não começou
+    if(b.weeklyDay!==undefined&&c.daysElapsed===0&&c.late===0)return false;
+    // Diária futura: vencimento ainda não chegou
+    if((b.cycle==='diaria'||b.category==='diaria')&&c.daysElapsed===0&&c.late===0)return false;
+    return true;
+  });
+
+  const cofre=getCofreVal();
+  const totalBal=activeBills.reduce((s,b)=>s+calc(b,td).bal,0);
+  if(totalBal<=0)return'';
+
   const missing=r2(totalBal-cofre);
   if(missing<=0){
     // Caixa covers everything — no emergency
@@ -6572,12 +6591,11 @@ function renderEmergencyWidget(bills){
   //   → emergency = 2000 / 13 = R$153,85
   const rows=[];
   let totalEmerDay=0;
-  bills.forEach(b=>{
+  activeBills.forEach(b=>{
     const c=calc(b,td);
     if(c.bal<=0)return;
     const daysLeft=Math.max(1,c.daysLeft||1);
-    // Amount still needed considering what's in caixa (proportional)
-    const cofreShare=totalBal>0?r2(cofre*(b.amount/bills.reduce((s,x)=>s+x.amount,0))):0;
+    const cofreShare=totalBal>0?r2(cofre*(b.amount/activeBills.reduce((s,x)=>s+x.amount,0))):0;
     const stillNeeded=Math.max(0,r2(b.amount-cofreShare));
     const emerDay=r2(stillNeeded/daysLeft);
     const shouldHave=r2(c.daysElapsed*c.daily); // what should have been saved
