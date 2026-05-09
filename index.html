@@ -4814,11 +4814,11 @@ function renderBills(){
 
   // Apply nav mode primary date window filter
   if(billsNavMode==='dia'){
-    allBills=allBills.filter(b=>{const c=calc(b,td);return c.st!=='future'&&c.dISO===billsNavDay;});
+    allBills=allBills.filter(b=>{const c=calc(b,billsNavDay);return c.dISO===billsNavDay;});
   } else if(billsNavMode==='semana'){
     const{mon,sun}=_weekRangeOf(billsNavDay);
     const wsTs=mon.getTime(),weTs=sun.getTime()+86399999;
-    allBills=allBills.filter(b=>{const c=calc(b,td);if(c.st==='future')return false;const dTs=piso(c.dISO).getTime();return dTs>=wsTs&&dTs<=weTs;});
+    allBills=allBills.filter(b=>{const c=calc(b,billsNavDay);const dTs=piso(c.dISO).getTime();return dTs>=wsTs&&dTs<=weTs;});
   }
   // 'mes' and 'periodo' are already handled by getBillsForView()
 
