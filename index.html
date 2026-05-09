@@ -2574,7 +2574,8 @@ function calc(b,ref){
   }
   // ── CONTA DIÁRIA — cada parcela é um dia fixo, valor inteiro, sem divisão ──
   if(b.cycle==='diaria'||b.category==='diaria'){
-    const dueDate=new Date(+y,+m,b.day);
+    // Usa b._dISO (data real da parcela) se disponível, senão usa b.day
+    const dueDate=b._dISO?piso(b._dISO):new Date(+y,+m,b.day);
     dueDate.setHours(0,0,0,0);
     const dueDateTs=dueDate.getTime();
     const refTs=piso(ref).getTime();
