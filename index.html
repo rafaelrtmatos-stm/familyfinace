@@ -937,6 +937,13 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="fc" onclick="setF('late',this)">Atrasadas</button>
     <button class="fc" onclick="setF('partial',this)">Parciais</button>
   </div>
+  <!-- Sort bar -->
+  <div class="fbar" style="border-top:none;padding-top:0">
+    <button class="fc on" id="bsort-due" onclick="setSort('due',this)">📅 Vencimento</button>
+    <button class="fc" id="bsort-name" onclick="setSort('name',this)">🔤 Nome</button>
+    <button class="fc" id="bsort-val" onclick="setSort('val',this)">💰 Valor</button>
+    <button class="fc" id="bsort-status" onclick="setSort('status',this)">🔴 Status</button>
+  </div>
   <!-- Search bar (hidden by default) -->
   <div id="billsSearchBar" style="display:none;padding:8px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
     <div style="display:flex;align-items:center;gap:8px;background:#f4f6fa;border-radius:10px;padding:0 12px;border:1.5px solid #e2e6ef">
@@ -3619,7 +3626,7 @@ function renderHome(){
 
     if(todayBills.length>0){
       // Widget expansível — contas do dia
-      const listId='nextDueList_'+Date.now();
+      const listId='nextDueList_fixed';
       nextDueHTML=`<div style="background:var(--white);border-radius:14px;box-shadow:var(--sh);margin-bottom:10px;overflow:hidden">
         <div onclick="const el=document.getElementById('${listId}');const ico=document.getElementById('${listId}_ico');if(el.style.display==='none'){el.style.display='block';ico.textContent='▲';}else{el.style.display='none';ico.textContent='▼';}" style="padding:13px;display:flex;align-items:center;gap:11px;cursor:pointer">
           <div style="width:42px;height:42px;border-radius:50%;background:rgba(231,76,60,.12);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">⏰</div>
@@ -3636,7 +3643,7 @@ function renderHome(){
             const ct=catBy(b.category);
             const urgC=cc.late>0?'var(--red)':'var(--orange)';
             const msg=cc.late>0?`${cc.late}d em atraso`:'Vence hoje';
-            return`<div onclick="openDet('${b.id}')" style="padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid #f7f9fc">
+            return`<div onclick="go('sc-bills');setTimeout(()=>openDet('${b.id}'),200)" style="padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid #f7f9fc">
               <div style="width:36px;height:36px;border-radius:50%;background:${ct.bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${ct.ico}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:.82rem;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}${uu?' · '+uu:''}</div>
@@ -4658,6 +4665,14 @@ function periodLabel(){
   return`${MN[billsCM]} ${billsCY}`;
 }
 let activeF='all';
+let activeSort='due'; // 'due'|'name'|'val'|'status'
+
+function setSort(s,el){
+  activeSort=s;
+  document.querySelectorAll('#bsort-due,#bsort-name,#bsort-val,#bsort-status').forEach(b=>b.classList.remove('on'));
+  if(el)el.classList.add('on');
+  renderBills();
+}
 let billsCycle='all'; // 'all'|'diaria'|'semanal'|'mensal'|'custom'
 let billsView='all'; // 'all'|'mine'|'custom'
 let billsSearch='';
@@ -4939,6 +4954,20 @@ function renderBills(){
     if(c.st==='future')return; // ciclo futuro — não entra no contador
     tot+=b.amount;paid+=c.paid;bal+=c.bal;daily=r2(daily+c.daily);
   });
+
+  // Ordenar contas pelo critério selecionado
+  const stOrder={late:0,partial:1,pending:2,paid:3,future:4};
+  bills.sort((a,z)=>{
+    const ca=calc(a,td),cz=calc(z,td);
+    if(activeSort==='name') return (a.name||'').localeCompare(z.name||'');
+    if(activeSort==='val')  return (cz.bal||0)-(ca.bal||0);
+    if(activeSort==='status') return (stOrder[ca.st]||0)-(stOrder[cz.st]||0);
+    // 'due' — ordenar por data de vencimento (padrão)
+    const da=ca.dISO||'9999-12-31';
+    const dz=cz.dISO||'9999-12-31';
+    return da.localeCompare(dz);
+  });
+
   const cofreTotal=getCofreVal();
 
   document.getElementById('billsSumbar').innerHTML=`
@@ -6176,10 +6205,6 @@ let dashPeriodEnd='';
 
 function setDashNavMode(m){
   dashNavMode=m;
-  ['dia','semana','mes','periodo'].forEach(v=>{
-    const el=document.getElementById('dashNav_'+v);
-    if(el)el.classList.toggle('sel',v===m);
-  });
   renderDash();
 }
 
@@ -6221,11 +6246,27 @@ function getBillsForDash(view){
   const MK=mk(dashCY,dashCM);
   ensureRecurringForMonth(MK);
   let bills=[];
+
+  // Helper: conta à vista aparece em qualquer dia entre criação e vencimento
+  function avistaInclui(b,dtTs){
+    if(!b.noDaily&&b.cycle!=='avista')return false;
+    const cc=calc(b,today());
+    if(!cc.dISO)return false;
+    const dueTs=piso(cc.dISO).getTime();
+    const createdStr=b._createdAt?b._createdAt.slice(0,10):cc.periodStart||today();
+    const createdTs=piso(createdStr).getTime();
+    return dtTs>=createdTs&&dtTs<=dueTs&&cc.st!=='paid';
+  }
+
   if(dashNavMode==='dia'){
     const dtStr=iso(new Date(dashCY,dashCM,dashDay));
+    const dtTs=new Date(dashCY,dashCM,dashDay).getTime();
     bills=db.bills.filter(b=>{
       const cc=calc(b,today());
-      return cc.dISO===dtStr&&cc.st!=='paid';
+      if(cc.st==='paid')return false;
+      // À vista: aparece em todos os dias entre criação e vencimento
+      if(b.noDaily||b.cycle==='avista')return avistaInclui(b,dtTs);
+      return cc.dISO===dtStr;
     });
   } else if(dashNavMode==='semana'){
     const dt=new Date(dashCY,dashCM,dashDay);
@@ -6235,6 +6276,15 @@ function getBillsForDash(view){
     const segTs=seg.getTime(),sabTs=sab.getTime();
     bills=db.bills.filter(b=>{
       const cc=calc(b,today());
+      if(cc.st==='paid')return false;
+      // À vista: aparece se vencer dentro ou após o início da semana
+      if(b.noDaily||b.cycle==='avista'){
+        if(!cc.dISO)return false;
+        const dueTs=piso(cc.dISO).getTime();
+        const createdStr=b._createdAt?b._createdAt.slice(0,10):today();
+        const createdTs=piso(createdStr).getTime();
+        return createdTs<=sabTs&&dueTs>=segTs;
+      }
       if(!cc.dISO)return false;
       const dTs=piso(cc.dISO).getTime();
       return dTs>=segTs&&dTs<=sabTs;
@@ -6243,6 +6293,14 @@ function getBillsForDash(view){
     const s=piso(dashPeriodStart).getTime(),e=piso(dashPeriodEnd).getTime();
     bills=db.bills.filter(b=>{
       const cc=calc(b,today());
+      if(cc.st==='paid')return false;
+      if(b.noDaily||b.cycle==='avista'){
+        if(!cc.dISO)return false;
+        const dueTs=piso(cc.dISO).getTime();
+        const createdStr=b._createdAt?b._createdAt.slice(0,10):today();
+        const createdTs=piso(createdStr).getTime();
+        return createdTs<=e&&dueTs>=s;
+      }
       if(!cc.dISO)return false;
       const dTs=piso(cc.dISO).getTime();
       return dTs>=s&&dTs<=e;
@@ -6264,7 +6322,7 @@ function renderDash(){
 
   // View filter buttons (populate static dashVfbar)
   const vfEl=document.getElementById('dashVfbar');
-  if(vfEl&&!vfEl.hasChildNodes()){
+  if(vfEl){
     let vh=`<button class="vf ${dashView==='rafael'?'on':''}" onclick="setDashView('rafael',this)">👤 Rafael</button>`;
     vh+=`<button class="vf ${dashView==='all'?'on':''}" onclick="setDashView('all',this)">🌐 Todas</button>`;
     vh+=`<button class="vf ${dashView==='ingrid'?'on':''}" onclick="setDashView('ingrid',this)">👤 Ingrid</button>`;
