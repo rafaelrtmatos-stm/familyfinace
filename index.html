@@ -4192,7 +4192,7 @@ async function saveAdd(){
 
   // Ciclo fixo por tipo de conta — sem escolha do usuário
   if(addType==='semanal'||addType==='parcelada') addCycle='day';
-  else if(addType==='diaria'||addCategory==='diaria') addCycle='diaria';
+  else if(addType==='diaria'||selCat==='diaria') addCycle='diaria';
   else addCycle='day';
 
   // ── Fechar form imediatamente para evitar piscar ──
