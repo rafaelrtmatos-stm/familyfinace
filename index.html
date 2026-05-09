@@ -2578,9 +2578,7 @@ function calc(b,ref){
   }
   // ── CONTA DIÁRIA — cada parcela é um dia fixo, valor inteiro, sem divisão ──
   // Parcela diária: SOMENTE cycle==='diaria' ou category==='diaria'
-  // NÃO captura mensais parceladas (cycle==='day') para evitar duplicação
-  // Trata como diária se cycle=diaria OU se tem _dISO calculado pelo fixInstallmentDates
-  if(b.cycle==='diaria'||b.category==='diaria'||b._dISO){
+  if(b.cycle==='diaria'||b.category==='diaria'){
     const rawISO=iso(new Date(+y,+m,b.day));
     const dISO=b._dISO||rawISO;
     const dueDate=piso(dISO);
@@ -4897,7 +4895,8 @@ function renderBills(){
     const isActualCurMonth=b.month===mk(CY,CM);
     const isPastOverdue=b.month<mk(CY,CM)&&c.st!=='paid';
     // futuras aparecem no card mas sem diária — não esconder
-    const isFuture=c.st==='future'&&!b.noDaily;
+    // Esmaece só contas de OUTROS meses — parcelas do mês atual nunca ficam esmaecidas
+    const isFuture=c.st==='future'&&!b.noDaily&&b.month>mk(CY,CM);
     // Data de vencimento correta: cada parcela usa sua própria data
     const dueDateDisp=c.dISO?fmtdate(c.dISO):(b.day?String(b.day).padStart(2,'0')+'/'+String(+ymk(b.month).m+1).padStart(2,'0')+'/'+ymk(b.month).y:'—');
     const{y:by,m:bm}=ymk(b.month);
