@@ -3351,6 +3351,13 @@ function toggleCustomUser(uid2,el){
   renderHome();
 }
 
+let homeRecentSort=localStorage.getItem('cpro4_homeRecentSort')||'recentes';
+function setHomeRecentSort(s){
+  homeRecentSort=s;
+  localStorage.setItem('cpro4_homeRecentSort',s);
+  renderHome();
+}
+
 function renderHome(){
   const td=today();
   const p=getPerms(curUser);
@@ -3653,11 +3660,28 @@ function renderHome(){
   }
 
   const widgetsEl=document.getElementById('homeWidgets');
-  // ── Seção Recentes: últimas contas adicionadas (qualquer mês) — exclui deletadas pendentes ──
-  const allSorted=[...db.bills]
-    .filter(b=>!_pendingDeletes.has(b.id))
-    .sort((a,z)=>(z._createdAt||z._updatedAt||'').localeCompare(a._createdAt||a._updatedAt||''));
-  const recentBills=allSorted.slice(0,4);
+  // ── Seção Recentes: com ordenação escolhida pelo usuário ──
+  const recentBase=[...db.bills].filter(b=>!_pendingDeletes.has(b.id));
+  if(homeRecentSort==='antigas'){
+    recentBase.sort((a,z)=>(a._createdAt||a._updatedAt||'').localeCompare(z._createdAt||z._updatedAt||''));
+  } else if(homeRecentSort==='maior'){
+    recentBase.sort((a,z)=>z.amount-a.amount);
+  } else if(homeRecentSort==='menor'){
+    recentBase.sort((a,z)=>a.amount-z.amount);
+  } else {
+    recentBase.sort((a,z)=>(z._createdAt||z._updatedAt||'').localeCompare(a._createdAt||a._updatedAt||''));
+  }
+  const recentBills=recentBase.slice(0,5);
+  const sortOpts=[
+    {k:'recentes',lbl:'🕐 Recentes'},
+    {k:'antigas',lbl:'⏳ Antigas'},
+    {k:'maior',lbl:'⬆️ Maior'},
+    {k:'menor',lbl:'⬇️ Menor'},
+  ];
+  const sortChips=sortOpts.map(o=>{
+    const on=homeRecentSort===o.k;
+    return`<button onclick="setHomeRecentSort('${o.k}')" style="border:none;cursor:pointer;padding:3px 8px;border-radius:20px;font-family:'Nunito',sans-serif;font-size:.58rem;font-weight:800;white-space:nowrap;transition:all .15s;background:${on?'var(--g2)':'rgba(0,0,0,.06)'};color:${on?'#fff':'var(--ink3)'}">${o.lbl}</button>`;
+  }).join('');
   let recentesHTML='';
   if(recentBills.length){
     const rows=recentBills.map(b=>{
@@ -3681,7 +3705,10 @@ function renderHome(){
       </div>`;
     }).join('');
     recentesHTML=`<div style="background:var(--white);border-radius:14px;padding:11px 13px;box-shadow:var(--sh);margin-bottom:10px">
-      <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--ink3);margin-bottom:2px">🕐 Recentes</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--ink3)">📋 Contas</div>
+        <div style="display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto">${sortChips}</div>
+      </div>
       ${rows}
     </div>`;
   }
