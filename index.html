@@ -764,6 +764,11 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
         <button class="pm-chip" id="wd5" onclick="setWeekday(5,this)">Sex</button>
         <button class="pm-chip" id="wd6" onclick="setWeekday(6,this)">Sáb</button>
       </div>
+      <div class="abl" style="margin-top:6px">A partir de qual dia?</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+        <input type="date" id="addSemanalStart" style="flex:1;border:1.5px solid #dde2ec;border-radius:10px;padding:8px 12px;font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:800;color:var(--ink);outline:none;cursor:pointer" oninput="updateSemanalNote()"/>
+        <button onclick="document.getElementById('addSemanalStart').value='';updateSemanalNote()" style="padding:8px 10px;border:1.5px solid #dde2ec;border-radius:10px;background:#f7f9fc;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--ink3);cursor:pointer">Limpar</button>
+      </div>
       <div class="abl">Modo</div>
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
         <button class="pm-chip sel" id="semModeRecorrente" onclick="setSemanalMode('recorrente')">↺ Recorrente</button>
@@ -2603,13 +2608,14 @@ function calc(b,ref){
       return{wd:1,daily:0,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:0,daysLeft:1,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
     }
     const accrued=b.amount;
-    const late=dueDateTs<refTs?Math.round((refTs-dueDateTs)/86400000):0;
+    // late em dias úteis (não corridos) — sem domingo
+    const late=dueDateTs<refTs?Math.max(0,wdb(dISO,ref)):0;
     const bal=Math.max(0,r2(accrued-paid));
     let st;
     if(paid>=b.amount&&paid>0)st='paid';
     else if(late>0)st='late';
     else st='pending';
-    return{wd:1,daily:b.amount,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:1,daysLeft:0,late,acc:0,accrued,upd:b.amount,paid,bal,st,credit:Math.max(0,r2(paid-accrued)),monthShare:b.amount};
+    return{wd:1,daily:b.amount,periodStart:dISO,rawDueISO:dISO,dISO,daysElapsed:1,daysLeft:0,late,acc:0,accrued,upd:b.amount,paid,bal,st:st||'pending',credit:Math.max(0,r2(paid-accrued)),monthShare:b.amount};
   }
   if(b.month>mesAtual){
     return{wd:0,daily:0,periodStart:'',rawDueISO:'',dISO:'',daysElapsed:0,daysLeft:0,late:0,acc:0,accrued:0,upd:0,paid,bal:b.amount,st:'future',credit:0,monthShare:0};
@@ -3700,13 +3706,10 @@ function renderHome(){
     let totalEmerDay=0;
     const totalBills=bills.reduce((s,x)=>s+x.amount,0);
     bills.forEach(b=>{
-      // diária de emergência: usa dias corridos até o vencimento (não dias úteis)
+      // diária de emergência: usa dias ÚTEIS até o vencimento (sem domingo)
       const c=calc(b,td);
       if(c.bal<=0)return;
-      const{y:_ey,m:_em}=ymk(b.month);
-      const _dueDt=new Date(_ey,_em,b.day).getTime();
-      const _todayDt=piso(today()).getTime();
-      const dLeft=Math.max(1,Math.round((_dueDt-_todayDt)/86400000));
+      const dLeft=Math.max(1,c.daysLeft||1);
       const share=totalBills>0?r2(caixaVal*(b.amount/totalBills)):0;
       const needed=Math.max(0,r2(b.amount-share));
       totalEmerDay=r2(totalEmerDay+r2(needed/dLeft));
@@ -4211,6 +4214,7 @@ function resetAddForm(){
   document.getElementById('addMonth').value=mk(CY,CM);
   onAddMonthChange(mk(CY,CM));
   selCat='casa'; selPMethod='pix'; addType='avista'; addCycle='day'; addShared=false; addWeekday=1; addSemanalMode='recorrente'; addParcelaFreq='mensal'; addParcelaWeekday=1; addRecorrenteFreq='mensal'; addRecorrenteWeekday=1;
+  const ssEl=document.getElementById('addSemanalStart');if(ssEl)ssEl.value='';
   // Pré-selecionar usuário atual
   if(!addUserId&&curUser){
     addUserId=curUser.id;
@@ -4379,13 +4383,23 @@ async function saveAdd(){
         }
         for(const b of newBills)await insertBillSupa(b);
       } else {
+        const semStartStr=document.getElementById('addSemanalStart')?.value||'';
+        const semStartTs=semStartStr?new Date(semStartStr).getTime():0;
         const dates=getDatesOfWeekday(y,m,addWeekday);
         dates.forEach(d=>{
+          // Se o usuário definiu uma data de início, pular dias anteriores
+          const thisDate=new Date(y,m,d);
+          if(semStartTs>0&&thisDate.getTime()<semStartTs)return;
           const bill={id:uid(),templateId:tid,name:billName,amount:total,day:d,month:billMonth,
             userId,payMethod:selPMethod,category:selCat,cycle:addCycle,
             recurring:true,weeklyDay:addWeekday,payments:[],shared:addShared};
           db.bills.push(bill);newBills.push(bill);
         });
+        if(newBills.length===0){
+          _savingInProgress=false;_hideSaveFb();
+          toast('⚠️ Nenhuma ocorrência a partir dessa data neste mês. Tente outro mês ou remova a data de início.');
+          return;
+        }
         for(const b of newBills)await insertBillSupa(b);
         preFillFutureMonths();
       }
