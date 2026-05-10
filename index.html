@@ -942,14 +942,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="fc" onclick="setF('late',this)">Atrasadas</button>
     <button class="fc" onclick="setF('partial',this)">Parciais</button>
   </div>
-  <!-- Tipo filter -->
-  <div class="fbar" style="border-top:none;padding-top:0">
-    <button class="fc on" id="btype-all" onclick="setBillsType('all',this)">🗂 Todos</button>
-    <button class="fc" id="btype-mensal" onclick="setBillsType('mensal',this)">📅 Mensais</button>
-    <button class="fc" id="btype-semanal" onclick="setBillsType('semanal',this)">📆 Semanais</button>
-    <button class="fc" id="btype-diaria" onclick="setBillsType('diaria',this)">🔁 Diárias</button>
-    <button class="fc" id="btype-avista" onclick="setBillsType('avista',this)">💳 À vista</button>
-  </div>
   <!-- Sort bar -->
   <div class="fbar" style="border-top:none;padding-top:0">
     <button class="fc on" id="bsort-due" onclick="setSort('due',this)">📅 Vencimento</button>
@@ -4687,15 +4679,7 @@ function periodLabel(){
   return`${MN[billsCM]} ${billsCY}`;
 }
 let activeF='all';
-let activeSort='due';
-let activeBillsType='all'; // 'all'|'mensal'|'semanal'|'diaria'|'avista'
-
-function setBillsType(t,el){
-  activeBillsType=t;
-  document.querySelectorAll('#btype-all,#btype-mensal,#btype-semanal,#btype-diaria,#btype-avista').forEach(b=>b.classList.remove('on'));
-  if(el)el.classList.add('on');
-  renderBills();
-} // 'due'|'name'|'val'|'status'
+let activeSort='due'; // 'due'|'name'|'val'|'status'
 
 function setSort(s,el){
   activeSort=s;
@@ -4985,16 +4969,6 @@ function renderBills(){
     tot+=b.amount;paid+=c.paid;bal+=c.bal;daily=r2(daily+c.daily);
   });
 
-  // Filtrar por tipo de conta
-  if(activeBillsType==='mensal')
-    bills=bills.filter(b=>!b.weeklyDay&&b.cycle!=='diaria'&&b.category!=='diaria'&&!b.noDaily&&b.cycle!=='avista');
-  else if(activeBillsType==='semanal')
-    bills=bills.filter(b=>b.weeklyDay!==undefined&&b.weeklyDay!==null);
-  else if(activeBillsType==='diaria')
-    bills=bills.filter(b=>b.cycle==='diaria'||b.category==='diaria');
-  else if(activeBillsType==='avista')
-    bills=bills.filter(b=>b.noDaily||b.cycle==='avista');
-
   // Ordenar contas pelo critério selecionado
   const stOrder={late:0,partial:1,pending:2,paid:3,future:4};
   bills.sort((a,z)=>{
@@ -5023,7 +4997,7 @@ function renderBills(){
   const suppressedIds=new Set();
   bills.filter(b=>b.month===mk(CY,CM)&&(b.recurring||b.category==='semanal')&&b.templateId&&calc(b,td).st!=='paid')
     .forEach(b=>{
-      db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&x.month<=mk(CY,CM)&&calc(x,td).st!=='paid')
+      db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
         .forEach(x=>suppressedIds.add(x.id));
     });
 
@@ -5045,7 +5019,7 @@ function renderBills(){
 
     // Contas atrasadas de meses anteriores do mesmo template (ordenadas do mais antigo)
     const latePrevBills=(b.recurring||isSemanal)&&b.templateId
-      ?db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&x.month<=mk(CY,CM)&&calc(x,td).st!=='paid')
+      ?db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
           .sort((a,z)=>a.month.localeCompare(z.month))
       :[];
     const prevSaldo=r2(latePrevBills.reduce((s,x)=>s+x.amount,0));
@@ -5225,7 +5199,7 @@ function refreshDet(id){
   const{y,m}=ymk(b.month);
   // Previous overdue balance from same recurring template
   const detPrevSaldo=b.recurring&&b.templateId
-    ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&x.month<=mk(CY,CM)&&calc(x,td).st!=='paid')
+    ?r2(db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
         .reduce((s,x)=>s+origBal(x),0))
     :0;
 
@@ -5288,7 +5262,7 @@ function refreshDet(id){
         :`<span style="color:var(--orange);font-weight:800">Vence hoje</span>`;
     // ── Seção B: dívida de meses anteriores detalhada por mês ──
     const prevMonthBillsDetail=(b.recurring||b.category==='semanal')&&b.templateId
-      ?db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&x.month<=mk(CY,CM)&&calc(x,td).st!=='paid')
+      ?db.bills.filter(x=>x.templateId===b.templateId&&x.month<b.month&&calc(x,td).st!=='paid')
           .sort((a,z)=>a.month.localeCompare(z.month))
       :[];
     const secBHTML=prevMonthBillsDetail.length
@@ -5974,7 +5948,7 @@ function openPaySheet(){
   _payAlsoPrevIds=new Set();
   const tid=b.templateId||b.id;
   const latePrev=(b.recurring||(b.installment&&b.installment.templateId))&&tid
-    ?db.bills.filter(x=>(x.templateId===tid||x.id===tid)&&x.id!==b.id&&x.month<b.month&&x.month<=mk(CY,CM)&&calc(x,td).st!=='paid')
+    ?db.bills.filter(x=>(x.templateId===tid||x.id===tid)&&x.id!==b.id&&x.month<b.month&&calc(x,td).st!=='paid')
         .sort((a,z)=>a.month.localeCompare(z.month))
     :[];
   const psLinked=document.getElementById('psLinked');
@@ -6302,11 +6276,15 @@ function getBillsForDash(view){
   if(dashNavMode==='dia'){
     const dtStr=iso(new Date(dashCY,dashCM,dashDay));
     const dtTs=new Date(dashCY,dashCM,dashDay).getTime();
+    const dtDow=new Date(dashCY,dashCM,dashDay).getDay();
     bills=db.bills.filter(b=>{
       const cc=calc(b,today());
       if(cc.st==='paid')return false;
-      // À vista: aparece em todos os dias entre criação e vencimento
-      if(b.noDaily||b.cycle==='avista')return avistaInclui(b,dtTs);
+      // À vista: aparece em todos os dias ÚTEIS (sem domingo) entre criação e vencimento
+      if(b.noDaily||b.cycle==='avista'){
+        if(dtDow===0)return false; // domingo: não mostra conta à vista
+        return avistaInclui(b,dtTs);
+      }
       return cc.dISO===dtStr;
     });
   } else if(dashNavMode==='semana'){
