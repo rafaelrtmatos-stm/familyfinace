@@ -7285,22 +7285,22 @@ function gerarRecibo(billId){
   const uname=b.userId==='todos'?'Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
   const pays=b.payments||[];
   const totalPago=r2(pays.reduce((s,p)=>s+p.amount,0));
+  const MNS2=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const{y,m}=ymk(b.month);
   const isPaid=cv.st==='paid';
+  const statusColor=isPaid?'#27ae60':'#e67e22';
+  const statusText=isPaid?'QUITADA':cv.bal>0?`PENDENTE — Falta ${fmt(cv.bal)}`:'QUITADA';
   const dueStr=cv.dISO?fmtdate(cv.dISO):`${String(b.day).padStart(2,'0')}/${String(+m+1).padStart(2,'0')}/${y}`;
-  const recId='FF-'+y+String(+m+1).padStart(2,'0')+String(b.day).padStart(2,'0');
 
-  const SCALE=2,W=600,PAD=50;
-
-  // Calcular altura total
-  const headerH=180;  // FAMILY FINANCE + valor
-  const divH=20;
-  const infoH=3*52;   // pagador, vencimento, referente
-  const logH=pays.length>0?(60+pays.length*48+10):0;
-  const statusH=90;
-  const footerH=50;
-  const borderPad=40;
-  const totalH=borderPad+headerH+divH+infoH+logH+statusH+footerH+borderPad;
+  // Calcular altura total antes de criar canvas
+  const W=420,PAD=28,SCALE=2;
+  const headerH=90;
+  const rowH=38;
+  const rows4=4; // conta, responsavel, vencimento, valor
+  const payH=pays.length>0?30+pays.length*36+40:0;
+  const statusH=56;
+  const footerH=40;
+  const totalH=headerH+rows4*rowH+payH+statusH+footerH+20;
 
   const canvas=document.createElement('canvas');
   canvas.width=W*SCALE;
@@ -7308,147 +7308,107 @@ function gerarRecibo(billId){
   const ctx=canvas.getContext('2d');
   ctx.scale(SCALE,SCALE);
 
-  // Fundo cinza claro (fora do card)
-  ctx.fillStyle='#f0f0f0';
+  // Fundo branco
+  ctx.fillStyle='#f8f9fa';
   ctx.fillRect(0,0,W,totalH);
 
-  // Card branco com borda arredondada e sombra
-  const cx=40,cy=30,cw=W-80,ch=totalH-60;
-  ctx.shadowColor='rgba(0,0,0,0.15)';
-  ctx.shadowBlur=20;
-  ctx.shadowOffsetY=4;
+  // Header
+  ctx.fillStyle='#1a3a5c';
+  ctx.fillRect(0,0,W,headerH);
   ctx.fillStyle='#ffffff';
-  ctx.beginPath();
-  ctx.roundRect(cx,cy,cw,ch,24);
-  ctx.fill();
-  ctx.shadowColor='transparent';
-
-  // Borda cinza fina
-  ctx.strokeStyle='#d0d0d0';
-  ctx.lineWidth=1.5;
-  ctx.beginPath();
-  ctx.roundRect(cx,cy,cw,ch,24);
-  ctx.stroke();
-
-  let yy=cy+40;
-
-  // FAMILY FINANCE
-  ctx.font='bold 14px Arial,sans-serif';
-  ctx.fillStyle='#333';
+  ctx.font='bold 20px Arial,sans-serif';
   ctx.textAlign='center';
-  ctx.letterSpacing='4px';
-  ctx.fillText('FAMILY FINANCE',W/2,yy);
-  yy+=36;
-
-  // TOTAL LIQUIDADO
+  ctx.fillText('RECIBO DE PAGAMENTO',W/2,35);
   ctx.font='13px Arial,sans-serif';
-  ctx.fillStyle='#888';
-  ctx.letterSpacing='2px';
-  ctx.fillText('TOTAL LIQUIDADO',W/2,yy);
-  yy+=10;
+  ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillText('Family Finance',W/2,58);
+  ctx.fillText('Gerado em '+fmtdate(today()),W/2,76);
 
-  // Valor grande
-  ctx.font='bold 52px Arial,sans-serif';
-  ctx.fillStyle='#111';
-  ctx.letterSpacing='0px';
-  ctx.fillText(fmt(totalPago>0?totalPago:b.amount),W/2,yy+52);
-  yy+=72;
-
-  // Linha divisória
-  yy+=14;
-  ctx.strokeStyle='#ddd';
-  ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(cx+PAD,yy);ctx.lineTo(cx+cw-PAD,yy);ctx.stroke();
-  yy+=28;
-
-  // Info rows
-  function infoRow(label,value){
-    ctx.font='14px Arial,sans-serif';
-    ctx.fillStyle='#888';
-    ctx.textAlign='left';
-    ctx.fillText(label,cx+PAD,yy);
-    ctx.font='bold 16px Arial,sans-serif';
-    ctx.fillStyle='#222';
-    ctx.textAlign='right';
-    ctx.fillText(value,cx+cw-PAD,yy);
-    yy+=52;
-  }
-
-  infoRow('Pagador:',uname);
-  infoRow('Vencimento:',dueStr);
-  infoRow('Referente:',b.name);
-
-  // Log de transações
-  if(pays.length>0){
-    yy+=4;
-    // Box cinza claro
-    const logBoxH=42+pays.length*48;
-    ctx.fillStyle='#f5f5f5';
-    ctx.beginPath();
-    ctx.roundRect(cx+PAD,yy,cw-PAD*2,logBoxH,12);
-    ctx.fill();
-
-    yy+=20;
+  // Função row
+  let yy=headerH+18;
+  function drawRow(label,value,valColor){
     ctx.font='bold 11px Arial,sans-serif';
     ctx.fillStyle='#999';
     ctx.textAlign='left';
-    ctx.letterSpacing='1px';
-    ctx.fillText('LOG DE TRANSAÇÕES',cx+PAD+16,yy);
-    ctx.letterSpacing='0px';
-    yy+=18;
+    ctx.fillText(label.toUpperCase(),PAD,yy);
+    ctx.font='bold 15px Arial,sans-serif';
+    ctx.fillStyle=valColor||'#1a3a5c';
+    ctx.textAlign='right';
+    ctx.fillText(value,W-PAD,yy);
+    ctx.strokeStyle='#e8eaed';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PAD,yy+12);ctx.lineTo(W-PAD,yy+12);ctx.stroke();
+    yy+=rowH;
+  }
 
-    pays.forEach((p,i)=>{
+  drawRow('Conta',b.name);
+  drawRow('Responsável',uname);
+  drawRow('Vencimento',dueStr);
+  drawRow('Valor Original',fmt(b.amount));
+
+  // Pagamentos
+  if(pays.length>0){
+    yy+=6;
+    ctx.font='bold 11px Arial,sans-serif';
+    ctx.fillStyle='#999';
+    ctx.textAlign='left';
+    ctx.fillText('PAGAMENTOS REALIZADOS',PAD,yy);
+    yy+=22;
+
+    pays.forEach(p=>{
       const d=p.date?p.date.split('-'):[];
-      const dStr=d.length===3?`${d[2]}/${d[1]}`:'--/--';
+      const dStr=d.length===3?`${d[2]}/${d[1]}/${d[0]}`:dueStr;
       const meth={pix:'PIX',dinheiro:'Dinheiro',cartao:'Cartão',outro:'Outro'}[p.method]||'PIX';
-      ctx.font='bold 14px Arial,sans-serif';
-      ctx.fillStyle='#333';
+      ctx.font='13px Arial,sans-serif';
+      ctx.fillStyle='#444';
       ctx.textAlign='left';
-      ctx.fillText(`${dStr} • ${meth}`,cx+PAD+16,yy+24);
+      ctx.fillText(dStr+' • '+meth,PAD,yy);
       ctx.font='bold 14px Arial,sans-serif';
-      ctx.fillStyle='#333';
+      ctx.fillStyle='#27ae60';
       ctx.textAlign='right';
-      ctx.fillText(fmt(p.amount),cx+cw-PAD-16,yy+24);
-      if(i<pays.length-1){
-        ctx.strokeStyle='#ddd';ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(cx+PAD+16,yy+36);ctx.lineTo(cx+cw-PAD-16,yy+36);ctx.stroke();
-      }
-      yy+=48;
+      ctx.fillText(fmt(p.amount),W-PAD,yy);
+      ctx.strokeStyle='#e8eaed';
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(PAD,yy+10);ctx.lineTo(W-PAD,yy+10);ctx.stroke();
+      yy+=34;
     });
-    yy+=10;
+
+    yy+=4;
+    ctx.font='bold 13px Arial,sans-serif';
+    ctx.fillStyle='#666';
+    ctx.textAlign='left';
+    ctx.fillText('TOTAL PAGO',PAD,yy);
+    ctx.font='bold 18px Arial,sans-serif';
+    ctx.fillStyle='#27ae60';
+    ctx.textAlign='right';
+    ctx.fillText(fmt(totalPago),W-PAD,yy);
+    yy+=20;
   }
 
   // Status box
-  yy+=16;
-  const btnColor=isPaid?'#333':'#e67e22';
-  const btnText=isPaid?'PAGAMENTO
-CONCLUÍDO':'PAGAMENTO
-PENDENTE';
-  ctx.fillStyle=btnColor;
+  yy+=14;
+  ctx.fillStyle=statusColor;
   ctx.beginPath();
-  ctx.roundRect(cx+PAD,yy,cw-PAD*2,70,14);
+  ctx.roundRect?ctx.roundRect(PAD,yy,W-PAD*2,40,10):ctx.fillRect(PAD,yy,W-PAD*2,40);
   ctx.fill();
-  ctx.font='bold 17px Arial,sans-serif';
+  ctx.font='bold 16px Arial,sans-serif';
   ctx.fillStyle='#fff';
   ctx.textAlign='center';
-  const lines=btnText.split('
-');
-  ctx.fillText(lines[0],W/2,yy+28);
-  ctx.fillText(lines[1],W/2,yy+52);
-  yy+=82;
+  ctx.fillText(statusText,W/2,yy+26);
 
-  // Footer ID
+  // Footer
+  yy+=56;
   ctx.font='11px Arial,sans-serif';
-  ctx.fillStyle='#aaa';
+  ctx.fillStyle='#bbb';
   ctx.textAlign='center';
-  ctx.fillText(`ID: ${recId} | Gerado em ${fmtdate(today())}`,W/2,yy);
+  ctx.fillText('Family Finance • Gestão Financeira',W/2,yy);
 
   // Baixar
   const link=document.createElement('a');
   link.download='recibo_'+b.name.replace(/[^a-z0-9]/gi,'_')+'_'+today()+'.png';
   link.href=canvas.toDataURL('image/png');
   link.click();
-  toast('✅ Recibo salvo!');
+  toast('✅ Recibo salvo como imagem!');
 }
 
 function shareWhatsapp(billId){
