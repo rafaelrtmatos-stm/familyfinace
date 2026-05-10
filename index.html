@@ -5389,6 +5389,7 @@ function refreshDet(id){
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
       <button class="sbtn" style="flex:1;background:rgba(59,79,212,.1);color:var(--g2);border:1.5px solid rgba(59,79,212,.25);min-width:120px" onclick="openEditSheet('${b.id}')">✏️ Editar conta</button>
       ${(hasPerm('canWhatsapp')||isAdm())?`<button class="sbtn" style="flex:1;background:rgba(37,211,102,.12);color:#25D366;border:1.5px solid rgba(37,211,102,.3);min-width:120px" onclick="shareWhatsapp('${b.id}')">💬 WhatsApp</button>`:''}
+      <button class="sbtn" style="flex:1;background:rgba(255,152,0,.1);color:#e65100;border:1.5px solid rgba(255,152,0,.3);min-width:120px" onclick="gerarRecibo('${b.id}')">🧾 Recibo</button>
       <button class="sbtn sbtn-red" style="flex:1;min-width:80px" onclick="delBill('${b.id}')">🗑 Excluir</button>
     </div>`;
 
@@ -7277,6 +7278,131 @@ async function confirmMerge(sourceId){
 }
 
 /* ════ WHATSAPP SHARE ════ */
+function gerarRecibo(billId){
+  const b=db.bills.find(x=>x.id===billId);if(!b)return;
+  const td=today();
+  const c=calc(b,td);
+  const uname=b.userId==='todos'?'Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
+  const cat=catBy(b.category);
+  const pays=b.payments||[];
+  const totalPago=r2(pays.reduce((s,p)=>s+p.amount,0));
+  const MNS2=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const{y,m}=ymk(b.month);
+  const isPaid=c.st==='paid';
+  const statusColor=isPaid?'#27ae60':'#e67e22';
+  const statusText=isPaid?'✅ QUITADA':c.bal>0?`⏳ Falta ${fmt(c.bal)}`:'✅ QUITADA';
+  const dueStr=c.dISO?fmtdate(c.dISO):`${b.day}/${MNS2[+m]}/${y}`;
+
+  // Gerar recibo como imagem PNG usando Canvas
+  const W=420,PAD=28;
+  let H=320+pays.length*36;
+  const canvas=document.createElement('canvas');
+  canvas.width=W*2;canvas.height=H*2; // retina
+  const ctx=canvas.getContext('2d');
+  ctx.scale(2,2);
+
+  // Fundo branco com cantos arredondados
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,W,H);
+
+  // Header verde
+  ctx.fillStyle='#1a3a5c';
+  ctx.fillRect(0,0,W,80);
+
+  // Título
+  ctx.fillStyle='#ffffff';
+  ctx.font='bold 18px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('🧾 RECIBO DE PAGAMENTO',W/2,30);
+  ctx.font='13px Arial';
+  ctx.fillStyle='rgba(255,255,255,0.8)';
+  ctx.fillText('Family Finance',W/2,52);
+  ctx.fillText(`Gerado em ${fmtdate(today())}`,W/2,70);
+
+  // Corpo
+  let y2=105;
+  ctx.textAlign='left';
+
+  function row(label,value,valColor){
+    ctx.font='bold 12px Arial';
+    ctx.fillStyle='#888';
+    ctx.fillText(label.toUpperCase(),PAD,y2);
+    ctx.font='bold 15px Arial';
+    ctx.fillStyle=valColor||'#1a3a5c';
+    ctx.textAlign='right';
+    ctx.fillText(value,W-PAD,y2);
+    ctx.textAlign='left';
+    // linha divisória
+    ctx.strokeStyle='#f0f0f0';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PAD,y2+10);ctx.lineTo(W-PAD,y2+10);ctx.stroke();
+    y2+=34;
+  }
+
+  row('Conta',b.name);
+  row('Responsável',uname);
+  row('Vencimento',dueStr);
+  row('Valor original',fmt(b.amount),'#1a3a5c');
+
+  if(pays.length>0){
+    y2+=4;
+    ctx.font='bold 11px Arial';
+    ctx.fillStyle='#888';
+    ctx.fillText('PAGAMENTOS REALIZADOS',PAD,y2);
+    y2+=20;
+    pays.forEach(p=>{
+      const d=p.date?p.date.split('-'):[];
+      const dStr=d.length===3?`${d[2]}/${d[1]}/${d[0]}`:dueStr;
+      const meth={pix:'PIX',dinheiro:'Dinheiro',cartao:'Cartão',outro:'Outro'}[p.method]||p.method||'PIX';
+      ctx.font='13px Arial';
+      ctx.fillStyle='#444';
+      ctx.fillText(`${dStr} • ${meth}`,PAD,y2);
+      ctx.font='bold 13px Arial';
+      ctx.fillStyle='#27ae60';
+      ctx.textAlign='right';
+      ctx.fillText(fmt(p.amount),W-PAD,y2);
+      ctx.textAlign='left';
+      ctx.strokeStyle='#f0f0f0';
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(PAD,y2+8);ctx.lineTo(W-PAD,y2+8);ctx.stroke();
+      y2+=34;
+    });
+    y2+=4;
+    ctx.font='bold 13px Arial';
+    ctx.fillStyle='#888';
+    ctx.fillText('TOTAL PAGO',PAD,y2);
+    ctx.font='bold 16px Arial';
+    ctx.fillStyle='#27ae60';
+    ctx.textAlign='right';
+    ctx.fillText(fmt(totalPago),W-PAD,y2);
+    ctx.textAlign='left';
+    y2+=16;
+  }
+
+  // Status box
+  y2+=10;
+  ctx.fillStyle=statusColor;
+  ctx.beginPath();
+  ctx.roundRect(PAD,y2,W-PAD*2,36,8);
+  ctx.fill();
+  ctx.font='bold 15px Arial';
+  ctx.fillStyle='#fff';
+  ctx.textAlign='center';
+  ctx.fillText(statusText,W/2,y2+24);
+  ctx.textAlign='left';
+
+  // Redimensionar canvas para altura real
+  canvas.height=(y2+60)*2;
+  ctx.scale(2,2);
+
+  // Baixar como PNG
+  const link=document.createElement('a');
+  link.download=`recibo_${b.name.replace(/[^a-z0-9]/gi,'_')}_${today()}.png`;
+  link.href=canvas.toDataURL('image/png');
+  link.click();
+  toast('✅ Recibo salvo como PNG!');
+}
+
 function shareWhatsapp(billId){
   if(!hasPerm('canWhatsapp')&&!isAdm()){toast('Sem permissão para compartilhar');return;}
   const b=db.bills.find(x=>x.id||(billId?x.id===billId:x.id===curBillId));
