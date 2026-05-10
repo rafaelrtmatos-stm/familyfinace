@@ -7281,126 +7281,134 @@ async function confirmMerge(sourceId){
 function gerarRecibo(billId){
   const b=db.bills.find(x=>x.id===billId);if(!b)return;
   const td=today();
-  const c=calc(b,td);
+  const cv=calc(b,td);
   const uname=b.userId==='todos'?'Todos':(db.users.find(u=>u.id===b.userId)?.name||'');
-  const cat=catBy(b.category);
   const pays=b.payments||[];
   const totalPago=r2(pays.reduce((s,p)=>s+p.amount,0));
   const MNS2=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const{y,m}=ymk(b.month);
-  const isPaid=c.st==='paid';
+  const isPaid=cv.st==='paid';
   const statusColor=isPaid?'#27ae60':'#e67e22';
-  const statusText=isPaid?'✅ QUITADA':c.bal>0?`⏳ Falta ${fmt(c.bal)}`:'✅ QUITADA';
-  const dueStr=c.dISO?fmtdate(c.dISO):`${b.day}/${MNS2[+m]}/${y}`;
+  const statusText=isPaid?'QUITADA':cv.bal>0?`PENDENTE — Falta ${fmt(cv.bal)}`:'QUITADA';
+  const dueStr=cv.dISO?fmtdate(cv.dISO):`${String(b.day).padStart(2,'0')}/${String(+m+1).padStart(2,'0')}/${y}`;
 
-  // Gerar recibo como imagem PNG usando Canvas
-  const W=420,PAD=28;
-  let H=320+pays.length*36;
+  // Calcular altura total antes de criar canvas
+  const W=420,PAD=28,SCALE=2;
+  const headerH=90;
+  const rowH=38;
+  const rows4=4; // conta, responsavel, vencimento, valor
+  const payH=pays.length>0?30+pays.length*36+40:0;
+  const statusH=56;
+  const footerH=40;
+  const totalH=headerH+rows4*rowH+payH+statusH+footerH+20;
+
   const canvas=document.createElement('canvas');
-  canvas.width=W*2;canvas.height=H*2; // retina
+  canvas.width=W*SCALE;
+  canvas.height=totalH*SCALE;
   const ctx=canvas.getContext('2d');
-  ctx.scale(2,2);
+  ctx.scale(SCALE,SCALE);
 
-  // Fundo branco com cantos arredondados
-  ctx.fillStyle='#ffffff';
-  ctx.fillRect(0,0,W,H);
+  // Fundo branco
+  ctx.fillStyle='#f8f9fa';
+  ctx.fillRect(0,0,W,totalH);
 
-  // Header verde
+  // Header
   ctx.fillStyle='#1a3a5c';
-  ctx.fillRect(0,0,W,80);
-
-  // Título
+  ctx.fillRect(0,0,W,headerH);
   ctx.fillStyle='#ffffff';
-  ctx.font='bold 18px Arial';
+  ctx.font='bold 20px Arial,sans-serif';
   ctx.textAlign='center';
-  ctx.fillText('🧾 RECIBO DE PAGAMENTO',W/2,30);
-  ctx.font='13px Arial';
-  ctx.fillStyle='rgba(255,255,255,0.8)';
-  ctx.fillText('Family Finance',W/2,52);
-  ctx.fillText(`Gerado em ${fmtdate(today())}`,W/2,70);
+  ctx.fillText('RECIBO DE PAGAMENTO',W/2,35);
+  ctx.font='13px Arial,sans-serif';
+  ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillText('Family Finance',W/2,58);
+  ctx.fillText('Gerado em '+fmtdate(today()),W/2,76);
 
-  // Corpo
-  let y2=105;
-  ctx.textAlign='left';
-
-  function row(label,value,valColor){
-    ctx.font='bold 12px Arial';
-    ctx.fillStyle='#888';
-    ctx.fillText(label.toUpperCase(),PAD,y2);
-    ctx.font='bold 15px Arial';
+  // Função row
+  let yy=headerH+18;
+  function drawRow(label,value,valColor){
+    ctx.font='bold 11px Arial,sans-serif';
+    ctx.fillStyle='#999';
+    ctx.textAlign='left';
+    ctx.fillText(label.toUpperCase(),PAD,yy);
+    ctx.font='bold 15px Arial,sans-serif';
     ctx.fillStyle=valColor||'#1a3a5c';
     ctx.textAlign='right';
-    ctx.fillText(value,W-PAD,y2);
-    ctx.textAlign='left';
-    // linha divisória
-    ctx.strokeStyle='#f0f0f0';
+    ctx.fillText(value,W-PAD,yy);
+    ctx.strokeStyle='#e8eaed';
     ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(PAD,y2+10);ctx.lineTo(W-PAD,y2+10);ctx.stroke();
-    y2+=34;
+    ctx.beginPath();ctx.moveTo(PAD,yy+12);ctx.lineTo(W-PAD,yy+12);ctx.stroke();
+    yy+=rowH;
   }
 
-  row('Conta',b.name);
-  row('Responsável',uname);
-  row('Vencimento',dueStr);
-  row('Valor original',fmt(b.amount),'#1a3a5c');
+  drawRow('Conta',b.name);
+  drawRow('Responsável',uname);
+  drawRow('Vencimento',dueStr);
+  drawRow('Valor Original',fmt(b.amount));
 
+  // Pagamentos
   if(pays.length>0){
-    y2+=4;
-    ctx.font='bold 11px Arial';
-    ctx.fillStyle='#888';
-    ctx.fillText('PAGAMENTOS REALIZADOS',PAD,y2);
-    y2+=20;
+    yy+=6;
+    ctx.font='bold 11px Arial,sans-serif';
+    ctx.fillStyle='#999';
+    ctx.textAlign='left';
+    ctx.fillText('PAGAMENTOS REALIZADOS',PAD,yy);
+    yy+=22;
+
     pays.forEach(p=>{
       const d=p.date?p.date.split('-'):[];
       const dStr=d.length===3?`${d[2]}/${d[1]}/${d[0]}`:dueStr;
-      const meth={pix:'PIX',dinheiro:'Dinheiro',cartao:'Cartão',outro:'Outro'}[p.method]||p.method||'PIX';
-      ctx.font='13px Arial';
+      const meth={pix:'PIX',dinheiro:'Dinheiro',cartao:'Cartão',outro:'Outro'}[p.method]||'PIX';
+      ctx.font='13px Arial,sans-serif';
       ctx.fillStyle='#444';
-      ctx.fillText(`${dStr} • ${meth}`,PAD,y2);
-      ctx.font='bold 13px Arial';
+      ctx.textAlign='left';
+      ctx.fillText(dStr+' • '+meth,PAD,yy);
+      ctx.font='bold 14px Arial,sans-serif';
       ctx.fillStyle='#27ae60';
       ctx.textAlign='right';
-      ctx.fillText(fmt(p.amount),W-PAD,y2);
-      ctx.textAlign='left';
-      ctx.strokeStyle='#f0f0f0';
+      ctx.fillText(fmt(p.amount),W-PAD,yy);
+      ctx.strokeStyle='#e8eaed';
       ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(PAD,y2+8);ctx.lineTo(W-PAD,y2+8);ctx.stroke();
-      y2+=34;
+      ctx.beginPath();ctx.moveTo(PAD,yy+10);ctx.lineTo(W-PAD,yy+10);ctx.stroke();
+      yy+=34;
     });
-    y2+=4;
-    ctx.font='bold 13px Arial';
-    ctx.fillStyle='#888';
-    ctx.fillText('TOTAL PAGO',PAD,y2);
-    ctx.font='bold 16px Arial';
+
+    yy+=4;
+    ctx.font='bold 13px Arial,sans-serif';
+    ctx.fillStyle='#666';
+    ctx.textAlign='left';
+    ctx.fillText('TOTAL PAGO',PAD,yy);
+    ctx.font='bold 18px Arial,sans-serif';
     ctx.fillStyle='#27ae60';
     ctx.textAlign='right';
-    ctx.fillText(fmt(totalPago),W-PAD,y2);
-    ctx.textAlign='left';
-    y2+=16;
+    ctx.fillText(fmt(totalPago),W-PAD,yy);
+    yy+=20;
   }
 
   // Status box
-  y2+=10;
+  yy+=14;
   ctx.fillStyle=statusColor;
   ctx.beginPath();
-  ctx.roundRect(PAD,y2,W-PAD*2,36,8);
+  ctx.roundRect?ctx.roundRect(PAD,yy,W-PAD*2,40,10):ctx.fillRect(PAD,yy,W-PAD*2,40);
   ctx.fill();
-  ctx.font='bold 15px Arial';
+  ctx.font='bold 16px Arial,sans-serif';
   ctx.fillStyle='#fff';
   ctx.textAlign='center';
-  ctx.fillText(statusText,W/2,y2+24);
-  ctx.textAlign='left';
+  ctx.fillText(statusText,W/2,yy+26);
 
-  // Redimensionar canvas para altura real
-  canvas.height=(y2+60)*2;
-  ctx.scale(2,2);
+  // Footer
+  yy+=56;
+  ctx.font='11px Arial,sans-serif';
+  ctx.fillStyle='#bbb';
+  ctx.textAlign='center';
+  ctx.fillText('Family Finance • Gestão Financeira',W/2,yy);
 
-  // Baixar como PNG
+  // Baixar
   const link=document.createElement('a');
-  link.download=`recibo_${b.name.replace(/[^a-z0-9]/gi,'_')}_${today()}.png`;
+  link.download='recibo_'+b.name.replace(/[^a-z0-9]/gi,'_')+'_'+today()+'.png';
   link.href=canvas.toDataURL('image/png');
   link.click();
-  toast('✅ Recibo salvo como PNG!');
+  toast('✅ Recibo salvo como imagem!');
 }
 
 function shareWhatsapp(billId){
