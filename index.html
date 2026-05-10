@@ -926,37 +926,28 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
   <!-- View filter: Mine / All / Custom -->
   <div id="billsVfbar" style="display:flex;gap:5px;overflow-x:auto;padding:8px 14px 6px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
   <div id="billsCustomUsers" style="display:none;flex-wrap:nowrap;gap:5px;overflow-x:auto;padding:5px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;-webkit-overflow-scrolling:touch"></div>
-  <!-- Filtros em lista suspensa — Tipo + Status -->
-  <div style="display:flex;gap:8px;padding:8px 14px 6px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
-    <div style="flex:1;position:relative">
-      <select id="billsCycleSelect" onchange="setCycleSelect(this.value)"
-        style="width:100%;appearance:none;-webkit-appearance:none;padding:8px 28px 8px 10px;border:1.5px solid #dde2ec;border-radius:10px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:var(--ink);background:#f7f9fc;cursor:pointer;outline:none">
-        <option value="all">📋 Tipo: Todas</option>
-        <option value="diaria">📆 Diária</option>
-        <option value="semanal">📅 Semanal</option>
-        <option value="mensal">🗓️ Mensal</option>
-        <option value="periodo">📆 Por período</option>
-      </select>
-      <span style="pointer-events:none;position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:.7rem">▼</span>
-    </div>
-    <div style="flex:1;position:relative">
-      <select id="billsStatusSelect" onchange="setStatusSelect(this.value)"
-        style="width:100%;appearance:none;-webkit-appearance:none;padding:8px 28px 8px 10px;border:1.5px solid #dde2ec;border-radius:10px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:var(--ink);background:#f7f9fc;cursor:pointer;outline:none">
-        <option value="all">🔍 Status: Todas</option>
-        <option value="pending">⏳ Pendentes</option>
-        <option value="paid">✅ Pagas</option>
-        <option value="late">🔴 Atrasadas</option>
-      </select>
-      <span style="pointer-events:none;position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:.7rem">▼</span>
-    </div>
+  <!-- Cycle classification filter -->
+  <div class="fbar" id="billsCycleBar" style="border-bottom:none;padding-bottom:3px">
+    <button class="fc on" id="bcyc-all"     onclick="setCycle('all',this)">Todas</button>
+    <button class="fc"    id="bcyc-diaria"  onclick="setCycle('diaria',this)">📆 Diária</button>
+    <button class="fc"    id="bcyc-semanal" onclick="setCycle('semanal',this)">📅 Semana</button>
+    <button class="fc"    id="bcyc-mensal"  onclick="setCycle('mensal',this)">🗓️ Mensal</button>
+    <button class="fc"    id="bcyc-custom"  onclick="setCycle('custom',this)">⚙️ Personal.</button>
   </div>
-  <!-- Período personalizado (aparece só quando "Por período" está selecionado) -->
-  <div id="billsPeriodoBar" style="display:none;gap:8px;padding:6px 14px 8px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0;align-items:center">
-    <input type="date" id="periodoStart" onchange="applyPeriodo()"
-      style="flex:1;border:1.5px solid #dde2ec;border-radius:8px;padding:7px 8px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:700;color:var(--ink);background:#f7f9fc;outline:none"/>
-    <span style="color:var(--ink3);font-size:.8rem;font-weight:700;flex-shrink:0">→</span>
-    <input type="date" id="periodoEnd" onchange="applyPeriodo()"
-      style="flex:1;border:1.5px solid #dde2ec;border-radius:8px;padding:7px 8px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:700;color:var(--ink);background:#f7f9fc;outline:none"/>
+  <!-- Status filter -->
+  <div class="fbar">
+    <button class="fc on" onclick="setF('all',this)">Todas</button>
+    <button class="fc" onclick="setF('pending',this)">Pendentes</button>
+    <button class="fc" onclick="setF('paid',this)">Pagas</button>
+    <button class="fc" onclick="setF('late',this)">Atrasadas</button>
+    <button class="fc" onclick="setF('partial',this)">Parciais</button>
+  </div>
+  <!-- Sort bar -->
+  <div class="fbar" style="border-top:none;padding-top:0">
+    <button class="fc on" id="bsort-due" onclick="setSort('due',this)">📅 Vencimento</button>
+    <button class="fc" id="bsort-name" onclick="setSort('name',this)">🔤 Nome</button>
+    <button class="fc" id="bsort-val" onclick="setSort('val',this)">💰 Valor</button>
+    <button class="fc" id="bsort-status" onclick="setSort('status',this)">🔴 Status</button>
   </div>
   <!-- Search bar (hidden by default) -->
   <div id="billsSearchBar" style="display:none;padding:8px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
@@ -4739,37 +4730,15 @@ function toggleBillsUser(uid2,el){
 
 function setF(f,el){
   activeF=f;
+  // Only reset 'on' in the status fbar (second .fbar, not the cycle bar)
   document.querySelectorAll('.fbar:not(#billsCycleBar) .fc').forEach(b=>b.classList.remove('on'));
   if(el)el.classList.add('on');
-  const sel=document.getElementById('billsStatusSelect');
-  if(sel)sel.value=f;
   renderBills();
 }
 function setCycle(c,el){
   billsCycle=c;
   document.querySelectorAll('#billsCycleBar .fc').forEach(b=>b.classList.remove('on'));
   if(el)el.classList.add('on');
-  renderBills();
-}
-function setCycleSelect(v){
-  billsCycle=v;
-  // Mostra/oculta barra de período
-  const periodoBar=document.getElementById('billsPeriodoBar');
-  if(periodoBar)periodoBar.style.display=v==='periodo'?'flex':'none';
-  if(v!=='periodo'){billsPeriodoStart='';billsPeriodoEnd='';}
-  renderBills();
-}
-function setStatusSelect(v){
-  activeF=v;
-  renderBills();
-}
-let billsPeriodoStart='';
-let billsPeriodoEnd='';
-function applyPeriodo(){
-  const s=document.getElementById('periodoStart');
-  const e=document.getElementById('periodoEnd');
-  billsPeriodoStart=s?s.value:'';
-  billsPeriodoEnd=e?e.value:'';
   renderBills();
 }
 function toggleBillsSearch(){
@@ -4935,13 +4904,6 @@ function renderBills(){
     vh+=`<button class="vf ${billsView==='ingrid'?'on':''}" data-view="ingrid" onclick="setBillsView('ingrid',this)">👤 Guigui</button>`;
     vfEl.innerHTML=vh;
   }
-  // Sync dropdowns with current state
-  const cycSel=document.getElementById('billsCycleSelect');
-  if(cycSel)cycSel.value=billsCycle;
-  const staSel=document.getElementById('billsStatusSelect');
-  if(staSel)staSel.value=activeF;
-  const periBar=document.getElementById('billsPeriodoBar');
-  if(periBar)periBar.style.display=billsCycle==='periodo'?'flex':'none';
 
   // Apply view filter (who's bills to show — 'todos' always visible)
   let allBills=getBillsForView('all');
@@ -4960,48 +4922,37 @@ function renderBills(){
   }
   // 'mes' and 'periodo' are already handled by getBillsForView()
 
-  // Apply cycle classification filter
+  // Apply cycle classification filter (by due date period)
   let bills=[...allBills];
   if(billsCycle==='diaria'){
-    // Contas com vencimento hoje
+    // Only bills due exactly today
     const todayStr=today();
     bills=bills.filter(b=>{const c=calc(b,td);return c.st!=='future'&&c.dISO===todayStr;});
   } else if(billsCycle==='semanal'){
-    // Contas com vencimento nesta semana (Seg–Dom)
+    // Bills due within the current week (Mon–Sun)
     const todayTs=piso(today()).getTime();
-    const dayOfWeek=new Date(todayTs).getDay();
+    const dayOfWeek=new Date(todayTs).getDay(); // 0=Sun
     const daysToMon=dayOfWeek===0?-6:1-dayOfWeek;
     const weekStart=new Date(todayTs);weekStart.setDate(weekStart.getDate()+daysToMon);
     const weekEnd=new Date(weekStart);weekEnd.setDate(weekStart.getDate()+6);
     const wsTs=weekStart.getTime(),weTs=weekEnd.getTime();
     bills=bills.filter(b=>{const c=calc(b,td);if(c.st==='future')return false;const dTs=piso(c.dISO).getTime();return dTs>=wsTs&&dTs<=weTs;});
   } else if(billsCycle==='mensal'){
-    // Contas com vencimento neste mês
+    // Bills due within the current calendar month
     const y=billsCY,m=billsCM;
     const mStart=new Date(y,m,1).getTime();
     const mEnd=new Date(y,m+1,0).getTime()+86399999;
     bills=bills.filter(b=>{const c=calc(b,td);if(c.st==='future')return false;const dTs=piso(c.dISO).getTime();return dTs>=mStart&&dTs<=mEnd;});
-  } else if(billsCycle==='periodo'){
-    // Filtro por período personalizado de datas de vencimento
-    if(billsPeriodoStart&&billsPeriodoEnd){
-      const psTs=piso(billsPeriodoStart).getTime();
-      const peTs=piso(billsPeriodoEnd).getTime()+86399999;
-      bills=bills.filter(b=>{
-        const c=calc(b,td);
-        if(c.st==='future')return false;
-        const dTs=piso(c.dISO).getTime();
-        return dTs>=psTs&&dTs<=peTs;
-      });
-    } else {
-      // Período ainda não definido — mostra tudo até o usuário escolher as datas
-      bills=[...allBills];
-    }
+  } else if(billsCycle==='custom'){
+    // À vista and parceladas
+    bills=bills.filter(b=>!!b.installment||b.cycle==='avista'||b.noDaily);
   }
 
   // Apply status filter
   if(activeF==='paid')bills=bills.filter(b=>calc(b,td).st==='paid');
   else if(activeF==='pending')bills=bills.filter(b=>calc(b,td).st==='pending');
   else if(activeF==='late')bills=bills.filter(b=>calc(b,td).st==='late');
+  else if(activeF==='partial')bills=bills.filter(b=>calc(b,td).st==='partial');
   else if(activeF==='recurring')bills=bills.filter(b=>b.recurring);
   else if(activeF==='semanal')bills=bills.filter(b=>b.category==='semanal');
 
@@ -5084,7 +5035,7 @@ function renderBills(){
       ?`<div class="bc-st paid" style="color:var(--teal)">✓ Pago</div>`
       :prevSaldo>0
         ?`<div class="bc-st late">⚠️ c/ atraso</div>`
-        :`<div class="bc-st ${c.st}">${stLbl[c.st]||'Futuro'}</div>`;
+        :`<div class="bc-st ${c.st}">${stLbl[c.st]}</div>`;
 
     // ── Footer: 2-cell info bar (largura total do card) ──
     let footerHTML='';
@@ -5833,10 +5784,7 @@ async function saveEditBill(){
     toast('✓ Conta atualizada');
   }
   sdb();closeEditSheet();
-  // requestAnimationFrame evita travamento após salvar
-  requestAnimationFrame(()=>{
-    if(curSc==='sc-detail')refreshDet(id);else renderBills();
-  });
+  if(curSc==='sc-detail')refreshDet(id);else renderBills();
 }
 
 /* ════ INSTALLMENT / RECURRING ACTIONS ════ */
@@ -6328,15 +6276,11 @@ function getBillsForDash(view){
   if(dashNavMode==='dia'){
     const dtStr=iso(new Date(dashCY,dashCM,dashDay));
     const dtTs=new Date(dashCY,dashCM,dashDay).getTime();
-    const dtDow=new Date(dashCY,dashCM,dashDay).getDay();
     bills=db.bills.filter(b=>{
       const cc=calc(b,today());
       if(cc.st==='paid')return false;
-      // À vista: aparece em todos os dias ÚTEIS (sem domingo) entre criação e vencimento
-      if(b.noDaily||b.cycle==='avista'){
-        if(dtDow===0)return false; // domingo: não mostra conta à vista
-        return avistaInclui(b,dtTs);
-      }
+      // À vista: aparece em todos os dias entre criação e vencimento
+      if(b.noDaily||b.cycle==='avista')return avistaInclui(b,dtTs);
       return cc.dISO===dtStr;
     });
   } else if(dashNavMode==='semana'){
@@ -6430,26 +6374,12 @@ function renderDash(){
     }
   }
 
-  // Bills list for current dash month — com status caixa em tempo real
-  const stLbls={paid:'✓ Pago',pending:'Pendente',late:'Em Atraso',partial:'Parcial',future:'Futuro'};
-  // Calcula cobertura do caixa para todas as contas ativas
-  const activeBillsForCov=bills.filter(b=>{const c=calc(b,td);return c.st!=='paid'&&c.bal>0&&c.st!=='future';});
-  const cofreValDash=getCofreVal();
-  const covMapDash=distribuirCaixaNasContas(activeBillsForCov,cofreValDash,td);
+  // Bills list for current dash month
+  const stLbls={paid:'✓ Pago',pending:'Pendente',late:'Em Atraso',partial:'Parcial'};
   const billsHTML=bills.length?bills.map(b=>{
     const c=calc(b,td);const cat=catBy(b.category);
     const uname=db.users.find(u=>u.id===b.userId)?.name||'';
-    // Cor da borda: baseada em caixa quando pendente, senão status normal
-    const cov=covMapDash[b.id];
-    let borderColor,stLabel;
-    if(c.st==='paid'){borderColor='var(--teal)';stLabel='✓ Pago';}
-    else if(c.st==='future'){borderColor='#c0c7d6';stLabel='Futuro';}
-    else if(c.st==='late'){borderColor='var(--red)';stLabel='Em Atraso';}
-    else if(c.st==='partial'){borderColor='var(--blue)';stLabel='Parcial';}
-    else if(!cov||cov.pct===0){borderColor='var(--red)';stLabel='🔴 Pendente';}
-    else if(cov.pct>=100){borderColor='var(--g2)';stLabel='🔵 Em dia';}
-    else{borderColor='var(--orange)';stLabel=`🟡 ${cov.pct}% coberto`;}
-    return`<div style="background:var(--white);border-radius:14px;padding:13px;box-shadow:var(--sh);margin-bottom:9px;border-left:4px solid ${borderColor}">
+    return`<div style="background:var(--white);border-radius:14px;padding:13px;box-shadow:var(--sh);margin-bottom:9px;border-left:4px solid ${c.st==='paid'?'var(--teal)':c.st==='late'?'var(--red)':c.st==='partial'?'var(--blue)':'var(--orange)'}">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:9px" onclick="openDet('${b.id}')">
         <div style="width:38px;height:38px;border-radius:50%;background:${cat.bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${cat.ico}</div>
         <div style="flex:1;min-width:0">
@@ -6458,7 +6388,7 @@ function renderDash(){
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:.88rem;font-weight:900;color:var(--ink)">${fmt(c.bal)}</div>
-          <div style="font-size:.62rem;font-weight:800;margin-top:2px;color:${borderColor}">${stLabel}</div>
+          <div style="font-size:.62rem;font-weight:800;margin-top:2px;color:${c.st==='paid'?'var(--teal)':c.st==='late'?'var(--red)':c.st==='partial'?'var(--blue)':'var(--orange)'}">${stLbls[c.st]}</div>
         </div>
       </div>
       <div style="display:flex;gap:7px;border-top:1px solid #f2f4f8;padding-top:9px">
@@ -6834,14 +6764,12 @@ function saveCofreDeposit(type){
   cofreNumStr='0';
   document.getElementById('cofreDisplay').textContent='0,00';
   updateCofreSaldos();
-  // Recalcula tudo imediatamente em tempo real (sem travamento)
+  // Atualiza cards Rafa/Guigui imediatamente no DOM (independente da tela atual)
   calculateTotals();
   updateCaixa();
-  _lastRenderHomeKey='';
-  requestAnimationFrame(()=>{
-    renderDash();
-    if(curSc==='sc-home')renderHome();
-  });
+  _lastRenderHomeKey=''; // força re-render na próxima vez que entrar na Home
+  renderDash();
+  if(curSc==='sc-home')renderHome();
 }
 function openCofreZerar(){
   if(!isAdm()){toast('Apenas o admin pode zerar o cofre');return;}
@@ -6924,64 +6852,69 @@ function renderCofreWidget(saldoPendente){
   </div>`;
 }
 
-// ── Distribui o caixa entre contas, priorizando vencimento mais próximo ──
-function distribuirCaixaNasContas(activeBills,cofre,td){
-  const sorted=[...activeBills].sort((a,b)=>{
-    const ca=calc(a,td),cb=calc(b,td);
-    const da=ca.dISO||'9999-99-99',db2=cb.dISO||'9999-99-99';
-    return da<db2?-1:da>db2?1:0;
-  });
-  let remaining=cofre;
-  const coverage={};
-  sorted.forEach(b=>{
-    const c=calc(b,td);
-    const bal=Math.max(0,c.bal);
-    if(bal<=0){coverage[b.id]={covered:0,needed:0,pct:100};return;}
-    const covered=Math.min(remaining,bal);
-    remaining=r2(remaining-covered);
-    coverage[b.id]={covered:r2(covered),needed:r2(bal-covered),pct:Math.round(covered/bal*100)};
-  });
-  return coverage;
-}
-
 function renderEmergencyWidget(bills){
   const td=today();
+  const tdISO=today();
+
+  // ── FILTRO: só contas do ciclo ATIVO de hoje ──
+  // Mensal → só mês atual
+  // Semanal → só semana atual (não futuras)
+  // Diária → só a parcela de hoje (não futuras)
+  // À vista → sempre entra
   const activeBills=bills.filter(b=>{
     const c=calc(b,td);
     if(c.st==='paid')return false;
     if(c.bal<=0)return false;
+    // À vista: sempre entra
     if(b.noDaily||b.cycle==='avista')return true;
+    // Futura: não entra no emergencial
     if(c.st==='future')return false;
+    // Semanal futura: ciclo ainda não começou
     if(b.weeklyDay!==undefined&&c.daysElapsed===0&&c.late===0)return false;
+    // Diária futura: vencimento ainda não chegou
     if((b.cycle==='diaria'||b.category==='diaria')&&c.daysElapsed===0&&c.late===0)return false;
     return true;
   });
+
   const cofre=getCofreVal();
   const totalBal=activeBills.reduce((s,b)=>s+calc(b,td).bal,0);
   if(totalBal<=0)return'';
+
   const missing=r2(totalBal-cofre);
   if(missing<=0){
+    // Caixa covers everything — no emergency
     return`<div style="background:rgba(59,79,212,.08);border:1.5px solid rgba(59,79,212,.2);border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
       <span style="font-size:1.2rem">✅</span>
       <div><div style="font-size:.72rem;font-weight:800;color:var(--g2)">Caixa cobre todas as contas</div>
       <div style="font-size:.68rem;color:var(--ink3);font-weight:700;margin-top:2px">Sem diária de emergência necessária</div></div>
     </div>`;
   }
-  // Distribui caixa por vencimento mais próximo
-  const coverage=distribuirCaixaNasContas(activeBills,cofre,td);
+
+  // Build per-bill emergency rows
+  // Emergency daily = (bill total - caixa share for this bill) / days remaining
+  // Example: R$2000 bill, 25 wd cycle, today=day 12, daysLeft=13, caixa=0
+  //   → emergency = 2000 / 13 = R$153,85
   const rows=[];
   let totalEmerDay=0;
   activeBills.forEach(b=>{
     const c=calc(b,td);
     if(c.bal<=0)return;
-    const cov=coverage[b.id]||{covered:0,needed:c.bal,pct:0};
     const daysLeft=Math.max(1,c.daysLeft||1);
-    const emerDay=cov.needed>0?r2(cov.needed/daysLeft):0;
-    const shouldHave=r2(c.daysElapsed*c.daily);
+    const cofreShare=totalBal>0?r2(cofre*(b.amount/activeBills.reduce((s,x)=>s+x.amount,0))):0;
+    const stillNeeded=Math.max(0,r2(b.amount-cofreShare));
+    const emerDay=r2(stillNeeded/daysLeft);
+    const shouldHave=r2(c.daysElapsed*c.daily); // what should have been saved
     totalEmerDay=r2(totalEmerDay+emerDay);
-    rows.push({name:b.name,amount:b.amount,bal:c.bal,daysElapsed:c.daysElapsed,daysLeft,normalDaily:c.daily,shouldHave,emerDay,wd:c.wd,covered:cov.covered,needed:cov.needed,pct:cov.pct});
+    rows.push({
+      name:b.name,amount:b.amount,bal:c.bal,
+      daysElapsed:c.daysElapsed,daysLeft,
+      normalDaily:c.daily,shouldHave,emerDay,
+      wd:c.wd
+    });
   });
+
   if(!rows.length)return'';
+
   return`<div style="background:linear-gradient(135deg,rgba(231,76,60,.1),rgba(230,126,34,.06));border:1.5px solid rgba(231,76,60,.25);border-radius:14px;padding:14px;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
       <span style="font-size:1.1rem">🚨</span>
@@ -7000,29 +6933,23 @@ function renderEmergencyWidget(bills){
         <div style="font-size:.9rem;font-weight:900;color:var(--red)">${fmt(missing)}</div>
       </div>
     </div>
-    ${rows.map(r=>{
-      const isFullyCovered=r.pct>=100;
-      const isPartial=r.pct>0&&r.pct<100;
-      const rowBg=isFullyCovered?'rgba(59,79,212,.1)':isPartial?'rgba(230,179,34,.1)':'rgba(231,76,60,.06)';
-      const accent=isFullyCovered?'var(--g2)':isPartial?'var(--orange)':'var(--red)';
-      const icon=isFullyCovered?'🔵':isPartial?'🟡':'🔴';
-      return`<div style="padding:8px;margin-bottom:4px;border-radius:10px;background:${rowBg};border-left:3px solid ${accent}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.78rem;font-weight:800;color:var(--ink)">${icon} ${esc(r.name)}</div>
-            <div style="font-size:.63rem;color:var(--ink3);font-weight:700;margin-top:2px">${r.wd} dias úteis · ${r.daysLeft} restantes · Normal: ${fmt(r.normalDaily)}/dia</div>
-            ${r.covered>0?`<div style="font-size:.62rem;font-weight:800;color:${accent};margin-top:2px">Caixa cobre ${fmt(r.covered)} (${r.pct}%)${r.needed>0?\` · Falta ${fmt(r.needed)}`:''}</div>`:''}
-            ${r.pct>0&&r.pct<100?`<div style="background:rgba(0,0,0,.08);border-radius:100px;height:4px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${r.pct}%;background:${accent};border-radius:100px"></div></div>`:''} 
+    ${rows.map(r=>`<div style="padding:8px 0;border-bottom:1px solid rgba(231,76,60,.1)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:.78rem;font-weight:800;color:var(--ink)">${esc(r.name)}</div>
+          <div style="font-size:.63rem;color:var(--ink3);font-weight:700;margin-top:2px">
+            ${r.wd} dias úteis no ciclo · ${r.daysLeft} restantes
           </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:8px">
-            ${isFullyCovered
-              ?`<div style="font-size:.82rem;font-weight:900;color:var(--g2)">✓ Em dia</div><div style="font-size:.62rem;font-weight:700;color:var(--g2)">${fmt(r.normalDaily)}/dia</div>`
-              :`<div style="font-size:.9rem;font-weight:900;color:var(--red)">${fmt(r.emerDay)}<span style="font-size:.6rem;font-weight:700">/dia</span></div><div style="font-size:.6rem;color:var(--ink3);font-weight:600">${fmt(r.needed)} ÷ ${r.daysLeft}d</div>`
-            }
+          <div style="font-size:.63rem;color:var(--ink3);font-weight:700">
+            Deveria ter: ${fmt(r.shouldHave)} · Diária normal: ${fmt(r.normalDaily)}/dia
           </div>
         </div>
-      </div>`;
-    }).join('')}
+        <div style="text-align:right;flex-shrink:0;margin-left:8px">
+          <div style="font-size:.9rem;font-weight:900;color:var(--red)">${fmt(r.emerDay)}<span style="font-size:.6rem;font-weight:700">/dia</span></div>
+          <div style="font-size:.6rem;color:var(--ink3);font-weight:600">${fmt(r.amount)} ÷ ${r.daysLeft}d</div>
+        </div>
+      </div>
+    </div>`).join('')}
     <div style="font-size:.66rem;color:var(--ink3);font-weight:700;margin-top:8px;text-align:center;line-height:1.5">
       Precisa juntar ${fmt(totalEmerDay)}/dia para quitar tudo no vencimento
     </div>
@@ -7635,7 +7562,7 @@ function exportPDF(period,userId){
       <td style="padding:8px 6px;text-align:right;color:${c.acc>0?'#e74c3c':'inherit'}">${c.acc>0?fmt(c.acc):'—'}</td>
       <td style="padding:8px 6px;text-align:right;color:#3b4fd4">${fmt(c.paid)}</td>
       <td style="padding:8px 6px;text-align:right;font-weight:700;color:${c.bal>0?'#e67e22':'#3b4fd4'}">${c.bal>0?fmt(c.bal):'✓'}</td>
-      <td style="padding:8px 6px;font-size:.8rem;color:${c.st==='late'?'#e74c3c':c.st==='paid'?'#3b4fd4':'#e67e22'}">${stLbl[c.st]||'Futuro'}</td>
+      <td style="padding:8px 6px;font-size:.8rem;color:${c.st==='late'?'#e74c3c':c.st==='paid'?'#3b4fd4':'#e67e22'}">${stLbl[c.st]}</td>
     </tr>`;
   }).join('');
 
