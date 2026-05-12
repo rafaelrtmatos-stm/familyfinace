@@ -15,12 +15,12 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --g:#5c6bc0;--g2:#3b4fd4;--g3:#1e8449;
-  --red:#e74c3c;--blue:#3498db;--orange:#e67e22;--purple:#9b59b6;
-  --yellow:#f1c40f;--teal:#7c83e0;--pink:#e91e8c;
-  --bg:#f0f2f5;--white:#fff;--ink:#1a1a2e;--ink2:#555e7a;--ink3:#9ca3af;
+  --g:#2DB86A;--g2:#4FACFE;--g3:#7B6CF7;
+  --red:#e74c3c;--blue:#4FACFE;--orange:#e67e22;--purple:#7B6CF7;
+  --yellow:#f1c40f;--teal:#1FD4A8;--pink:#e91e8c;
+  --bg:#f0f2f8;--white:#fff;--ink:#1a1a2e;--ink2:#555e7a;--ink3:#8890B0;
   --r:18px;--rs:12px;--rxs:8px;
-  --sh:0 2px 16px rgba(0,0,0,.10);--sh2:0 8px 32px rgba(0,0,0,.18);
+  --sh:0 2px 16px rgba(75,108,247,.08);--sh2:0 8px 32px rgba(75,108,247,.16);
 }
 html,body{height:100%;overflow:hidden;background:#1a1a2e;font-family:'Nunito',sans-serif;color:var(--ink)}
 
@@ -51,7 +51,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 
 /* ── GREEN HEADER ── */
 .gh{
-  background:linear-gradient(160deg,var(--g3) 0%,var(--g2) 40%,var(--g) 100%);
+  background:linear-gradient(135deg,#2DB86A 0%,#1FD4A8 25%,#4FACFE 60%,#7B6CF7 100%);
   padding:0 18px 24px;flex-shrink:0;position:relative;overflow:hidden;
 }
 .gh::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none}
@@ -113,7 +113,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .bni-lbl{font-size:.58rem;font-weight:800;color:var(--ink3);transition:color .18s;letter-spacing:.02em}
 .bni.active .bni-lbl{color:var(--g2)}
 .bni-center{flex:0 0 64px;position:relative;top:-10px}
-.bni-fab{width:52px;height:52px;border-radius:50%;background:var(--g);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(92,107,192,.5);cursor:pointer;border:none;margin:0 auto}
+.bni-fab{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(123,108,247,.45);cursor:pointer;border:none;margin:0 auto}
 .bni-fab:active{transform:scale(.93)}
 
 /* ── ADD SCREEN ── */
@@ -1377,7 +1377,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     </div>
     <div id="editRecurringRow" class="us-field" style="display:none"></div>
     <input type="hidden" id="editBillId"/>
-    <button onclick="saveEditBill()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;margin-top:6px">Salvar alterações</button>
+    <button onclick="saveEditBill()" style="width:100%;padding:13px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;margin-top:6px">Salvar alterações</button>
   </div>
 </div>
 
@@ -1444,7 +1444,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="npk del" style="padding:14px;font-size:1rem" onclick="cofreNpDel()">⌫</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button onclick="saveCofreDeposit('deposito')" style="flex:1;padding:14px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">➕ Entrada</button>
+      <button onclick="saveCofreDeposit('deposito')" style="flex:1;padding:14px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">➕ Entrada</button>
       <button onclick="saveCofreDeposit('saque')" style="flex:1;padding:14px;background:rgba(231,76,60,.1);color:var(--red);border:1.5px solid rgba(231,76,60,.3);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">➖ Sacar</button>
       <button onclick="openCofreZerar()" style="padding:14px 10px;background:#f5f6fa;color:var(--ink3);border:1.5px solid #dde2ec;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;cursor:pointer">Zerar</button>
     </div>
@@ -1459,6 +1459,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:1rem;font-weight:900;color:var(--ink)">💰 Histórico da Caixa</div>
       <button onclick="document.getElementById('cofreHistOverlay').style.display='none'" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="exportarHistoricoWpp()" style="flex:1;padding:10px;background:rgba(37,211,102,.1);color:#25D366;border:1.5px solid rgba(37,211,102,.3);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer">💬 Exportar WhatsApp</button>
     </div>
     <div id="cofreHistList"></div>
   </div>
@@ -1501,7 +1504,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button class="npk" style="padding:13px;font-size:1.1rem" onclick="editCofreNp('0')">0</button>
       <button class="npk del" style="padding:13px;font-size:1rem" onclick="editCofreNpDel()">⌫</button>
     </div>
-    <button onclick="saveEditCofreHist()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">💾 Salvar alterações</button>
+    <button onclick="saveEditCofreHist()" style="width:100%;padding:13px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer">💾 Salvar alterações</button>
   </div>
 </div>
 
@@ -2199,6 +2202,7 @@ async function loadFromSupa(){
       }).filter(b=>!_pendingDeletes.has(b.id));
       fixInstallmentDates();
       fixWeeklyBills();
+      setTimeout(checkVencimentoAmanha, 2000); // Checar vencimentos de amanhã
     }
     // Load holidays
     const{data:hols}=await s.from('holidays').select('*');
@@ -3797,7 +3801,71 @@ function renderHome(){
     </div>`;
   }
 
-  if(widgetsEl)widgetsEl.innerHTML=nextDueHTML+recentesHTML+dailyWidgetHTML;
+  // ── Gráfico de diária dos últimos 7 dias ──
+  const last7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const dStr=iso(d);
+    const dayBills=db.bills.filter(b=>b.month===mk(d.getFullYear(),d.getMonth()));
+    const dayDaily=r2(dayBills.reduce((s,b)=>{
+      const cc=calc(b,dStr);
+      return s+(cc.st==='future'?0:cc.daily);
+    },0));
+    const dayName=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][d.getDay()];
+    last7.push({lbl:i===0?'Hoje':dayName,val:dayDaily,isToday:i===0});
+  }
+  const maxDaily=Math.max(...last7.map(x=>x.val),1);
+  const barItems=last7.map(d=>`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+      <div style="font-size:.55rem;font-weight:800;color:${d.val>0?'var(--g2)':'var(--ink3)'}">${d.val>0?fmt(d.val):''}</div>
+      <div style="width:100%;border-radius:6px 6px 0 0;background:${d.isToday?'linear-gradient(180deg,#2DB86A,#4FACFE)':'rgba(75,108,247,0.15)'};height:${Math.max(4,Math.round((d.val/maxDaily)*60))}px;transition:height .3s"></div>
+      <div style="font-size:.6rem;font-weight:${d.isToday?'900':'700'};color:${d.isToday?'var(--g2)':'var(--ink3)'}">${d.lbl}</div>
+    </div>`).join('');
+
+  // Gráfico por usuário
+  const rafaUser=db.users.find(x=>x.role==='admin');
+  const guiguiUser=db.users.find(x=>isUUID(x.id)&&x.role!=='admin');
+  const rafaBills=bills.filter(b=>b.userId===rafaUser?.id);
+  const guiguiBills=bills.filter(b=>b.userId===guiguiUser?.id||b.userId==='todos');
+  const rafaTotal=r2(rafaBills.reduce((s,b)=>s+b.amount,0));
+  const guiguiTotal=r2(guiguiBills.reduce((s,b)=>s+b.amount,0));
+  const grandTotal=r2(rafaTotal+guiguiTotal)||1;
+  const rafaPct=Math.round((rafaTotal/grandTotal)*100);
+  const guiguiPct=100-rafaPct;
+
+  const chartHTML=`<div style="background:var(--white);border-radius:14px;padding:12px 13px;box-shadow:var(--sh);margin-bottom:10px">
+    <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--ink3);margin-bottom:10px">📊 Diária por dia</div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:72px;padding:0 2px">
+      ${barItems}
+    </div>
+    <div style="margin-top:12px;border-top:1px solid #f0f2f8;padding-top:10px">
+      <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--ink3);margin-bottom:8px">👥 Por usuário</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:.65rem;font-weight:700;margin-bottom:3px">
+            <span style="color:#4FACFE">👤 ${rafaUser?.name||'Rafael'}</span><span style="color:#4FACFE">${fmt(rafaTotal)}</span>
+          </div>
+          <div style="background:#f0f2f8;border-radius:100px;height:5px;overflow:hidden">
+            <div style="height:100%;width:${rafaPct}%;background:linear-gradient(90deg,#2DB86A,#4FACFE);border-radius:100px"></div>
+          </div>
+        </div>
+        <div style="font-size:.7rem;font-weight:900;color:var(--ink3)">${rafaPct}%</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:.65rem;font-weight:700;margin-bottom:3px">
+            <span style="color:#7B6CF7">👤 ${guiguiUser?.name||'Guigui'}</span><span style="color:#7B6CF7">${fmt(guiguiTotal)}</span>
+          </div>
+          <div style="background:#f0f2f8;border-radius:100px;height:5px;overflow:hidden">
+            <div style="height:100%;width:${guiguiPct}%;background:linear-gradient(90deg,#4FACFE,#7B6CF7);border-radius:100px"></div>
+          </div>
+        </div>
+        <div style="font-size:.7rem;font-weight:900;color:var(--ink3)">${guiguiPct}%</div>
+      </div>
+    </div>
+  </div>`;
+
+  if(widgetsEl)widgetsEl.innerHTML=nextDueHTML+recentesHTML+dailyWidgetHTML+chartHTML;
 
   // ── Category list ──
   const catEl=document.getElementById('catList');
@@ -5297,11 +5365,22 @@ function refreshDet(id){
 
     // Cofre: quanto falta para cobrir o saldo acumulado
     const cofreVal=getCofreVal();
-    const faltaCofre=r2(Math.max(0,c.accrued-cofreVal));
+    const totalBalAllBills=r2(db.bills.reduce((s,b)=>{const cc=calc(b,td);return s+(cc.st==='paid'?0:cc.bal);},0))||1;
+    // Cobertura proporcional do cofre para esta conta
+    const cofreCoverage=r2(Math.min(c.accrued,cofreVal*(c.accrued/totalBalAllBills)));
+    const faltaCofre=r2(Math.max(0,c.accrued-cofreCoverage));
     const cofreRow=isMensal&&!isPaid
-      ?`<div class="ir" style="border-bottom:none;margin-top:4px">
-          <span class="ir-lbl">💰 Cofre atual</span>
-          <span class="ir-val" style="color:${faltaCofre>0?'var(--red)':'var(--teal)'}">${fmt(cofreVal)} ${faltaCofre>0?'(falta '+fmt(faltaCofre)+')':'✓ OK'}</span>
+      ?`<div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:.7rem;font-weight:700;color:var(--ink3)">💰 Cofre cobre esta conta</span>
+            <span style="font-size:.72rem;font-weight:900;color:${faltaCofre>0?'var(--red)':'var(--teal)'}">
+              ${faltaCofre>0?fmt(cofreCoverage)+' de '+fmt(c.accrued):'✅ Cobre tudo'}
+            </span>
+          </div>
+          <div style="background:#f0f2f8;border-radius:100px;height:5px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100,Math.round((cofreCoverage/Math.max(c.accrued,1))*100))}%;background:${faltaCofre>0?'linear-gradient(90deg,var(--orange),var(--red))':'linear-gradient(90deg,#2DB86A,#4FACFE)'};border-radius:100px"></div>
+          </div>
+          ${faltaCofre>0?`<div style="font-size:.62rem;color:var(--red);font-weight:700;margin-top:3px">Falta ${fmt(faltaCofre)} no cofre para esta conta</div>`:''}
         </div>`
       :'';
 
@@ -6455,6 +6534,45 @@ function getCofreFormKey(form){
 function getCofreFormVal(form){
   try{return parseFloat(localStorage.getItem(getCofreFormKey(form))||'0')||0;}catch{return 0;}
 }
+function getCofreMetaWidget(){
+  const meta=getCofreMeta();
+  const atual=getCofreVal();
+  if(meta<=0)return`<button onclick="openCofreMetaModal()" style="font-size:.62rem;font-weight:800;color:var(--g2);background:rgba(45,184,106,.08);border:1px solid rgba(45,184,106,.2);border-radius:100px;padding:3px 10px;cursor:pointer;font-family:'Nunito',sans-serif">🎯 Definir meta</button>`;
+  const pct=Math.min(100,Math.round((atual/meta)*100));
+  const falta=r2(Math.max(0,meta-atual));
+  return`<div style="margin-top:6px">
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;font-weight:700;color:var(--ink3);margin-bottom:3px">
+      <span onclick="openCofreMetaModal()" style="cursor:pointer">🎯 Meta: ${fmt(meta)}</span>
+      <span style="color:${pct>=100?'var(--teal)':'var(--ink3)'}>${pct}%${falta>0?' (falta '+fmt(falta)+')':' ✅'}</span>
+    </div>
+    <div style="background:#f0f2f8;border-radius:100px;height:4px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2DB86A,#4FACFE);border-radius:100px"></div>
+    </div>
+  </div>`;
+}
+
+function exportarHistoricoWpp(){
+  const hist=JSON.parse(localStorage.getItem('cofre_hist')||'[]').slice(0,20);
+  if(!hist.length){toast('Nenhum histórico para exportar');return;}
+  const MNS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const lines=hist.map(h=>{
+    const d=h.date?new Date(h.date):new Date();
+    const tipo=h.type==='deposito'?'⬆️ Entrada':'⬇️ Saída';
+    const forma={pix:'PIX',dinheiro:'Dinheiro'}[h.form]||h.form||'';
+    return`${tipo} ${fmt(h.amount)} (${forma}) — ${d.getDate()}/${MNS[d.getMonth()]} ${h.desc?'· '+h.desc:''}`;
+  }).join('
+');
+  const saldo=getCofreVal();
+  const txt=`💰 Histórico do Cofre — Family Finance
+Saldo atual: ${fmt(saldo)}
+
+${lines}
+
+Gerado em ${new Date().toLocaleDateString('pt-BR')}`;
+  const url='https://wa.me/?text='+encodeURIComponent(txt);
+  window.open(url,'_blank');
+}
+
 function getCofreVal(){return r2(getCofreFormVal('pix')+getCofreFormVal('dinheiro'));}
 
 let _cofreSynced=false;
@@ -6673,6 +6791,46 @@ function updateCofreSaldos(){
       <div style="font-size:.95rem;font-weight:900;color:var(--teal)">${fmt(din)}</div>
     </div>`;
 }
+function getCofreDepositosByUser(){
+  // Retorna depósitos separados por usuário do histórico do cofre
+  try{
+    const hist=JSON.parse(localStorage.getItem('cofre_hist')||'[]');
+    const result={};
+    hist.filter(h=>h.type==='deposito').forEach(h=>{
+      const uid=h.userId||'?';
+      if(!result[uid])result[uid]={total:0,pix:0,dinheiro:0,name:h.userName||uid};
+      result[uid].total=r2(result[uid].total+(h.amount||0));
+      if(h.form==='pix')result[uid].pix=r2(result[uid].pix+(h.amount||0));
+      else result[uid].dinheiro=r2(result[uid].dinheiro+(h.amount||0));
+    });
+    return result;
+  }catch{return {};}
+}
+
+function renderCofreDepositorWidget(){
+  const deps=getCofreDepositosByUser();
+  const entries=Object.values(deps);
+  if(!entries.length)return '';
+  const total=r2(entries.reduce((s,e)=>s+e.total,0))||1;
+  return`<div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:12px;margin-top:12px">
+    <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.45);margin-bottom:10px">💰 Depósitos por pessoa</div>
+    ${entries.map(e=>{
+      const pct=Math.round((e.total/total)*100);
+      return`<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:.7rem;font-weight:700;color:rgba(255,255,255,0.8);margin-bottom:3px">
+          <span>👤 ${e.name}</span><span>${fmt(e.total)}</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:100px;height:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2DB86A,#4FACFE);border-radius:100px"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:3px;font-size:.6rem;color:rgba(255,255,255,0.4)">
+          <span>PIX: ${fmt(e.pix)}</span><span>Dinheiro: ${fmt(e.dinheiro)}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
 function openCofreSheet(){
   cofreNumStr='0';cofreForm='pix';cofreSelectedUserId='';
   document.getElementById('cofreDisplay').textContent='0,00';
@@ -7682,7 +7840,7 @@ function renderSTPerms(ct){
       </select>
     </div>
     <div id="permToggles"></div>
-    <button onclick="savePerms()" style="width:100%;margin-top:10px;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:900;cursor:pointer">💾 Salvar Permissões</button>`;
+    <button onclick="savePerms()" style="width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:900;cursor:pointer">💾 Salvar Permissões</button>`;
   renderPermToggles();
 }
 
@@ -7782,7 +7940,7 @@ function renderSTCats(ct){
   ct.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:.84rem;font-weight:800;color:var(--ink)">Categorias (${cats.length})</div>
-      <button onclick="openCatEdit()" style="padding:8px 14px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;cursor:pointer">+ Nova</button>
+      <button onclick="openCatEdit()" style="padding:8px 14px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;cursor:pointer">+ Nova</button>
     </div>
     ${cats.map((c,i)=>`
       <div style="background:var(--white);border-radius:14px;padding:0;box-shadow:var(--sh);margin-bottom:9px;overflow:hidden">
@@ -7826,7 +7984,7 @@ function openCatEdit(idx){
       <input type="hidden" id="catColor" value="${c?c.color:colors[0]}"/>
     </div>
     <input type="hidden" id="catEditIdx" value="${editIdx}"/>
-    <button onclick="saveCat()" style="width:100%;padding:13px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;margin-top:8px">Salvar</button>
+    <button onclick="saveCat()" style="width:100%;padding:13px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;cursor:pointer;margin-top:8px">Salvar</button>
     <button onclick="document.getElementById('catEditOverlay').style.display='none'" style="width:100%;padding:10px;background:transparent;border:none;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;color:var(--ink3);cursor:pointer;margin-top:4px">Cancelar</button>`;
   document.getElementById('catEditOverlay').style.display='flex';
 }
@@ -7898,7 +8056,7 @@ function renderSTSecurity(ct){
       <div class="us-field"><div class="us-label">Nova senha</div><input type="password" class="us-inp" id="secNew" placeholder="Mínimo 4 caracteres"/></div>
       <div class="us-field" style="margin-bottom:0"><div class="us-label">Confirmar nova senha</div><input type="password" class="us-inp" id="secConfirm" placeholder="Repita a senha"/></div>
     </div>
-    <button onclick="changePass()" style="width:100%;padding:12px;background:var(--g2);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;margin-bottom:10px">Salvar Nova Senha</button>
+    <button onclick="changePass()" style="width:100%;padding:12px;background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;border:none;border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;margin-bottom:10px">Salvar Nova Senha</button>
     ${adm&&adminUsersOpts?`
     <div class="info-card" style="padding:14px;margin-bottom:12px">
       <div style="font-size:.86rem;font-weight:800;margin-bottom:14px;color:var(--ink)">👑 Redefinir senha de outro usuário</div>
@@ -8748,6 +8906,47 @@ function _isoToday(){
 function _isoTomorrow(){
   const n=new Date();n.setDate(n.getDate()+1);
   return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+
+function checkVencimentoAmanha(){
+  // Verifica contas que vencem amanhã e exibe notificação in-app
+  const amanha=new Date();amanha.setDate(amanha.getDate()+1);
+  const amanhaStr=iso(amanha);
+  const td=today();
+  const venceAmanha=db.bills.filter(b=>{
+    const cc=calc(b,td);
+    return cc.dISO===amanhaStr&&cc.st!=='paid';
+  });
+  if(venceAmanha.length>0&&!sessionStorage.getItem('notif_amanha_shown')){
+    sessionStorage.setItem('notif_amanha_shown','1');
+    const nomes=venceAmanha.map(b=>b.name).join(', ');
+    const total=r2(venceAmanha.reduce((s,b)=>s+calc(b,td).bal,0));
+    // Mostrar toast especial
+    const div=document.createElement('div');
+    div.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#2DB86A,#4FACFE,#7B6CF7);color:#fff;padding:12px 20px;border-radius:16px;font-family:Nunito,sans-serif;font-size:.8rem;font-weight:800;z-index:9999;box-shadow:0 8px 24px rgba(123,108,247,.4);max-width:280px;text-align:center;cursor:pointer';
+    div.innerHTML=`🔔 Vence amanhã!<br><span style="font-size:.72rem;font-weight:700;opacity:.85">${nomes} · ${fmt(total)}</span>`;
+    div.onclick=()=>div.remove();
+    document.body.appendChild(div);
+    setTimeout(()=>div.remove(),5000);
+  }
+}
+
+// ══ META DO COFRE ══
+function getCofreMeta(){
+  try{return parseFloat(localStorage.getItem('cofre_meta')||'0');}catch{return 0;}
+}
+function setCofreMeta(val){
+  localStorage.setItem('cofre_meta',String(val));
+  renderHome();
+  toast('✅ Meta do cofre salva!');
+}
+function openCofreMetaModal(){
+  const atual=getCofreMeta();
+  const val=prompt('Meta mensal do cofre (R$):',atual>0?atual.toFixed(2):'');
+  if(val===null)return;
+  const n=parseFloat(val.replace(',','.'));
+  if(!isNaN(n)&&n>=0)setCofreMeta(n);
+  else toast('Valor inválido');
 }
 
 function scheduleNotificationsToday(){
