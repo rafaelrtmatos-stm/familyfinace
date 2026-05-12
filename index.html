@@ -934,20 +934,21 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
     <button class="fc"    id="bcyc-mensal"  onclick="setCycle('mensal',this)">🗓️ Mensal</button>
     <button class="fc"    id="bcyc-custom"  onclick="setCycle('custom',this)">⚙️ Personal.</button>
   </div>
-  <!-- Status filter -->
-  <div class="fbar">
-    <button class="fc on" onclick="setF('all',this)">Todas</button>
-    <button class="fc" onclick="setF('pending',this)">Pendentes</button>
-    <button class="fc" onclick="setF('paid',this)">Pagas</button>
-    <button class="fc" onclick="setF('late',this)">Atrasadas</button>
-    <button class="fc" onclick="setF('partial',this)">Parciais</button>
-  </div>
-  <!-- Sort bar -->
-  <div class="fbar" style="border-top:none;padding-top:0">
-    <button class="fc on" id="bsort-due" onclick="setSort('due',this)">📅 Vencimento</button>
-    <button class="fc" id="bsort-name" onclick="setSort('name',this)">🔤 Nome</button>
-    <button class="fc" id="bsort-val" onclick="setSort('val',this)">💰 Valor</button>
-    <button class="fc" id="bsort-status" onclick="setSort('status',this)">🔴 Status</button>
+  <!-- Filtros suspensos (status + ordenação) -->
+  <div style="display:flex;gap:8px;padding:6px 14px 8px;background:var(--white);border-bottom:1px solid #eef0f5;align-items:center">
+    <select id="billsFilterSel" onchange="setF(this.value,null)" style="flex:1;border:1.5px solid #e2e6ef;border-radius:10px;padding:7px 10px;font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;color:var(--ink);background:var(--white);cursor:pointer;outline:none">
+      <option value="all">📋 Todas</option>
+      <option value="pending">⏳ Pendentes</option>
+      <option value="paid">✅ Pagas</option>
+      <option value="late">⚠️ Atrasadas</option>
+      <option value="partial">💛 Parciais</option>
+    </select>
+    <select id="billsSortSel" onchange="setSort(this.value,null)" style="flex:1;border:1.5px solid #e2e6ef;border-radius:10px;padding:7px 10px;font-family:'Nunito',sans-serif;font-size:.76rem;font-weight:800;color:var(--ink);background:var(--white);cursor:pointer;outline:none">
+      <option value="due">📅 Vencimento</option>
+      <option value="name">🔤 Nome</option>
+      <option value="val">💰 Valor</option>
+      <option value="status">🔴 Status</option>
+    </select>
   </div>
   <!-- Search bar (hidden by default) -->
   <div id="billsSearchBar" style="display:none;padding:8px 14px;background:var(--white);border-bottom:1px solid #eef0f5;flex-shrink:0">
@@ -1462,11 +1463,14 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
       <button onclick="closeExtrato()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">X</button>
     </div>
     <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:8px">Periodo</div>
-    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      <button onclick="setExtratoPeriodo('mes')" id="ep-mes" style="padding:6px 12px;border-radius:100px;border:1.5px solid rgba(45,184,106,.4);background:rgba(45,184,106,.1);color:#2DB86A;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">Este mes</button>
-      <button onclick="setExtratoPeriodo('3meses')" id="ep-3meses" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">3 meses</button>
-      <button onclick="setExtratoPeriodo('6meses')" id="ep-6meses" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">6 meses</button>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button onclick="setExtratoPeriodo('mes')" id="ep-mes" style="padding:6px 12px;border-radius:100px;border:1.5px solid rgba(45,184,106,.4);background:rgba(45,184,106,.1);color:#2DB86A;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">Este mês</button>
       <button onclick="setExtratoPeriodo('tudo')" id="ep-tudo" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">Tudo</button>
+      <button onclick="setExtratoPeriodo('custom')" id="ep-custom" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">Personalizado</button>
+    </div>
+    <div id="extratoCustomRange" style="display:none;gap:8px;margin-bottom:12px;align-items:center">
+      <div style="flex:1"><div style="font-size:.6rem;font-weight:800;color:var(--ink3);margin-bottom:4px">DE</div><input type="month" id="extratoFrom" style="width:100%;border:1.5px solid #dde2ec;border-radius:10px;padding:7px 10px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;color:var(--ink)" oninput="renderExtrato()"/></div>
+      <div style="flex:1"><div style="font-size:.6rem;font-weight:800;color:var(--ink3);margin-bottom:4px">ATÉ</div><input type="month" id="extratoTo" style="width:100%;border:1.5px solid #dde2ec;border-radius:10px;padding:7px 10px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;color:var(--ink)" oninput="renderExtrato()"/></div>
     </div>
     <div id="extratoContent"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
@@ -4774,8 +4778,8 @@ let activeSort='due'; // 'due'|'name'|'val'|'status'
 
 function setSort(s,el){
   activeSort=s;
-  document.querySelectorAll('#bsort-due,#bsort-name,#bsort-val,#bsort-status').forEach(b=>b.classList.remove('on'));
-  if(el)el.classList.add('on');
+  const sel=document.getElementById('billsSortSel');
+  if(sel)sel.value=s;
   renderBills();
 }
 let billsCycle='all'; // 'all'|'diaria'|'semanal'|'mensal'|'custom'
@@ -4821,9 +4825,8 @@ function toggleBillsUser(uid2,el){
 
 function setF(f,el){
   activeF=f;
-  // Only reset 'on' in the status fbar (second .fbar, not the cycle bar)
-  document.querySelectorAll('.fbar:not(#billsCycleBar) .fc').forEach(b=>b.classList.remove('on'));
-  if(el)el.classList.add('on');
+  const sel=document.getElementById('billsFilterSel');
+  if(sel)sel.value=f;
   renderBills();
 }
 function setCycle(c,el){
@@ -6180,7 +6183,7 @@ function closeExtrato(){
 
 function setExtratoPeriodo(p){
   _extratoPeriodo = p;
-  ['mes','3meses','6meses','tudo'].forEach(pp=>{
+  ['mes','tudo','custom'].forEach(pp=>{
     const el = document.getElementById('ep-'+pp);
     if(!el) return;
     const on = pp===p;
@@ -6188,6 +6191,15 @@ function setExtratoPeriodo(p){
     el.style.borderColor = on?'rgba(45,184,106,.4)':'#dde2ec';
     el.style.color = on?'#2DB86A':'var(--ink3)';
   });
+  const rangeEl = document.getElementById('extratoCustomRange');
+  if(rangeEl) rangeEl.style.display = p==='custom'?'flex':'none';
+  if(p==='custom'){
+    // Preencher datas padrão se vazias
+    const fromEl=document.getElementById('extratoFrom');
+    const toEl=document.getElementById('extratoTo');
+    if(fromEl&&!fromEl.value){const d=new Date();d.setMonth(d.getMonth()-3);fromEl.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+    if(toEl&&!toEl.value){const d=new Date();toEl.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+  }
   renderExtrato();
 }
 
@@ -6205,17 +6217,21 @@ function getExtratoBills(){
   // Filtrar por período
   const now = new Date();
   const cutoff = new Date();
+  let cutoffMk, toMk;
   if(_extratoPeriodo==='mes'){
-    cutoff.setDate(1);
-  } else if(_extratoPeriodo==='3meses'){
-    cutoff.setMonth(cutoff.getMonth()-3);
-  } else if(_extratoPeriodo==='6meses'){
-    cutoff.setMonth(cutoff.getMonth()-6);
+    cutoffMk = mk(now.getFullYear(), now.getMonth());
+    toMk = cutoffMk;
+  } else if(_extratoPeriodo==='custom'){
+    const fromVal = document.getElementById('extratoFrom')?.value;
+    const toVal = document.getElementById('extratoTo')?.value;
+    cutoffMk = fromVal||mk(2000,0);
+    toMk = toVal||mk(now.getFullYear(),now.getMonth());
   } else {
     cutoff.setFullYear(2000);
+    cutoffMk = mk(cutoff.getFullYear(), cutoff.getMonth());
+    toMk = mk(2099,11);
   }
-  const cutoffMk = mk(cutoff.getFullYear(), cutoff.getMonth());
-  all = all.filter(x=>x.month>=cutoffMk);
+  all = all.filter(x=>x.month>=cutoffMk&&x.month<=toMk);
   all.sort((a,z)=>a.month.localeCompare(z.month)||(a.installment?.index||0)-(z.installment?.index||0));
   return all;
 }
@@ -6296,7 +6312,10 @@ function getExtratoTexto(){
   const totalOrig = r2(bills.reduce((s,b)=>s+b.amount,0));
   const totalPago = r2(bills.reduce((s,b)=>s+r2((b.payments||[]).reduce((ps,p)=>ps+p.amount,0)),0));
   let txt = '📄 EXTRATO — '+(b0?.name||'Conta')+'\n';
-  txt += 'Período: '+({mes:'Este mês','3meses':'3 meses','6meses':'6 meses','tudo':'Todo período'}[_extratoPeriodo])+'\n';
+  const fromV=document.getElementById('extratoFrom')?.value||'';
+  const toV=document.getElementById('extratoTo')?.value||'';
+  const periodoLbl={mes:'Este mês',tudo:'Todo período',custom:fromV+' a '+toV}[_extratoPeriodo]||'Todo período';
+  txt += 'Período: '+periodoLbl+'\n';
   txt += 'Total: '+fmt(totalOrig)+' · Pago: '+fmt(totalPago)+' · Falta: '+fmt(r2(totalOrig-totalPago))+'\n\n';
   bills.forEach(b=>{
     const cc = calc(b,td);
