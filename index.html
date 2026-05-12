@@ -6560,15 +6560,9 @@ function exportarHistoricoWpp(){
     const tipo=h.type==='deposito'?'⬆️ Entrada':'⬇️ Saída';
     const forma={pix:'PIX',dinheiro:'Dinheiro'}[h.form]||h.form||'';
     return`${tipo} ${fmt(h.amount)} (${forma}) — ${d.getDate()}/${MNS[d.getMonth()]} ${h.desc?'· '+h.desc:''}`;
-  }).join('
-');
+  }).join('\n');
   const saldo=getCofreVal();
-  const txt=`💰 Histórico do Cofre — Family Finance
-Saldo atual: ${fmt(saldo)}
-
-${lines}
-
-Gerado em ${new Date().toLocaleDateString('pt-BR')}`;
+  const txt='💰 Histórico do Cofre — Family Finance\nSaldo atual: '+fmt(saldo)+'\n\n'+lines+'\n\nGerado em '+new Date().toLocaleDateString('pt-BR');
   const url='https://wa.me/?text='+encodeURIComponent(txt);
   window.open(url,'_blank');
 }
