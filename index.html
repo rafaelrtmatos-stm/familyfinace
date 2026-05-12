@@ -1453,6 +1453,29 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 </div>
 
 <!-- ══ COFRE HISTORY MODAL ══ -->
+<!-- EXTRATO MODAL -->
+<div class="user-overlay" id="extratoOverlay" onclick="if(event.target===this)closeExtrato()" style="display:none">
+  <div class="user-sheet" style="max-height:88vh;overflow-y:auto">
+    <div class="ps-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:1rem;font-weight:900;color:var(--ink)" id="extratoTitle">Extrato</div>
+      <button onclick="closeExtrato()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">X</button>
+    </div>
+    <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:8px">Periodo</div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <button onclick="setExtratoPeriodo('mes')" id="ep-mes" style="padding:6px 12px;border-radius:100px;border:1.5px solid rgba(45,184,106,.4);background:rgba(45,184,106,.1);color:#2DB86A;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">Este mes</button>
+      <button onclick="setExtratoPeriodo('3meses')" id="ep-3meses" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">3 meses</button>
+      <button onclick="setExtratoPeriodo('6meses')" id="ep-6meses" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">6 meses</button>
+      <button onclick="setExtratoPeriodo('tudo')" id="ep-tudo" style="padding:6px 12px;border-radius:100px;border:1.5px solid #dde2ec;background:#f7f9fc;color:var(--ink3);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer">Tudo</button>
+    </div>
+    <div id="extratoContent"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="exportarExtratoWpp()" style="flex:1;padding:12px;background:rgba(37,211,102,.1);color:#25D366;border:1.5px solid rgba(37,211,102,.3);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer">WhatsApp</button>
+      <button onclick="exportarExtratoPng()" style="flex:1;padding:12px;background:rgba(123,108,247,.1);color:#7B6CF7;border:1.5px solid rgba(123,108,247,.3);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer">Salvar PNG</button>
+    </div>
+  </div>
+</div>
+
 <div class="user-overlay" id="cofreHistOverlay" onclick="if(event.target===this)this.style.display='none'" style="display:none">
   <div class="user-sheet" style="max-height:85vh;overflow-y:auto">
     <div class="ps-handle"></div>
@@ -5469,6 +5492,7 @@ function refreshDet(id){
       <button class="sbtn" style="flex:1;background:rgba(59,79,212,.1);color:var(--g2);border:1.5px solid rgba(59,79,212,.25);min-width:120px" onclick="openEditSheet('${b.id}')">✏️ Editar conta</button>
       ${(hasPerm('canWhatsapp')||isAdm())?`<button class="sbtn" style="flex:1;background:rgba(37,211,102,.12);color:#25D366;border:1.5px solid rgba(37,211,102,.3);min-width:120px" onclick="shareWhatsapp('${b.id}')">💬 WhatsApp</button>`:''}
       <button class="sbtn" style="flex:1;background:rgba(255,152,0,.1);color:#e65100;border:1.5px solid rgba(255,152,0,.3);min-width:120px" onclick="gerarRecibo('${b.id}')">🧾 Recibo</button>
+      <button class="sbtn" style="flex:1;background:rgba(45,184,106,.1);color:#2DB86A;border:1.5px solid rgba(45,184,106,.3);min-width:120px" onclick="openExtrato('${b.id}')">📄 Extrato</button>
       <button class="sbtn sbtn-red" style="flex:1;min-width:80px" onclick="delBill('${b.id}')">🗑 Excluir</button>
     </div>`;
 
@@ -6125,6 +6149,277 @@ function renderPayParts(){
 
 function fmtCurInput(v){
   return v.toFixed(2).replace('.',',');
+}
+
+
+// ══ EXTRATO DE CONTA ══
+let _extratoId = '';
+let _extratoPeriodo = 'mes';
+
+function openExtrato(billId){
+  _extratoId = billId;
+  _extratoPeriodo = 'mes';
+  const b = db.bills.find(x=>x.id===billId);
+  if(!b) return;
+  document.getElementById('extratoTitle').textContent = '📄 Extrato — ' + b.name;
+  // Resetar botões
+  ['mes','3meses','6meses','tudo'].forEach(p=>{
+    const el = document.getElementById('ep-'+p);
+    if(!el) return;
+    el.style.background = p==='mes'?'rgba(45,184,106,.1)':'#f7f9fc';
+    el.style.borderColor = p==='mes'?'rgba(45,184,106,.4)':'#dde2ec';
+    el.style.color = p==='mes'?'#2DB86A':'var(--ink3)';
+  });
+  renderExtrato();
+  document.getElementById('extratoOverlay').style.display = 'flex';
+}
+
+function closeExtrato(){
+  document.getElementById('extratoOverlay').style.display = 'none';
+}
+
+function setExtratoPeriodo(p){
+  _extratoPeriodo = p;
+  ['mes','3meses','6meses','tudo'].forEach(pp=>{
+    const el = document.getElementById('ep-'+pp);
+    if(!el) return;
+    const on = pp===p;
+    el.style.background = on?'rgba(45,184,106,.1)':'#f7f9fc';
+    el.style.borderColor = on?'rgba(45,184,106,.4)':'#dde2ec';
+    el.style.color = on?'#2DB86A':'var(--ink3)';
+  });
+  renderExtrato();
+}
+
+function getExtratoBills(){
+  const b = db.bills.find(x=>x.id===_extratoId);
+  if(!b) return [];
+  const tid = b.templateId || (b.installment&&b.installment.templateId) || b.id;
+  // Pegar todas as parcelas/recorrências do mesmo grupo
+  let all = db.bills.filter(x=>{
+    if(x.id===b.id) return true;
+    if(x.templateId===tid) return true;
+    if(x.installment&&x.installment.templateId===tid) return true;
+    return false;
+  });
+  // Filtrar por período
+  const now = new Date();
+  const cutoff = new Date();
+  if(_extratoPeriodo==='mes'){
+    cutoff.setDate(1);
+  } else if(_extratoPeriodo==='3meses'){
+    cutoff.setMonth(cutoff.getMonth()-3);
+  } else if(_extratoPeriodo==='6meses'){
+    cutoff.setMonth(cutoff.getMonth()-6);
+  } else {
+    cutoff.setFullYear(2000);
+  }
+  const cutoffMk = mk(cutoff.getFullYear(), cutoff.getMonth());
+  all = all.filter(x=>x.month>=cutoffMk);
+  all.sort((a,z)=>a.month.localeCompare(z.month)||(a.installment?.index||0)-(z.installment?.index||0));
+  return all;
+}
+
+function renderExtrato(){
+  const bills = getExtratoBills();
+  const td = today();
+  const MNS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  if(!bills.length){
+    document.getElementById('extratoContent').innerHTML = '<div style="text-align:center;color:var(--ink3);padding:20px;font-size:.82rem">Nenhuma movimentação no período</div>';
+    return;
+  }
+
+  const totalOrig = r2(bills.reduce((s,b)=>s+b.amount,0));
+  const totalPago = r2(bills.reduce((s,b)=>s+r2((b.payments||[]).reduce((ps,p)=>ps+p.amount,0)),0));
+  const totalPend = r2(totalOrig-totalPago);
+  const paidCount = bills.filter(b=>calc(b,td).st==='paid').length;
+  const lateCount = bills.filter(b=>calc(b,td).st==='late').length;
+
+  let html = '';
+  // Resumo
+  html += '<div style="background:linear-gradient(135deg,rgba(45,184,106,.08),rgba(123,108,247,.08));border:1px solid rgba(123,108,247,.15);border-radius:14px;padding:12px;margin-bottom:14px">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  html += '<div><div style="font-size:.6rem;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em">Total contas</div><div style="font-size:.95rem;font-weight:900;color:var(--ink);margin-top:3px">'+fmt(totalOrig)+'</div></div>';
+  html += '<div><div style="font-size:.6rem;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em">Total pago</div><div style="font-size:.95rem;font-weight:900;color:#2DB86A;margin-top:3px">'+fmt(totalPago)+'</div></div>';
+  html += '<div><div style="font-size:.6rem;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em">Pendente</div><div style="font-size:.95rem;font-weight:900;color:var(--red);margin-top:3px">'+fmt(totalPend)+'</div></div>';
+  html += '<div><div style="font-size:.6rem;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em">Status</div><div style="font-size:.75rem;font-weight:800;color:var(--ink);margin-top:3px">'+paidCount+' pagas · '+lateCount+' atraso</div></div>';
+  html += '</div></div>';
+
+  // Linhas por mês/parcela
+  bills.forEach(b=>{
+    const cc = calc(b,td);
+    const isPaid = cc.st==='paid';
+    const isLate = cc.st==='late';
+    const pays = b.payments||[];
+    const pago = r2(pays.reduce((s,p)=>s+p.amount,0));
+    const {y,m} = ymk(b.month);
+    const mesLbl = MNS[+m]+' '+y;
+    const instLbl = b.installment?(' ('+b.installment.index+'/'+b.installment.total+')'):'';
+    const stColor = isPaid?'#2DB86A':isLate?'var(--red)':'var(--orange)';
+    const stTxt = isPaid?'✅ Pago':isLate?'⚠️ Atraso':'⏳ Pendente';
+    const dueStr = cc.dISO?fmtdate(cc.dISO):(b.day+'/'+String(+m+1).padStart(2,'0')+'/'+y);
+
+    html += '<div style="background:var(--white);border-radius:12px;padding:11px 13px;margin-bottom:8px;border:1px solid #eef0f5">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+    html += '<div><div style="font-size:.78rem;font-weight:800;color:var(--ink)">'+mesLbl+instLbl+'</div>';
+    html += '<div style="font-size:.64rem;color:var(--ink3);margin-top:1px">Venc: '+dueStr+'</div></div>';
+    html += '<div style="text-align:right"><div style="font-size:.85rem;font-weight:900;color:var(--ink)">'+fmt(b.amount)+'</div>';
+    html += '<div style="font-size:.62rem;font-weight:800;color:'+stColor+'">'+stTxt+'</div></div></div>';
+
+    if(pays.length>0){
+      pays.forEach(p=>{
+        const pd = p.date?p.date.split('-'):[];
+        const pdStr = pd.length===3?pd[2]+'/'+pd[1]+'/'+pd[0]:'--';
+        const meth = {pix:'PIX',dinheiro:'Dinheiro',cartao:'Cartao',outro:'Outro'}[p.method]||p.method||'PIX';
+        html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #f5f7fb;font-size:.68rem">';
+        html += '<span style="color:var(--ink3)">'+pdStr+' · '+meth+'</span>';
+        html += '<span style="font-weight:800;color:#2DB86A">'+fmt(p.amount)+'</span></div>';
+      });
+      if(pago<b.amount){
+        html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #f0f2f8;font-size:.68rem">';
+        html += '<span style="color:var(--red);font-weight:700">Saldo restante</span>';
+        html += '<span style="font-weight:800;color:var(--red)">'+fmt(r2(b.amount-pago))+'</span></div>';
+      }
+    }
+    html += '</div>';
+  });
+
+  document.getElementById('extratoContent').innerHTML = html;
+}
+
+function getExtratoTexto(){
+  const bills = getExtratoBills();
+  const td = today();
+  const b0 = db.bills.find(x=>x.id===_extratoId);
+  const MNS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const totalOrig = r2(bills.reduce((s,b)=>s+b.amount,0));
+  const totalPago = r2(bills.reduce((s,b)=>s+r2((b.payments||[]).reduce((ps,p)=>ps+p.amount,0)),0));
+  let txt = '📄 EXTRATO — '+(b0?.name||'Conta')+'\n';
+  txt += 'Período: '+({mes:'Este mês','3meses':'3 meses','6meses':'6 meses','tudo':'Todo período'}[_extratoPeriodo])+'\n';
+  txt += 'Total: '+fmt(totalOrig)+' · Pago: '+fmt(totalPago)+' · Falta: '+fmt(r2(totalOrig-totalPago))+'\n\n';
+  bills.forEach(b=>{
+    const cc = calc(b,td);
+    const {y,m} = ymk(b.month);
+    const mesLbl = MNS[+m]+' '+y;
+    const instLbl = b.installment?(' ('+b.installment.index+'/'+b.installment.total+')'):'';
+    const stTxt = cc.st==='paid'?'✅':cc.st==='late'?'⚠️':'⏳';
+    txt += stTxt+' '+mesLbl+instLbl+' — '+fmt(b.amount)+'\n';
+    (b.payments||[]).forEach(p=>{
+      const pd = p.date?p.date.split('-'):[];
+      const pdStr = pd.length===3?pd[2]+'/'+pd[1]:'--';
+      const meth = {pix:'PIX',dinheiro:'Din',cartao:'Cartao',outro:'Outro'}[p.method]||'PIX';
+      txt += '  → '+pdStr+' '+meth+': '+fmt(p.amount)+'\n';
+    });
+  });
+  txt += '\nGerado em '+new Date().toLocaleDateString('pt-BR')+' • Family Finance';
+  return txt;
+}
+
+function exportarExtratoWpp(){
+  const txt = getExtratoTexto();
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+function exportarExtratoPng(){
+  const b0 = db.bills.find(x=>x.id===_extratoId);
+  const bills = getExtratoBills();
+  const td = today();
+  const MNS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const totalOrig = r2(bills.reduce((s,b)=>s+b.amount,0));
+  const totalPago = r2(bills.reduce((s,b)=>s+r2((b.payments||[]).reduce((ps,p)=>ps+p.amount,0)),0));
+
+  const W=520, PAD=36, SCALE=2;
+  const ROW=32, PAYROW=24;
+  let estimH = 120 + 80 + bills.length*ROW;
+  bills.forEach(b=>{ estimH += (b.payments||[]).length*PAYROW + ((b.payments||[]).length>0&&r2((b.payments||[]).reduce((s,p)=>s+p.amount,0))<b.amount?PAYROW:0); });
+  const TOTAL_H = estimH + 60;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W*SCALE; canvas.height = TOTAL_H*SCALE;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SCALE,SCALE);
+
+  // Fundo
+  ctx.fillStyle = '#f0f2f8';
+  ctx.fillRect(0,0,W,TOTAL_H);
+
+  // Card
+  ctx.shadowColor='rgba(0,0,0,0.12)'; ctx.shadowBlur=20; ctx.shadowOffsetY=4;
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.roundRect(30,24,W-60,TOTAL_H-48,20); ctx.fill();
+  ctx.shadowColor='transparent';
+
+  // Header gradiente
+  const grad = ctx.createLinearGradient(30,24,W-30,24);
+  grad.addColorStop(0,'#2DB86A'); grad.addColorStop(0.4,'#4FACFE'); grad.addColorStop(1,'#7B6CF7');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.roundRect(30,24,W-60,70,20); ctx.fill();
+
+  ctx.font='bold 14px Arial'; ctx.fillStyle='#fff'; ctx.textAlign='center';
+  ctx.fillText('📄 EXTRATO — '+(b0?.name||'Conta'),W/2,52);
+  ctx.font='11px Arial'; ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.fillText('Gerado em '+new Date().toLocaleDateString('pt-BR')+' • Family Finance',W/2,70);
+
+  let y2 = 112;
+
+  // Resumo
+  ctx.font='bold 13px Arial'; ctx.fillStyle='#1a1a2e'; ctx.textAlign='left';
+  ctx.fillText('Total: '+fmt(totalOrig),PAD+10,y2);
+  ctx.fillStyle='#2DB86A'; ctx.textAlign='right';
+  ctx.fillText('Pago: '+fmt(totalPago),W-PAD-10,y2); y2+=20;
+  ctx.fillStyle='#E53935';
+  ctx.fillText('Falta: '+fmt(r2(totalOrig-totalPago)),W-PAD-10,y2); y2+=16;
+
+  ctx.strokeStyle='#eef0f5'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(PAD+10,y2); ctx.lineTo(W-PAD-10,y2); ctx.stroke();
+  y2+=12;
+
+  bills.forEach(b=>{
+    const cc=calc(b,td);
+    const {y,m}=ymk(b.month);
+    const mesLbl=MNS[+m]+' '+y+(b.installment?' ('+b.installment.index+'/'+b.installment.total+')':'');
+    const pays=b.payments||[];
+    const pago=r2(pays.reduce((s,p)=>s+p.amount,0));
+    const stColor=cc.st==='paid'?'#2DB86A':cc.st==='late'?'#E53935':'#F59E0B';
+    const stTxt=cc.st==='paid'?'✅ Pago':cc.st==='late'?'⚠️ Atraso':'⏳ Pendente';
+
+    ctx.font='bold 12px Arial'; ctx.fillStyle='#1a1a2e'; ctx.textAlign='left';
+    ctx.fillText(mesLbl,PAD+10,y2);
+    ctx.font='bold 13px Arial'; ctx.fillStyle='#1a1a2e'; ctx.textAlign='right';
+    ctx.fillText(fmt(b.amount),W-PAD-10,y2);
+    ctx.font='bold 10px Arial'; ctx.fillStyle=stColor; ctx.textAlign='right';
+    ctx.fillText(stTxt,W-PAD-10,y2+14);
+    y2+=ROW;
+
+    pays.forEach(p=>{
+      const pd=p.date?p.date.split('-'):[];
+      const pdStr=pd.length===3?pd[2]+'/'+pd[1]:'--';
+      const meth={pix:'PIX',dinheiro:'Din',cartao:'Cartão',outro:'Outro'}[p.method]||'PIX';
+      ctx.font='11px Arial'; ctx.fillStyle='#8890B0'; ctx.textAlign='left';
+      ctx.fillText('  → '+pdStr+' · '+meth,PAD+10,y2);
+      ctx.font='bold 11px Arial'; ctx.fillStyle='#2DB86A'; ctx.textAlign='right';
+      ctx.fillText(fmt(p.amount),W-PAD-10,y2);
+      y2+=PAYROW;
+    });
+    if(pays.length>0&&pago<b.amount){
+      ctx.font='bold 11px Arial'; ctx.fillStyle='#E53935'; ctx.textAlign='left';
+      ctx.fillText('  Saldo restante',PAD+10,y2);
+      ctx.textAlign='right';
+      ctx.fillText(fmt(r2(b.amount-pago)),W-PAD-10,y2);
+      y2+=PAYROW;
+    }
+
+    ctx.strokeStyle='#f0f2f8'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(PAD+10,y2); ctx.lineTo(W-PAD-10,y2); ctx.stroke();
+    y2+=8;
+  });
+
+  const link=document.createElement('a');
+  link.download='extrato_'+(b0?.name||'conta').replace(/[^a-z0-9]/gi,'_')+'_'+today()+'.png';
+  link.href=canvas.toDataURL('image/png');
+  link.click();
+  toast('✅ Extrato salvo como PNG!');
 }
 
 function closePaySheet(){
